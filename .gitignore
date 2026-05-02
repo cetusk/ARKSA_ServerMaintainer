@@ -28,6 +28,9 @@ desktop.ini
 # Use run.example.ps1 as a template instead.
 /run.ps1
 
+# Local screenshots / scratch debugging artefacts.
+/debugs/
+
 # Local secrets
 .env
 .env.local
