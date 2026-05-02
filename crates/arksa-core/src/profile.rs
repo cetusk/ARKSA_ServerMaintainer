@@ -180,6 +180,40 @@ impl Profile {
         self.doc.get_string(SECTION_SERVER, "Edit_ServerPassword")
     }
 
+    // ---- [General] command line ---------------------------------------------
+
+    /// Pre-assembled ARK SA server command line stored by upstream's UI as a
+    /// single string in `[General] MM_Command_Val`. Begins with
+    /// `ArkAscendedServer.exe ` followed by `?`-separated map options and any
+    /// `-flag` arguments. Phase 2 honours this verbatim; a structured editor
+    /// can replace it later.
+    ///
+    /// `MM_Command_Override` is preferred when present, mirroring how
+    /// `frameui.pas` lets advanced users hand-tune the launch line.
+    pub fn server_command_line(&self) -> Option<String> {
+        let override_active = self
+            .doc
+            .get_bool(SECTION_GENERAL, "ChB_CMD_override")
+            .unwrap_or(false);
+        if override_active {
+            if let Some(s) = self.doc.get_string(SECTION_GENERAL, "MM_Command_Override") {
+                let trimmed = s.trim().to_string();
+                if !trimmed.is_empty() {
+                    return Some(trimmed);
+                }
+            }
+        }
+        self.doc
+            .get_string(SECTION_GENERAL, "MM_Command_Val")
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+    }
+
+    pub fn set_server_command_line(&mut self, cmd: &str) {
+        self.doc
+            .set_string(SECTION_GENERAL, "MM_Command_Val", cmd);
+    }
+
     // ---- [ASASM] -------------------------------------------------------------
 
     pub fn auto_restart(&self) -> bool {
