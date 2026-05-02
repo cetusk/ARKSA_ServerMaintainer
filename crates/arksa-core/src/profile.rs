@@ -1,7 +1,284 @@
-//! Per-server profile INI handling. Ports `Profile/<name>.ini` schema used by
-//! `frameui.pas` (Edit_Install_Location_Val, CB_MapName_Text, Sys_RelativePath, etc.).
+//! Per-server profile INI handling. Storage layout matches upstream so existing
+//! `Profile/<name>.ini` files load without conversion:
 //!
-//! For a single-server personal install we keep the same on-disk layout so the
-//! user can migrate existing profiles from upstream ASASM unchanged.
+//!   [ASASM]      AppVersion / ChB_AutoRestart / ...
+//!   [General]    Edit_Profile / Edit_Install_Location_Val / Sys_RelativePath /
+//!                CB_MapName_Text / Edit_Mods / ...
+//!   [Server]     Edit_SessionName / SE_Port / SE_QueryPort /
+//!                Edit_ServerAdminPassword / CB_RCONEnabled / SE_RCONPort / ...
+//!   [World] [VisualHUD] [Player] [TamedDino] [Wiladino] [Spawn] [Spawn2]
+//!   [Structure] [Engrams] [XP] [iniFiles] [Experimental]
+//!
+//! Phase 1 only types the keys needed to start/stop a server and connect via
+//! RCON. Everything else round-trips through `IniDoc` untouched, so writing a
+//! profile back never silently drops settings we have not modelled yet.
 
-// TODO Phase 1: define ProfileIni struct + read/write.
+use std::path::{Path, PathBuf};
+
+use crate::error::Result;
+use crate::ini_doc::IniDoc;
+
+pub const SECTION_ASASM: &str = "ASASM";
+pub const SECTION_GENERAL: &str = "General";
+pub const SECTION_SERVER: &str = "Server";
+
+#[derive(Debug, Clone)]
+pub struct Profile {
+    /// Path the profile was loaded from (or will be saved to).
+    path: PathBuf,
+    doc: IniDoc,
+}
+
+impl Profile {
+    /// Load `Profile/<name>.ini`.
+    pub fn load(path: impl AsRef<Path>) -> Result<Self> {
+        let path = path.as_ref().to_path_buf();
+        if !path.exists() {
+            return Err(crate::Error::ProfileNotFound(path.display().to_string()));
+        }
+        let doc = IniDoc::load(&path)?;
+        Ok(Self { path, doc })
+    }
+
+    pub fn empty_at(path: impl Into<PathBuf>) -> Self {
+        Self {
+            path: path.into(),
+            doc: IniDoc::new(),
+        }
+    }
+
+    pub fn save(&self) -> Result<()> {
+        self.doc.save(&self.path)
+    }
+
+    pub fn save_as(&mut self, path: impl Into<PathBuf>) -> Result<()> {
+        self.path = path.into();
+        self.save()
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn doc(&self) -> &IniDoc {
+        &self.doc
+    }
+
+    pub fn doc_mut(&mut self) -> &mut IniDoc {
+        &mut self.doc
+    }
+
+    // ---- [General] -----------------------------------------------------------
+
+    /// Display name shown on the profile tab. Independent of the file basename
+    /// (the user can rename the profile in-app without renaming the .ini).
+    pub fn display_name(&self) -> Option<String> {
+        self.doc.get_string(SECTION_GENERAL, "Edit_Profile")
+    }
+
+    pub fn set_display_name(&mut self, name: &str) {
+        self.doc.set_string(SECTION_GENERAL, "Edit_Profile", name);
+    }
+
+    /// Server install directory. May be relative to the ASASM executable when
+    /// `Sys_RelativePath = 1`.
+    pub fn install_location(&self) -> Option<String> {
+        self.doc
+            .get_string(SECTION_GENERAL, "Edit_Install_Location_Val")
+    }
+
+    pub fn set_install_location(&mut self, location: &str) {
+        self.doc
+            .set_string(SECTION_GENERAL, "Edit_Install_Location_Val", location);
+    }
+
+    /// Whether `install_location()` should be resolved relative to the
+    /// executable directory.
+    pub fn is_relative_path(&self) -> bool {
+        self.doc
+            .get_bool(SECTION_GENERAL, "Sys_RelativePath")
+            .unwrap_or(false)
+    }
+
+    pub fn set_relative_path(&mut self, relative: bool) {
+        self.doc
+            .set_bool(SECTION_GENERAL, "Sys_RelativePath", relative);
+    }
+
+    /// Map name as the user typed/selected it (e.g. "TheIsland_WP").
+    pub fn map_name(&self) -> Option<String> {
+        self.doc.get_string(SECTION_GENERAL, "CB_MapName_Text")
+    }
+
+    pub fn set_map_name(&mut self, map: &str) {
+        self.doc
+            .set_string(SECTION_GENERAL, "CB_MapName_Text", map);
+    }
+
+    /// Resolved absolute path to the server install directory, given the
+    /// directory containing the ARKSA tool executable.
+    pub fn resolved_install_path(&self, exe_dir: &Path) -> Option<PathBuf> {
+        let raw = self.install_location()?;
+        if self.is_relative_path() {
+            Some(exe_dir.join(raw))
+        } else {
+            Some(PathBuf::from(raw))
+        }
+    }
+
+    /// Path to `ArkAscendedServer.exe` for this profile, given the directory
+    /// containing the ARKSA tool executable.
+    pub fn server_exe_path(&self, exe_dir: &Path) -> Option<PathBuf> {
+        let install = self.resolved_install_path(exe_dir)?;
+        Some(
+            install
+                .join("ShooterGame")
+                .join("Binaries")
+                .join("Win64")
+                .join("ArkAscendedServer.exe"),
+        )
+    }
+
+    // ---- [Server] ------------------------------------------------------------
+
+    pub fn session_name(&self) -> Option<String> {
+        self.doc.get_string(SECTION_SERVER, "Edit_SessionName")
+    }
+
+    pub fn game_port(&self) -> Option<u16> {
+        self.doc
+            .get_i64(SECTION_SERVER, "SE_Port")
+            .and_then(|n| u16::try_from(n).ok())
+    }
+
+    pub fn query_port(&self) -> Option<u16> {
+        self.doc
+            .get_i64(SECTION_SERVER, "SE_QueryPort")
+            .and_then(|n| u16::try_from(n).ok())
+    }
+
+    /// RCON listen port. Upstream uses `SE_RCONPort` here.
+    pub fn rcon_port(&self) -> Option<u16> {
+        self.doc
+            .get_i64(SECTION_SERVER, "SE_RCONPort")
+            .and_then(|n| u16::try_from(n).ok())
+    }
+
+    pub fn rcon_enabled(&self) -> bool {
+        self.doc
+            .get_bool(SECTION_SERVER, "CB_RCONEnabled")
+            .unwrap_or(false)
+    }
+
+    /// Admin password, used as the RCON auth password.
+    pub fn admin_password(&self) -> Option<String> {
+        self.doc
+            .get_string(SECTION_SERVER, "Edit_ServerAdminPassword")
+    }
+
+    pub fn server_password(&self) -> Option<String> {
+        self.doc.get_string(SECTION_SERVER, "Edit_ServerPassword")
+    }
+
+    // ---- [ASASM] -------------------------------------------------------------
+
+    pub fn auto_restart(&self) -> bool {
+        self.doc
+            .get_bool(SECTION_ASASM, "ChB_AutoRestart")
+            .unwrap_or(false)
+    }
+
+    pub fn set_auto_restart(&mut self, enabled: bool) {
+        self.doc
+            .set_bool(SECTION_ASASM, "ChB_AutoRestart", enabled);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_ini() -> &'static str {
+        // Trimmed version of an actual upstream Profile/<name>.ini.
+        r#"[ASASM]
+Appversion=0.5.1.3038
+ChB_AutoRestart=1
+
+[General]
+Edit_Profile=My Island
+Sys_RelativePath=1
+Edit_Install_Location_Val=ark001
+CB_MapName_Text=TheIsland_WP
+ChB_AutoBackup=0
+
+[Server]
+Edit_SessionName=cetusk's server
+SE_Port=7777
+SE_QueryPort=27015
+SE_RCONPort=27020
+CB_RCONEnabled=1
+Edit_ServerAdminPassword=hunter2
+"#
+    }
+
+    #[test]
+    fn typed_accessors_read_known_keys() {
+        let doc = IniDoc::load_bytes(sample_ini().as_bytes()).unwrap();
+        let profile = Profile {
+            path: PathBuf::from("test.ini"),
+            doc,
+        };
+        assert_eq!(profile.display_name().as_deref(), Some("My Island"));
+        assert_eq!(profile.install_location().as_deref(), Some("ark001"));
+        assert!(profile.is_relative_path());
+        assert_eq!(profile.map_name().as_deref(), Some("TheIsland_WP"));
+        assert_eq!(profile.game_port(), Some(7777));
+        assert_eq!(profile.rcon_port(), Some(27020));
+        assert!(profile.rcon_enabled());
+        assert_eq!(profile.admin_password().as_deref(), Some("hunter2"));
+        assert!(profile.auto_restart());
+    }
+
+    #[test]
+    fn resolves_relative_install_path() {
+        let doc = IniDoc::load_bytes(sample_ini().as_bytes()).unwrap();
+        let profile = Profile {
+            path: PathBuf::from("test.ini"),
+            doc,
+        };
+        let exe_dir = Path::new("/opt/arksa");
+        assert_eq!(
+            profile.resolved_install_path(exe_dir),
+            Some(PathBuf::from("/opt/arksa/ark001"))
+        );
+        assert_eq!(
+            profile.server_exe_path(exe_dir),
+            Some(PathBuf::from(
+                "/opt/arksa/ark001/ShooterGame/Binaries/Win64/ArkAscendedServer.exe"
+            ))
+        );
+    }
+
+    #[test]
+    fn round_trips_unknown_keys() {
+        let original = "[General]\nEdit_Profile=foo\nUnknownKey=preserve me\n";
+        let doc = IniDoc::load_bytes(original.as_bytes()).unwrap();
+        let mut profile = Profile {
+            path: PathBuf::from("/tmp/x.ini"),
+            doc,
+        };
+        profile.set_display_name("bar");
+
+        // Re-render and reload to assert the unknown key survives.
+        let tmp = std::env::temp_dir().join("arksa_profile_roundtrip.ini");
+        profile.path = tmp.clone();
+        profile.save().unwrap();
+        let reloaded = Profile::load(&tmp).unwrap();
+        assert_eq!(reloaded.display_name().as_deref(), Some("bar"));
+        assert_eq!(
+            reloaded.doc().get_string("General", "UnknownKey").as_deref(),
+            Some("preserve me")
+        );
+        let _ = std::fs::remove_file(tmp);
+    }
+}

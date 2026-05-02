@@ -5,8 +5,8 @@ pub enum Error {
     #[error("I/O error: {0}")]
     Io(#[from] io::Error),
 
-    #[error("INI error: {0}")]
-    Ini(#[from] ini::Error),
+    #[error("INI parse error: {0}")]
+    IniParse(String),
 
     #[error("Win32 error: {0}")]
     Win32(#[from] windows::core::Error),

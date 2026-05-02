@@ -7,6 +7,7 @@
 pub mod backup;
 pub mod error;
 pub mod gamedata;
+pub mod ini_doc;
 pub mod modlist;
 pub mod process;
 pub mod profile;
