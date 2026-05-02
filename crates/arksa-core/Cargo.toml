@@ -22,3 +22,4 @@ tracing = { workspace = true }
 once_cell = { workspace = true }
 chrono = { workspace = true }
 encoding_rs = { workspace = true }
+rand = { workspace = true }

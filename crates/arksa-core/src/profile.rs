@@ -15,8 +15,9 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::ini_doc::IniDoc;
+use crate::launch_args::{self, LaunchArgs};
 
 pub const SECTION_ASASM: &str = "ASASM";
 pub const SECTION_GENERAL: &str = "General";
@@ -45,6 +46,79 @@ impl Profile {
             path: path.into(),
             doc: IniDoc::new(),
         }
+    }
+
+    /// Build a brand-new profile from `args`, persisting it under
+    /// `<profiles_dir>/<file_stem>.ini`.
+    ///
+    /// `display_name` is what the user sees in the profile picker; the file
+    /// stem comes from `file_stem` (sanitised by the caller — we reject paths
+    /// that would escape `profiles_dir`).
+    ///
+    /// Errors when the destination file already exists, so the GUI can ask the
+    /// user before overwriting.
+    pub fn create_new(
+        profiles_dir: &Path,
+        file_stem: &str,
+        display_name: &str,
+        install_location: &str,
+        relative_path: bool,
+        args: &LaunchArgs,
+    ) -> Result<Self> {
+        if file_stem.is_empty()
+            || file_stem.contains(['/', '\\', ':', '*', '?', '"', '<', '>', '|'])
+        {
+            return Err(Error::Other(format!(
+                "invalid profile file name: {file_stem:?}"
+            )));
+        }
+        let path = profiles_dir.join(format!("{file_stem}.ini"));
+        if path.exists() {
+            return Err(Error::Other(format!(
+                "profile already exists: {}",
+                path.display()
+            )));
+        }
+
+        let mut profile = Self::empty_at(path);
+        profile.set_display_name(display_name);
+        profile.set_install_location(install_location);
+        profile.set_relative_path(relative_path);
+        profile.set_map_name(&args.map);
+        profile.set_auto_restart(false);
+
+        // [Server] keys consumed by stop_graceful() / status display.
+        profile
+            .doc_mut()
+            .set_string(SECTION_SERVER, "Edit_SessionName", &args.session_name);
+        profile
+            .doc_mut()
+            .set_i64(SECTION_SERVER, "SE_Port", args.game_port as i64);
+        profile
+            .doc_mut()
+            .set_i64(SECTION_SERVER, "SE_QueryPort", args.query_port as i64);
+        profile
+            .doc_mut()
+            .set_bool(SECTION_SERVER, "CB_RCONEnabled", args.rcon_enabled);
+        profile
+            .doc_mut()
+            .set_i64(SECTION_SERVER, "SE_RCONPort", args.rcon_port as i64);
+        profile.doc_mut().set_string(
+            SECTION_SERVER,
+            "Edit_ServerAdminPassword",
+            &args.admin_password,
+        );
+        profile.doc_mut().set_string(
+            SECTION_SERVER,
+            "Edit_ServerPassword",
+            &args.server_password,
+        );
+
+        // Pre-assembled launch line consumed by server::start().
+        profile.set_server_command_line(&launch_args::build_command_line(args));
+
+        profile.save()?;
+        Ok(profile)
     }
 
     pub fn save(&self) -> Result<()> {
@@ -291,6 +365,62 @@ Edit_ServerAdminPassword=hunter2
                 "/opt/arksa/ark001/ShooterGame/Binaries/Win64/ArkAscendedServer.exe"
             ))
         );
+    }
+
+    #[test]
+    fn create_new_writes_required_keys() {
+        use crate::launch_args::LaunchArgs;
+        let dir = std::env::temp_dir().join(format!(
+            "arksa_profile_create_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let mut args = LaunchArgs::defaults();
+        args.admin_password = "fixed-pw".into();
+        args.session_name = "Test Session".into();
+        let prof = Profile::create_new(
+            &dir,
+            "TestProfile",
+            "Test Display",
+            "ark001",
+            true,
+            &args,
+        )
+        .unwrap();
+
+        // Reload from disk to ensure the file is fully self-describing.
+        let reloaded = Profile::load(prof.path()).unwrap();
+        assert_eq!(reloaded.display_name().as_deref(), Some("Test Display"));
+        assert_eq!(reloaded.install_location().as_deref(), Some("ark001"));
+        assert!(reloaded.is_relative_path());
+        assert_eq!(reloaded.map_name().as_deref(), Some(args.map.as_str()));
+        assert_eq!(reloaded.game_port(), Some(args.game_port));
+        assert_eq!(reloaded.rcon_port(), Some(args.rcon_port));
+        assert!(reloaded.rcon_enabled());
+        assert_eq!(reloaded.admin_password().as_deref(), Some("fixed-pw"));
+        let cmd = reloaded.server_command_line().unwrap();
+        assert!(cmd.starts_with("ArkAscendedServer.exe TheIsland_WP?listen"));
+        assert!(cmd.contains("ServerAdminPassword=fixed-pw"));
+        assert!(cmd.contains("RCONEnabled=True"));
+
+        // Repeating the create should fail with "already exists".
+        let again = Profile::create_new(
+            &dir,
+            "TestProfile",
+            "x",
+            "ark001",
+            true,
+            &args,
+        );
+        assert!(again.is_err());
+
+        // Reject filenames with path-separator characters.
+        let bad = Profile::create_new(&dir, "bad/name", "x", "ark001", true, &args);
+        assert!(bad.is_err());
+
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

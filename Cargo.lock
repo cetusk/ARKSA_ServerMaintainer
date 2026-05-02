@@ -166,6 +166,7 @@ dependencies = [
  "chrono",
  "encoding_rs",
  "once_cell",
+ "rand",
  "reqwest",
  "rust-ini",
  "serde",
