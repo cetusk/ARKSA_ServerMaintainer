@@ -4,11 +4,9 @@
 **/*.rs.bk
 Cargo.lock.bak
 
-# Build artifacts within _forked (Lazarus)
-/_forked/lib/
-/_forked/**/lib/
-/_forked/backup/
-/_forked/*.compiled
+# Upstream Pascal source kept locally for cross-reference only.
+# Not tracked in this repository (use the upstream distribution instead — see LICENSE).
+/_forked/
 
 # IDE / Editor
 /.idea/

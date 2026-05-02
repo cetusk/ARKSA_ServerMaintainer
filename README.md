@@ -2,7 +2,7 @@
 
 A Rust + Slint GUI tool to maintain a personal **ARK: Survival Ascended** dedicated server on Windows.
 
-This is a personal-use **re-implementation** of [ASA Server Manager (ASASM)](https://sites.google.com/view/asa-server-manager) by *Dの人*. The upstream author explicitly permits forks and re-implementations in other languages. The reference Object Pascal source is preserved under [`_forked/`](./_forked/) for cross-checking only — it is not built.
+This is a personal-use **re-implementation** of [ASA Server Manager (ASASM)](https://sites.google.com/view/asa-server-manager) by *Dの人*. The upstream author explicitly permits forks and re-implementations in other languages. The upstream Object Pascal source is **not redistributed** here; obtain it from the upstream distribution above if you need to cross-reference.
 
 > ⚠️ Status: **Phase 0 — workspace skeleton only.** No functional behavior yet. See [`docs/architecture.md`](./docs/architecture.md) for the planned phases.
 
@@ -28,7 +28,6 @@ This is a personal-use **re-implementation** of [ASA Server Manager (ASASM)](htt
 ARKSA_ServerMaintainer/
 ├── Cargo.toml              # workspace
 ├── rust-toolchain.toml
-├── _forked/                # upstream Pascal source, reference only
 ├── assets/                 # ModList / EngramData / ItemData / DinoData / List
 ├── crates/
 │   ├── arksa-core/         # lib: server control, RCON, process, INI, mod data
@@ -60,7 +59,8 @@ The first build downloads Slint, the `windows` crate and the Skia renderer; expe
 
 - Code: **MIT** (see [`LICENSE`](./LICENSE))
 - Upstream attribution: [`LICENSE`](./LICENSE) tail section
-- Reference Pascal source under `_forked/` belongs to the upstream author
+- The upstream Pascal/Lazarus source is **not** included here — fetch it from
+  the upstream distribution if you need to cross-reference port decisions
 
 ## Roadmap
 

@@ -28,5 +28,5 @@ This project is a re-implementation, in Rust, of "ASA Server Manager" (ASASM)
 by "Dの人". The original tool is distributed at:
   https://sites.google.com/view/asa-server-manager
 The original author explicitly permits forks and re-implementations in other
-programming languages. The original source for reference purposes is kept under
-the `_forked/` directory.
+programming languages. The upstream Pascal/Lazarus source is *not* redistributed
+in this repository; obtain it from the original distribution above.
