@@ -12,6 +12,7 @@ description = "Core library for ARKSA_ServerMaintainer: server control, RCON, pr
 [dependencies]
 windows = { workspace = true }
 tokio = { workspace = true }
+reqwest = { workspace = true }
 serde = { workspace = true }
 rust-ini = { workspace = true }
 zip = { workspace = true }
