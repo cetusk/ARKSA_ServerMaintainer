@@ -1,49 +1,155 @@
-// ARKSA_ServerMaintainer - main window (Phase 0 skeleton).
-// UI is intentionally minimal here; per-feature panels are added in later phases.
+// ARKSA_ServerMaintainer — main window (Phase 3).
+//
+// Single-server view: profile picker → server status → start/stop → RCON →
+// log. Rust formats text on the way in, so this file does no number-to-string
+// conversion.
 
-import { Button, VerticalBox, HorizontalBox, GroupBox } from "std-widgets.slint";
+import {
+    Button, ComboBox, GroupBox, HorizontalBox, LineEdit, ScrollView,
+    TextEdit, VerticalBox
+} from "std-widgets.slint";
+
+export struct ServerStatusView {
+    running: bool,
+    title: string,    // "Running (PID 1234)" / "Stopped" / "(no profile)"
+    map: string,
+    ports: string,    // "Game 7777, Query 27015, RCON 27020"
+    memory: string,   // "1024 MB"
+    uptime: string,   // "1h 23m 45s"
+}
 
 export component MainWindow inherits Window {
     title: "ARKSA Server Maintainer";
-    preferred-width: 720px;
-    preferred-height: 480px;
-    min-width: 480px;
-    min-height: 320px;
+    preferred-width: 820px;
+    preferred-height: 640px;
+    min-width: 520px;
+    min-height: 420px;
 
+    // Inputs from Rust
+    in property <[string]> profile-names: [];
+    in-out property <int> selected-profile-index: 0;
+    in property <ServerStatusView> status: {
+        running: false,
+        title: "(no profile loaded)",
+        map: "—",
+        ports: "—",
+        memory: "—",
+        uptime: "—",
+    };
+    in property <string> log-text: "";
+    in property <string> install-dir: "(unknown)";
+    in-out property <string> rcon-input: "";
+    in property <bool> action-busy: false;
+
+    // Outputs to Rust
+    callback profile-selected(int);
     callback start-server();
     callback stop-server();
-
-    in property <string> server-status: "Offline";
-    in property <string> server-name: "(no profile loaded)";
+    callback refresh-status();
+    callback send-rcon();
+    callback browse-install-dir();
 
     VerticalBox {
-        padding: 16px;
-        spacing: 12px;
+        padding: 12px;
+        spacing: 10px;
 
-        GroupBox {
-            title: "Server";
-            VerticalBox {
-                Text {
-                    text: "Profile: " + root.server-name;
-                }
-                Text {
-                    text: "Status: " + root.server-status;
-                }
+        // ── Top bar: ARKSA install dir ─────────────────────────────────
+        HorizontalBox {
+            alignment: stretch;
+            spacing: 8px;
+            Text {
+                text: "ARKSA dir:";
+                vertical-alignment: center;
+            }
+            Text {
+                text: root.install-dir;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                overflow: elide;
+            }
+            Button {
+                text: "Browse…";
+                enabled: !root.action-busy;
+                clicked => { root.browse-install-dir(); }
             }
         }
 
+        // ── Profile picker ─────────────────────────────────────────────
+        HorizontalBox {
+            spacing: 8px;
+            Text { text: "Profile:"; vertical-alignment: center; }
+            ComboBox {
+                model: root.profile-names;
+                current-index <=> root.selected-profile-index;
+                horizontal-stretch: 1;
+                enabled: !root.action-busy;
+                selected => { root.profile-selected(self.current-index); }
+            }
+            Button {
+                text: "Refresh";
+                enabled: !root.action-busy;
+                clicked => { root.refresh-status(); }
+            }
+        }
+
+        // ── Status panel ───────────────────────────────────────────────
+        GroupBox {
+            title: "Server status";
+            VerticalBox {
+                spacing: 4px;
+                Text { text: "Status: " + root.status.title; }
+                Text { text: "Map:    " + root.status.map; }
+                Text { text: "Ports:  " + root.status.ports; }
+                Text { text: "Memory: " + root.status.memory; }
+                Text { text: "Uptime: " + root.status.uptime; }
+            }
+        }
+
+        // ── Lifecycle actions ──────────────────────────────────────────
         HorizontalBox {
             alignment: start;
+            spacing: 8px;
             Button {
                 text: "Start";
+                enabled: !root.action-busy && !root.status.running;
                 clicked => { root.start-server(); }
             }
             Button {
-                text: "Stop";
+                text: "Stop (graceful)";
+                enabled: !root.action-busy && root.status.running;
                 clicked => { root.stop-server(); }
             }
         }
 
-        Rectangle { /* spacer */ }
+        // ── RCON ──────────────────────────────────────────────────────
+        GroupBox {
+            title: "RCON";
+            HorizontalBox {
+                spacing: 6px;
+                LineEdit {
+                    placeholder-text: "Command, e.g. ListPlayers";
+                    text <=> root.rcon-input;
+                    horizontal-stretch: 1;
+                    enabled: !root.action-busy && root.status.running;
+                    accepted => { root.send-rcon(); }
+                }
+                Button {
+                    text: "Send";
+                    enabled: !root.action-busy && root.status.running;
+                    clicked => { root.send-rcon(); }
+                }
+            }
+        }
+
+        // ── Log ───────────────────────────────────────────────────────
+        GroupBox {
+            title: "Log";
+            vertical-stretch: 1;
+            TextEdit {
+                text: root.log-text;
+                read-only: true;
+                wrap: word-wrap;
+            }
+        }
     }
 }

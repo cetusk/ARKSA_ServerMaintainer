@@ -51,7 +51,7 @@ rust-ini = "0.21"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 
 # UI
-slint = { version = "1.8", default-features = false, features = ["std", "backend-winit", "renderer-skia", "compat-1-2"] }
+slint = { version = "1.8", default-features = false, features = ["std", "backend-winit", "renderer-software", "compat-1-2"] }
 slint-build = "1.8"
 
 # トレイ・通知
