@@ -1,31 +1,35 @@
-// ARKSA_ServerMaintainer — main window (Phase 3).
+// ARKSA_ServerMaintainer — Slint UI (Phase 4).
 //
-// Single-server view: profile picker → server status → start/stop → RCON →
-// log. Rust formats text on the way in, so this file does no number-to-string
-// conversion.
+// Two top-level windows:
+//   - MainWindow:        profile picker, status, lifecycle, RCON, log
+//   - NewProfileWindow:  modal-style dialog for creating a brand-new profile
+//
+// All numeric → string conversion happens in Rust before properties are set,
+// so this file deals only in strings/bools/ints.
 
 import {
-    Button, ComboBox, GroupBox, HorizontalBox, LineEdit, ScrollView,
-    TextEdit, VerticalBox
+    Button, CheckBox, ComboBox, GroupBox, HorizontalBox, LineEdit,
+    ScrollView, SpinBox, TextEdit, VerticalBox
 } from "std-widgets.slint";
 
 export struct ServerStatusView {
     running: bool,
-    title: string,    // "Running (PID 1234)" / "Stopped" / "(no profile)"
+    title: string,
     map: string,
-    ports: string,    // "Game 7777, Query 27015, RCON 27020"
-    memory: string,   // "1024 MB"
-    uptime: string,   // "1h 23m 45s"
+    ports: string,
+    memory: string,
+    uptime: string,
 }
+
+// ─── Main window ───────────────────────────────────────────────────────────
 
 export component MainWindow inherits Window {
     title: "ARKSA Server Maintainer";
-    preferred-width: 820px;
-    preferred-height: 640px;
-    min-width: 520px;
-    min-height: 420px;
+    preferred-width: 860px;
+    preferred-height: 680px;
+    min-width: 540px;
+    min-height: 440px;
 
-    // Inputs from Rust
     in property <[string]> profile-names: [];
     in-out property <int> selected-profile-index: 0;
     in property <ServerStatusView> status: {
@@ -41,26 +45,23 @@ export component MainWindow inherits Window {
     in-out property <string> rcon-input: "";
     in property <bool> action-busy: false;
 
-    // Outputs to Rust
     callback profile-selected(int);
     callback start-server();
     callback stop-server();
     callback refresh-status();
     callback send-rcon();
     callback browse-install-dir();
+    callback new-profile();
+    callback install-update-server();
 
     VerticalBox {
         padding: 12px;
         spacing: 10px;
 
-        // ── Top bar: ARKSA install dir ─────────────────────────────────
+        // Top bar: ARKSA install dir
         HorizontalBox {
-            alignment: stretch;
             spacing: 8px;
-            Text {
-                text: "ARKSA dir:";
-                vertical-alignment: center;
-            }
+            Text { text: "ARKSA dir:"; vertical-alignment: center; }
             Text {
                 text: root.install-dir;
                 vertical-alignment: center;
@@ -74,7 +75,7 @@ export component MainWindow inherits Window {
             }
         }
 
-        // ── Profile picker ─────────────────────────────────────────────
+        // Profile row
         HorizontalBox {
             spacing: 8px;
             Text { text: "Profile:"; vertical-alignment: center; }
@@ -82,8 +83,13 @@ export component MainWindow inherits Window {
                 model: root.profile-names;
                 current-index <=> root.selected-profile-index;
                 horizontal-stretch: 1;
-                enabled: !root.action-busy;
+                enabled: !root.action-busy && root.profile-names.length > 0;
                 selected => { root.profile-selected(self.current-index); }
+            }
+            Button {
+                text: "New…";
+                enabled: !root.action-busy;
+                clicked => { root.new-profile(); }
             }
             Button {
                 text: "Refresh";
@@ -92,8 +98,32 @@ export component MainWindow inherits Window {
             }
         }
 
-        // ── Status panel ───────────────────────────────────────────────
-        GroupBox {
+        // Empty state vs. populated state
+        if root.profile-names.length == 0: VerticalBox {
+            alignment: center;
+            spacing: 12px;
+            vertical-stretch: 1;
+            Text {
+                text: "No server profiles yet.";
+                font-size: 18px;
+                horizontal-alignment: center;
+            }
+            Text {
+                text: "Create one to install and run your ARK Survival Ascended server.";
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+            HorizontalBox {
+                alignment: center;
+                Button {
+                    text: "Create your first server…";
+                    enabled: !root.action-busy;
+                    clicked => { root.new-profile(); }
+                }
+            }
+        }
+
+        if root.profile-names.length > 0: GroupBox {
             title: "Server status";
             VerticalBox {
                 spacing: 4px;
@@ -105,8 +135,7 @@ export component MainWindow inherits Window {
             }
         }
 
-        // ── Lifecycle actions ──────────────────────────────────────────
-        HorizontalBox {
+        if root.profile-names.length > 0: HorizontalBox {
             alignment: start;
             spacing: 8px;
             Button {
@@ -119,10 +148,14 @@ export component MainWindow inherits Window {
                 enabled: !root.action-busy && root.status.running;
                 clicked => { root.stop-server(); }
             }
+            Button {
+                text: "Install / Update server";
+                enabled: !root.action-busy && !root.status.running;
+                clicked => { root.install-update-server(); }
+            }
         }
 
-        // ── RCON ──────────────────────────────────────────────────────
-        GroupBox {
+        if root.profile-names.length > 0: GroupBox {
             title: "RCON";
             HorizontalBox {
                 spacing: 6px;
@@ -141,7 +174,6 @@ export component MainWindow inherits Window {
             }
         }
 
-        // ── Log ───────────────────────────────────────────────────────
         GroupBox {
             title: "Log";
             vertical-stretch: 1;
@@ -149,6 +181,230 @@ export component MainWindow inherits Window {
                 text: root.log-text;
                 read-only: true;
                 wrap: word-wrap;
+            }
+        }
+    }
+}
+
+// ─── New Profile dialog ────────────────────────────────────────────────────
+
+export component NewProfileWindow inherits Window {
+    title: "New profile";
+    preferred-width: 560px;
+    preferred-height: 720px;
+    min-width: 460px;
+    min-height: 560px;
+
+    in property <[string]> map-suggestions: [];
+
+    in-out property <string> profile-name: "MyServer";
+    in-out property <string> display-name: "MyServer";
+    in-out property <string> map-name: "TheIsland_WP";
+    in-out property <string> install-location: "MyServer";
+    in-out property <bool> use-relative-path: true;
+    in-out property <string> session-name: "ARKSA Server";
+    in-out property <int> max-players: 10;
+    in-out property <int> game-port: 7777;
+    in-out property <int> query-port: 27015;
+    in-out property <bool> rcon-enabled: true;
+    in-out property <int> rcon-port: 27020;
+    in-out property <string> admin-password: "";
+    in-out property <string> server-password: "";
+    in-out property <string> mods-csv: "";
+    in-out property <string> extra-flags: "-log -NoBattlEye";
+
+    in property <string> validation-error: "";
+    in property <bool> busy: false;
+
+    callback create-profile();
+    callback regenerate-password();
+    callback cancel-clicked();
+    callback choose-map(int);
+
+    ScrollView {
+        VerticalBox {
+            padding: 14px;
+            spacing: 10px;
+
+            GroupBox {
+                title: "Identity";
+                VerticalBox {
+                    spacing: 6px;
+                    HorizontalBox {
+                        Text { text: "File name:"; vertical-alignment: center; min-width: 130px; }
+                        LineEdit {
+                            text <=> root.profile-name;
+                            placeholder-text: "MyServer (becomes <name>.ini)";
+                            horizontal-stretch: 1;
+                        }
+                    }
+                    HorizontalBox {
+                        Text { text: "Display name:"; vertical-alignment: center; min-width: 130px; }
+                        LineEdit {
+                            text <=> root.display-name;
+                            placeholder-text: "Shown in the picker";
+                            horizontal-stretch: 1;
+                        }
+                    }
+                }
+            }
+
+            GroupBox {
+                title: "Map and install location";
+                VerticalBox {
+                    spacing: 6px;
+                    HorizontalBox {
+                        Text { text: "Quick pick:"; vertical-alignment: center; min-width: 130px; }
+                        ComboBox {
+                            model: root.map-suggestions;
+                            horizontal-stretch: 1;
+                            selected => { root.choose-map(self.current-index); }
+                        }
+                    }
+                    HorizontalBox {
+                        Text { text: "Map name:"; vertical-alignment: center; min-width: 130px; }
+                        LineEdit {
+                            text <=> root.map-name;
+                            placeholder-text: "TheIsland_WP";
+                            horizontal-stretch: 1;
+                        }
+                    }
+                    HorizontalBox {
+                        Text { text: "Install location:"; vertical-alignment: center; min-width: 130px; }
+                        LineEdit {
+                            text <=> root.install-location;
+                            placeholder-text: "MyServer (under ARKSA dir if relative)";
+                            horizontal-stretch: 1;
+                        }
+                    }
+                    HorizontalBox {
+                        Rectangle { width: 130px; }
+                        CheckBox {
+                            text: "Use path relative to ARKSA dir";
+                            checked <=> root.use-relative-path;
+                        }
+                    }
+                }
+            }
+
+            GroupBox {
+                title: "Server";
+                VerticalBox {
+                    spacing: 6px;
+                    HorizontalBox {
+                        Text { text: "Session name:"; vertical-alignment: center; min-width: 130px; }
+                        LineEdit {
+                            text <=> root.session-name;
+                            horizontal-stretch: 1;
+                        }
+                    }
+                    HorizontalBox {
+                        Text { text: "Max players:"; vertical-alignment: center; min-width: 130px; }
+                        SpinBox {
+                            value <=> root.max-players;
+                            minimum: 1;
+                            maximum: 200;
+                        }
+                    }
+                    HorizontalBox {
+                        Text { text: "Game port:"; vertical-alignment: center; min-width: 130px; }
+                        SpinBox {
+                            value <=> root.game-port;
+                            minimum: 1;
+                            maximum: 65535;
+                        }
+                        Text { text: "Query:"; vertical-alignment: center; }
+                        SpinBox {
+                            value <=> root.query-port;
+                            minimum: 1;
+                            maximum: 65535;
+                        }
+                    }
+                    HorizontalBox {
+                        Rectangle { width: 130px; }
+                        CheckBox {
+                            text: "Enable RCON";
+                            checked <=> root.rcon-enabled;
+                        }
+                        SpinBox {
+                            value <=> root.rcon-port;
+                            minimum: 1;
+                            maximum: 65535;
+                            enabled: root.rcon-enabled;
+                        }
+                    }
+                }
+            }
+
+            GroupBox {
+                title: "Passwords";
+                VerticalBox {
+                    spacing: 6px;
+                    HorizontalBox {
+                        Text { text: "Admin (RCON):"; vertical-alignment: center; min-width: 130px; }
+                        LineEdit {
+                            text <=> root.admin-password;
+                            horizontal-stretch: 1;
+                        }
+                        Button {
+                            text: "Generate";
+                            clicked => { root.regenerate-password(); }
+                        }
+                    }
+                    HorizontalBox {
+                        Text { text: "Server:"; vertical-alignment: center; min-width: 130px; }
+                        LineEdit {
+                            text <=> root.server-password;
+                            placeholder-text: "(optional, for joining)";
+                            horizontal-stretch: 1;
+                        }
+                    }
+                }
+            }
+
+            GroupBox {
+                title: "Mods and extra flags";
+                VerticalBox {
+                    spacing: 6px;
+                    HorizontalBox {
+                        Text { text: "Mods (IDs):"; vertical-alignment: center; min-width: 130px; }
+                        LineEdit {
+                            text <=> root.mods-csv;
+                            placeholder-text: "12345, 67890";
+                            horizontal-stretch: 1;
+                        }
+                    }
+                    HorizontalBox {
+                        Text { text: "Extra flags:"; vertical-alignment: center; min-width: 130px; }
+                        LineEdit {
+                            text <=> root.extra-flags;
+                            placeholder-text: "-log -NoBattlEye";
+                            horizontal-stretch: 1;
+                        }
+                    }
+                }
+            }
+
+            if root.validation-error != "": Text {
+                text: root.validation-error;
+                color: #c62828;
+                wrap: word-wrap;
+            }
+
+            HorizontalBox {
+                alignment: end;
+                spacing: 8px;
+                Button {
+                    text: "Cancel";
+                    enabled: !root.busy;
+                    clicked => { root.cancel-clicked(); }
+                }
+                Button {
+                    text: "Create";
+                    enabled: !root.busy;
+                    primary: true;
+                    clicked => { root.create-profile(); }
+                }
             }
         }
     }

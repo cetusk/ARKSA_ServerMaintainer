@@ -2,12 +2,15 @@
 // so println!/tracing output stays visible during development.
 #![cfg_attr(all(target_os = "windows", not(debug_assertions)), windows_subsystem = "windows")]
 
-//! ARKSA_ServerMaintainer GUI (Phase 3).
+//! ARKSA_ServerMaintainer GUI (Phase 4).
 //!
-//! Single-server view that wires the Slint UI in `ui/main.slint` to
-//! `arksa-core` for actual server lifecycle work. Long-running operations
-//! (start, stop, RCON command) are dispatched onto std::thread workers; UI
-//! updates from those threads go through `slint::Weak::upgrade_in_event_loop`.
+//! Two windows:
+//!   * `MainWindow`        — profile picker / status / lifecycle / RCON / log
+//!   * `NewProfileWindow`  — modal-style dialog to create a brand-new profile
+//!
+//! Long-running operations (start, stop, RCON, steamcmd) run on std::thread
+//! workers; UI updates from those threads go through
+//! `slint::Weak::upgrade_in_event_loop`.
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -15,29 +18,26 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context, Result};
 use arksa_core::{
+    launch_args::{self, LaunchArgs, COMMON_MAPS},
     profile::Profile,
     rcon::RconClient,
     server::{self, ServerStatus, StopOptions, StopOutcome},
+    steamcmd,
 };
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use tracing_subscriber::EnvFilter;
 
 slint::include_modules!();
 
-/// How often the status panel polls `server::status` while idle.
 const POLL_INTERVAL: Duration = Duration::from_secs(5);
 
-/// What the worker threads need to know to do their work. Cheap to clone.
 #[derive(Clone)]
 struct AppCtx {
     install_dir: PathBuf,
 }
 
-/// Shared mutable list of (display name, profile file path).
 type ProfileList = Arc<Mutex<Vec<(String, PathBuf)>>>;
-/// Index of the currently selected profile, shared across threads.
 type SelectedIndex = Arc<Mutex<usize>>;
-/// Append-only log buffer.
 type LogBuffer = Arc<Mutex<String>>;
 
 fn main() -> Result<()> {
@@ -64,10 +64,27 @@ fn main() -> Result<()> {
         &format!("ARKSA dir: {}", install_dir.display()),
     );
 
-    wire_callbacks(&window, ctx.clone(), profiles.clone(), selected.clone(), log.clone());
+    let dialog = NewProfileWindow::new()?;
+    push_map_suggestions(&dialog);
+    wire_dialog_callbacks(
+        &dialog,
+        &window,
+        ctx.clone(),
+        profiles.clone(),
+        selected.clone(),
+        log.clone(),
+    );
+
+    wire_main_callbacks(
+        &window,
+        &dialog,
+        ctx.clone(),
+        profiles.clone(),
+        selected.clone(),
+        log.clone(),
+    );
     initial_status_refresh(&window, &ctx, &profiles, &selected, &log);
 
-    // Periodic status poll.
     let poll_timer = slint::Timer::default();
     {
         let weak = window.as_weak();
@@ -84,11 +101,8 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-// ---- startup helpers ------------------------------------------------------
+// ─── startup helpers ───────────────────────────────────────────────────────
 
-/// Resolution order:
-///   1. `ARKSA_DIR` env var (developer convenience)
-///   2. `current_exe()` parent (production install)
 fn detect_install_dir() -> Result<PathBuf> {
     if let Ok(p) = std::env::var("ARKSA_DIR") {
         return Ok(PathBuf::from(p));
@@ -120,10 +134,7 @@ fn scan_profiles(install_dir: &Path) -> Vec<(String, PathBuf)> {
         let display_name = Profile::load(&path)
             .ok()
             .and_then(|p| p.display_name())
-            .or_else(|| {
-                path.file_stem()
-                    .map(|s| s.to_string_lossy().into_owned())
-            })
+            .or_else(|| path.file_stem().map(|s| s.to_string_lossy().into_owned()))
             .unwrap_or_else(|| "(unnamed)".into());
         out.push((display_name, path));
     }
@@ -140,17 +151,25 @@ fn push_profiles_to_ui(window: &MainWindow, profiles: &[(String, PathBuf)]) {
     window.set_profile_names(ModelRc::from(model));
 }
 
-// ---- wiring --------------------------------------------------------------
+fn push_map_suggestions(dialog: &NewProfileWindow) {
+    let names: Vec<SharedString> = COMMON_MAPS
+        .iter()
+        .map(|m| SharedString::from(*m))
+        .collect();
+    let model = std::rc::Rc::new(VecModel::from(names));
+    dialog.set_map_suggestions(ModelRc::from(model));
+}
 
-fn wire_callbacks(
+// ─── main window callbacks ─────────────────────────────────────────────────
+
+fn wire_main_callbacks(
     window: &MainWindow,
+    dialog: &NewProfileWindow,
     ctx: AppCtx,
     profiles: ProfileList,
     selected: SelectedIndex,
     log: LogBuffer,
 ) {
-    // Profile selected → just remember the index; status will refresh on the
-    // next poll tick (or the user can hit Refresh).
     {
         let selected = selected.clone();
         let weak = window.as_weak();
@@ -162,8 +181,6 @@ fn wire_callbacks(
             refresh_status_async(&weak, &ctx, &profiles, &selected, &log);
         });
     }
-
-    // Refresh button.
     {
         let weak = window.as_weak();
         let ctx = ctx.clone();
@@ -174,8 +191,6 @@ fn wire_callbacks(
             refresh_status_async(&weak, &ctx, &profiles, &selected, &log);
         });
     }
-
-    // Start.
     {
         let weak = window.as_weak();
         let ctx = ctx.clone();
@@ -199,8 +214,6 @@ fn wire_callbacks(
             });
         });
     }
-
-    // Stop (graceful).
     {
         let weak = window.as_weak();
         let ctx = ctx.clone();
@@ -228,8 +241,6 @@ fn wire_callbacks(
             });
         });
     }
-
-    // RCON one-shot.
     {
         let weak = window.as_weak();
         let profiles = profiles.clone();
@@ -246,7 +257,6 @@ fn wire_callbacks(
                 push_log_async(&weak, &log, "No profile selected.");
                 return;
             };
-            // Clear input and disable controls while in flight.
             window.set_rcon_input(SharedString::default());
             set_busy_async(&weak, true);
             spawn_worker(weak.clone(), log.clone(), move || {
@@ -269,8 +279,6 @@ fn wire_callbacks(
             });
         });
     }
-
-    // Browse install dir — placeholder until a folder picker is wired in.
     {
         let weak = window.as_weak();
         let log = log.clone();
@@ -282,7 +290,283 @@ fn wire_callbacks(
             );
         });
     }
+    {
+        let dialog_weak = dialog.as_weak();
+        let install_dir = ctx.install_dir.clone();
+        window.on_new_profile(move || {
+            let Some(dialog) = dialog_weak.upgrade() else { return };
+            reset_dialog_to_defaults(&dialog, &install_dir);
+            let _ = dialog.show();
+        });
+    }
+    {
+        let weak = window.as_weak();
+        let ctx = ctx.clone();
+        let profiles = profiles.clone();
+        let selected = selected.clone();
+        let log = log.clone();
+        window.on_install_update_server(move || {
+            let Some(profile_path) = current_profile_path(&profiles, &selected) else {
+                push_log_async(&weak, &log, "No profile selected.");
+                return;
+            };
+            set_busy_async(&weak, true);
+            let weak_for_worker = weak.clone();
+            let log_for_worker = log.clone();
+            let ctx_for_worker = ctx.clone();
+            std::thread::spawn(move || {
+                let outcome = (|| -> Result<i32> {
+                    let prof = Profile::load(&profile_path)
+                        .with_context(|| format!("load {}", profile_path.display()))?;
+                    let install_path = prof
+                        .resolved_install_path(&ctx_for_worker.install_dir)
+                        .ok_or_else(|| anyhow!("profile is missing install location"))?;
+                    let steamcmd_exe =
+                        steamcmd::ensure_steamcmd(&ctx_for_worker.install_dir)?;
+                    push_log_async(
+                        &weak_for_worker,
+                        &log_for_worker,
+                        &format!(
+                            "Running steamcmd against {}…",
+                            install_path.display()
+                        ),
+                    );
+                    let weak_log = weak_for_worker.clone();
+                    let log_clone = log_for_worker.clone();
+                    let exit_code = steamcmd::install_or_update_server(
+                        &steamcmd_exe,
+                        &install_path,
+                        move |line| {
+                            push_log_async(&weak_log, &log_clone, line);
+                        },
+                    )?;
+                    Ok(exit_code)
+                })();
+                let line = match outcome {
+                    Ok(code) => format!("steamcmd exited with code {code}."),
+                    Err(e) => format!("steamcmd error: {e:#}"),
+                };
+                push_log_async(&weak_for_worker, &log_for_worker, &line);
+                set_busy_async(&weak_for_worker, false);
+            });
+        });
+    }
 }
+
+// ─── new-profile dialog callbacks ──────────────────────────────────────────
+
+fn reset_dialog_to_defaults(dialog: &NewProfileWindow, install_dir: &Path) {
+    let defaults = LaunchArgs::defaults();
+    dialog.set_profile_name(SharedString::from("MyServer"));
+    dialog.set_display_name(SharedString::from("MyServer"));
+    dialog.set_map_name(SharedString::from(defaults.map.as_str()));
+    dialog.set_install_location(SharedString::from("MyServer"));
+    dialog.set_use_relative_path(true);
+    dialog.set_session_name(SharedString::from(defaults.session_name.as_str()));
+    dialog.set_max_players(defaults.max_players as i32);
+    dialog.set_game_port(defaults.game_port as i32);
+    dialog.set_query_port(defaults.query_port as i32);
+    dialog.set_rcon_enabled(defaults.rcon_enabled);
+    dialog.set_rcon_port(defaults.rcon_port as i32);
+    dialog.set_admin_password(SharedString::from(defaults.admin_password.as_str()));
+    dialog.set_server_password(SharedString::default());
+    dialog.set_mods_csv(SharedString::default());
+    dialog.set_extra_flags(SharedString::from(defaults.extra_flags.join(" ")));
+    dialog.set_validation_error(SharedString::default());
+    dialog.set_busy(false);
+    let _ = install_dir; // unused right now; will inform the install-location placeholder later.
+}
+
+fn wire_dialog_callbacks(
+    dialog: &NewProfileWindow,
+    main: &MainWindow,
+    ctx: AppCtx,
+    profiles: ProfileList,
+    selected: SelectedIndex,
+    log: LogBuffer,
+) {
+    {
+        let dialog_weak = dialog.as_weak();
+        dialog.on_regenerate_password(move || {
+            let Some(dialog) = dialog_weak.upgrade() else { return };
+            dialog.set_admin_password(SharedString::from(
+                launch_args::generate_password(16).as_str(),
+            ));
+        });
+    }
+    {
+        let dialog_weak = dialog.as_weak();
+        dialog.on_choose_map(move |idx| {
+            let Some(dialog) = dialog_weak.upgrade() else { return };
+            let i = idx.max(0) as usize;
+            if let Some(name) = COMMON_MAPS.get(i) {
+                dialog.set_map_name(SharedString::from(*name));
+            }
+        });
+    }
+    {
+        let dialog_weak = dialog.as_weak();
+        dialog.on_cancel_clicked(move || {
+            if let Some(dialog) = dialog_weak.upgrade() {
+                let _ = dialog.hide();
+            }
+        });
+    }
+    {
+        let dialog_weak = dialog.as_weak();
+        let main_weak = main.as_weak();
+        let ctx = ctx.clone();
+        let profiles = profiles.clone();
+        let selected = selected.clone();
+        let log = log.clone();
+        dialog.on_create_profile(move || {
+            let Some(dialog) = dialog_weak.upgrade() else { return };
+            dialog.set_validation_error(SharedString::default());
+            let inputs = match collect_dialog_inputs(&dialog) {
+                Ok(v) => v,
+                Err(msg) => {
+                    dialog.set_validation_error(SharedString::from(msg.as_str()));
+                    return;
+                }
+            };
+            dialog.set_busy(true);
+
+            let profile_dir = ctx.install_dir.join("Profile");
+            let dialog_weak = dialog.as_weak();
+            let main_weak = main_weak.clone();
+            let ctx = ctx.clone();
+            let profiles = profiles.clone();
+            let selected = selected.clone();
+            let log = log.clone();
+            std::thread::spawn(move || {
+                let DialogInputs {
+                    file_stem,
+                    display_name,
+                    install_location,
+                    use_relative_path,
+                    args,
+                } = inputs;
+                let result = std::fs::create_dir_all(&profile_dir).map_err(anyhow::Error::from)
+                    .and_then(|_| {
+                        Profile::create_new(
+                            &profile_dir,
+                            &file_stem,
+                            &display_name,
+                            &install_location,
+                            use_relative_path,
+                            &args,
+                        )
+                        .map_err(anyhow::Error::from)
+                    });
+
+                match result {
+                    Ok(prof) => {
+                        let saved_path = prof.path().to_path_buf();
+                        push_log_async(
+                            &main_weak,
+                            &log,
+                            &format!("Created profile {}.", saved_path.display()),
+                        );
+                        // Refresh main window's profile list and select the new entry.
+                        let new_list = scan_profiles(&ctx.install_dir);
+                        let new_idx = new_list.iter().position(|(_, p)| p == &saved_path).unwrap_or(0);
+                        *profiles.lock().unwrap() = new_list.clone();
+                        *selected.lock().unwrap() = new_idx;
+                        let _ = main_weak.upgrade_in_event_loop(move |window| {
+                            push_profiles_to_ui(&window, &new_list);
+                            window.set_selected_profile_index(new_idx as i32);
+                        });
+                        // Trigger status refresh.
+                        refresh_status_async(&main_weak, &ctx, &profiles, &selected, &log);
+                        let _ = dialog_weak.upgrade_in_event_loop(move |dialog| {
+                            dialog.set_busy(false);
+                            let _ = dialog.hide();
+                        });
+                    }
+                    Err(e) => {
+                        let msg = format!("{e:#}");
+                        push_log_async(
+                            &main_weak,
+                            &log,
+                            &format!("Create profile failed: {msg}"),
+                        );
+                        let _ = dialog_weak.upgrade_in_event_loop(move |dialog| {
+                            dialog.set_busy(false);
+                            dialog.set_validation_error(SharedString::from(msg.as_str()));
+                        });
+                    }
+                }
+            });
+        });
+    }
+}
+
+struct DialogInputs {
+    file_stem: String,
+    display_name: String,
+    install_location: String,
+    use_relative_path: bool,
+    args: LaunchArgs,
+}
+
+fn collect_dialog_inputs(dialog: &NewProfileWindow) -> Result<DialogInputs, String> {
+    let file_stem = dialog.get_profile_name().to_string().trim().to_string();
+    let display_name = dialog.get_display_name().to_string().trim().to_string();
+    let install_location = dialog.get_install_location().to_string().trim().to_string();
+    let use_relative_path = dialog.get_use_relative_path();
+    let map_name = dialog.get_map_name().to_string().trim().to_string();
+    let session_name = dialog.get_session_name().to_string();
+    let admin_password = dialog.get_admin_password().to_string();
+    let server_password = dialog.get_server_password().to_string();
+
+    if file_stem.is_empty() {
+        return Err("File name is required.".into());
+    }
+    if file_stem.contains(['/', '\\', ':', '*', '?', '"', '<', '>', '|']) {
+        return Err("File name contains invalid characters (/ \\ : * ? \" < > |).".into());
+    }
+    if map_name.is_empty() {
+        return Err("Map name is required.".into());
+    }
+    if install_location.is_empty() {
+        return Err("Install location is required.".into());
+    }
+    if admin_password.is_empty() {
+        return Err("Admin password is required (RCON needs it).".into());
+    }
+
+    let args = LaunchArgs {
+        map: map_name,
+        session_name,
+        server_password,
+        admin_password,
+        game_port: clamp_port(dialog.get_game_port()),
+        query_port: clamp_port(dialog.get_query_port()),
+        rcon_enabled: dialog.get_rcon_enabled(),
+        rcon_port: clamp_port(dialog.get_rcon_port()),
+        max_players: dialog.get_max_players().clamp(1, 200) as u16,
+        mods: launch_args::parse_mods_csv(&dialog.get_mods_csv()),
+        extra_flags: launch_args::parse_extra_flags(&dialog.get_extra_flags()),
+    };
+
+    Ok(DialogInputs {
+        file_stem,
+        display_name: if display_name.is_empty() {
+            args.session_name.clone()
+        } else {
+            display_name
+        },
+        install_location,
+        use_relative_path,
+        args,
+    })
+}
+
+fn clamp_port(v: i32) -> u16 {
+    v.clamp(1, 65535) as u16
+}
+
+// ─── status refresh ────────────────────────────────────────────────────────
 
 fn initial_status_refresh(
     window: &MainWindow,
@@ -293,8 +577,6 @@ fn initial_status_refresh(
 ) {
     refresh_status_async(&window.as_weak(), ctx, profiles, selected, log);
 }
-
-// ---- async-from-UI helpers ------------------------------------------------
 
 fn current_profile_path(profiles: &ProfileList, selected: &SelectedIndex) -> Option<PathBuf> {
     let profiles = profiles.lock().unwrap();
@@ -331,7 +613,10 @@ fn refresh_status_async(
             let title = if status.running {
                 format!(
                     "Running (PID {})",
-                    status.pid.map(|p| p.to_string()).unwrap_or_else(|| "?".into())
+                    status
+                        .pid
+                        .map(|p| p.to_string())
+                        .unwrap_or_else(|| "?".into())
                 )
             } else {
                 "Stopped".to_string()
@@ -395,7 +680,6 @@ fn push_log_async(weak: &slint::Weak<MainWindow>, log: &LogBuffer, line: &str) {
             buf.push('\n');
         }
         buf.push_str(&format!("[{}] {}", current_clock(), line));
-        // Keep the last ~64 KB in the UI to bound memory.
         const MAX_LOG: usize = 64 * 1024;
         if buf.len() > MAX_LOG {
             let split = buf.len() - MAX_LOG;
@@ -425,7 +709,7 @@ fn set_busy_async(weak: &slint::Weak<MainWindow>, busy: bool) {
     });
 }
 
-// ---- formatting ----------------------------------------------------------
+// ─── formatting ────────────────────────────────────────────────────────────
 
 fn current_unix_time() -> i64 {
     SystemTime::now()
