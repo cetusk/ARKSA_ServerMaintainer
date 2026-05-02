@@ -8,6 +8,9 @@ pub enum Error {
     #[error("INI parse error: {0}")]
     IniParse(String),
 
+    // The `windows` crate itself is `#![cfg(windows)]`, so `windows::core::Error`
+    // does not exist on non-Windows builds. Gate the variant accordingly.
+    #[cfg(target_os = "windows")]
     #[error("Win32 error: {0}")]
     Win32(#[from] windows::core::Error),
 

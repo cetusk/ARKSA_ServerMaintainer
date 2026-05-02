@@ -42,11 +42,16 @@ impl IniDoc {
 
     pub fn load_bytes(bytes: &[u8]) -> Result<Self> {
         let text = decode_text(bytes);
+        // Lazarus's TIniFile does not quote values or interpret backslashes as
+        // escapes, so disable both behaviours; otherwise paths like
+        //   Edit_Install_Location_Val=C:\ark\server
+        // round-trip incorrectly.
         let inner = Ini::load_from_str_opt(
             &text,
             ParseOption {
                 enabled_quote: false,
                 enabled_escape: false,
+                ..Default::default()
             },
         )
         .map_err(|e| Error::IniParse(e.to_string()))?;

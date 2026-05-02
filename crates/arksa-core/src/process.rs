@@ -20,7 +20,7 @@
 use std::path::{Path, PathBuf};
 
 use windows::core::PWSTR;
-use windows::Win32::Foundation::{CloseHandle, BOOL, HANDLE, HWND, LPARAM, MAX_PATH};
+use windows::Win32::Foundation::{CloseHandle, BOOL, HANDLE, HWND, LPARAM, MAX_PATH, WPARAM};
 use windows::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
     TH32CS_SNAPPROCESS,
@@ -35,7 +35,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetWindowThreadProcessId, PostMessageW, WM_CLOSE,
 };
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 
 /// Owned Win32 process handle. Closed automatically on drop.
 pub struct ProcessHandle {
@@ -161,7 +161,10 @@ pub fn close_main_window(pid: u32) -> Result<()> {
         let mut owner_pid: u32 = 0;
         GetWindowThreadProcessId(hwnd, Some(&mut owner_pid));
         if owner_pid == target_pid {
-            let _ = PostMessageW(Some(hwnd), WM_CLOSE, Default::default(), Default::default());
+            // PostMessageW in `windows` 0.58 takes HWND directly (not Option<HWND>).
+            // Explicit WPARAM/LPARAM constructors avoid generic-Param inference
+            // ambiguity that `Default::default()` would otherwise cause.
+            let _ = PostMessageW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
         }
         BOOL(1) // continue enumeration so all top-level windows get the message
     }

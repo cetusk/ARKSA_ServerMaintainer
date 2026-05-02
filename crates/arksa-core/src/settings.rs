@@ -108,20 +108,21 @@ impl AppSettings {
 
     /// Ordered list of profile names as shown in the tab strip.
     pub fn profile_tabs(&self) -> Vec<String> {
-        let mut tabs = Vec::new();
         let Some(section) = self.doc.raw().section(Some(SECTION_PROFILES)) else {
-            return tabs;
+            return Vec::new();
         };
-        // Upstream writes `Tab0`, `Tab1`, ... in declaration order.
-        for (key, value) in section.iter() {
-            if let Some(suffix) = key.strip_prefix("Tab") {
-                if let Ok(idx) = suffix.parse::<usize>() {
-                    tabs.push((idx, value.to_string()));
-                }
-            }
-        }
-        tabs.sort_by_key(|(i, _)| *i);
-        tabs.into_iter().map(|(_, v)| v).collect()
+        // Upstream writes `Tab0`, `Tab1`, ... but iteration order is not
+        // guaranteed; rebuild the order by parsing the trailing index.
+        let mut indexed: Vec<(usize, String)> = section
+            .iter()
+            .filter_map(|(key, value)| {
+                let suffix = key.strip_prefix("Tab")?;
+                let idx: usize = suffix.parse().ok()?;
+                Some((idx, value.to_string()))
+            })
+            .collect();
+        indexed.sort_by_key(|(i, _)| *i);
+        indexed.into_iter().map(|(_, v)| v).collect()
     }
 
     pub fn set_profile_tabs(&mut self, names: &[String]) {
