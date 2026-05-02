@@ -42,10 +42,15 @@ pub struct LaunchArgs {
 impl LaunchArgs {
     /// Reasonable starting point for a brand-new profile: minimum-viable single
     /// island server with logging and BattlEye disabled.
+    ///
+    /// The default session name has no whitespace because Windows splits the
+    /// command line on spaces and ARK's URL parser does not survive that
+    /// cleanly — `?SessionName=ARKSA Server?` would get cut at the space and
+    /// every URL parameter after it would be lost.
     pub fn defaults() -> Self {
         Self {
             map: "TheIsland_WP".into(),
-            session_name: "ARKSA Server".into(),
+            session_name: "ARKSAServer".into(),
             server_password: String::new(),
             admin_password: generate_password(16),
             game_port: 7777,
@@ -71,13 +76,21 @@ pub const COMMON_MAPS: &[&str] = &[
     "Ragnarok_WP",
 ];
 
-/// Generate a URL-safe random password of `len` printable ASCII characters.
+/// Generate a random password of `len` printable ASCII characters.
 /// Used for the auto-generated RCON admin password.
+///
+/// Pure alphanumeric: ARK's URL parser is unhappy with several otherwise
+/// "URL-safe" characters in this position. In particular, a leading `-`
+/// (which is standard in URL-safe Base64-style alphabets) is treated by
+/// ArkAscendedServer.exe as the start of a `-flag` argument, and every
+/// subsequent `?key=value` token in the launch URL gets swallowed into the
+/// password value. Underscore is similarly removed out of an abundance of
+/// caution; alphanumeric is enough for the entropy we need at length 16.
 pub fn generate_password(len: usize) -> String {
-    // Avoid characters that would need URL-encoding in the map URL portion of
-    // the command line: no '?', '=', '&', '%', '"', ' ', '\\', '/'.
+    // Skip 0/O/I/l/1 — they are visually similar in many fonts and a
+    // hand-typed password from the GameUserSettings.ini is a real workflow.
     const ALPHABET: &[u8] =
-        b"ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789-_";
+        b"ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
     let mut rng = rand::rng();
     (0..len)
         .map(|_| ALPHABET[rng.random_range(0..ALPHABET.len())] as char)
@@ -220,7 +233,31 @@ mod tests {
         let pw = generate_password(20);
         assert_eq!(pw.len(), 20);
         for c in pw.chars() {
-            assert!(c.is_ascii_alphanumeric() || c == '-' || c == '_');
+            assert!(
+                c.is_ascii_alphanumeric(),
+                "password char {c:?} is not alphanumeric — would break ARK URL parsing"
+            );
         }
+    }
+
+    #[test]
+    fn generated_password_never_starts_with_dash_or_underscore() {
+        // Regression: a leading '-' makes ARK's URL parser think the password
+        // value extends through the rest of the command line, swallowing
+        // RCONEnabled / RCONPort / etc.
+        for _ in 0..1000 {
+            let pw = generate_password(16);
+            assert!(!pw.starts_with('-'), "got password starting with '-': {pw}");
+            assert!(!pw.starts_with('_'), "got password starting with '_': {pw}");
+        }
+    }
+
+    #[test]
+    fn default_session_name_has_no_whitespace() {
+        let args = LaunchArgs::defaults();
+        assert!(
+            !args.session_name.chars().any(char::is_whitespace),
+            "default SessionName contains whitespace; ARK's URL parser will not survive"
+        );
     }
 }
