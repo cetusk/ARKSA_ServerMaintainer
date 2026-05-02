@@ -60,6 +60,15 @@ impl IniDoc {
 
     /// Always writes UTF-8 (no BOM) with `=` separators and `\r\n` line endings,
     /// matching what Notepad-class editors expect on Windows.
+    ///
+    /// `EscapePolicy::Nothing` is critical: Lazarus TIniFile (the upstream
+    /// writer) does not escape backslashes, so a Windows path
+    ///     Edit_Install_Location_Val=D:\ARK\ARKSA_Server
+    /// is stored verbatim. With the rust-ini default policy we'd write
+    ///     Edit_Install_Location_Val=D:\\ARK\\ARKSA_Server
+    /// and our load path (with `enabled_escape: false`) would then read those
+    /// literal `\\`s back, producing a broken path that doesn't match the
+    /// real filesystem.
     pub fn save(&self, path: impl AsRef<Path>) -> Result<()> {
         if let Some(parent) = path.as_ref().parent() {
             if !parent.as_os_str().is_empty() {
@@ -71,7 +80,7 @@ impl IniDoc {
             ini::WriteOption {
                 line_separator: ini::LineSeparator::CRLF,
                 kv_separator: "=",
-                ..Default::default()
+                escape_policy: ini::EscapePolicy::Nothing,
             },
         )?;
         Ok(())
@@ -186,6 +195,42 @@ mod tests {
         let src = b"\xEF\xBB\xBF[s]\nk=v\n";
         let doc = IniDoc::load_bytes(src).unwrap();
         assert_eq!(doc.get_string("s", "k").as_deref(), Some("v"));
+    }
+
+    #[test]
+    fn windows_paths_round_trip_without_double_escaping() {
+        // Regression: write+reload must not double-up backslashes in Windows
+        // paths. We check both via the in-memory string round trip and via a
+        // real file write/read.
+        let tmp = std::env::temp_dir().join(format!(
+            "arksa_ini_path_roundtrip_{}.ini",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&tmp);
+
+        let mut doc = IniDoc::new();
+        doc.set_string("General", "Edit_Install_Location_Val", "D:\\ARK\\ARKSA_Server");
+        doc.save(&tmp).unwrap();
+
+        let raw = std::fs::read_to_string(&tmp).unwrap();
+        // The on-disk file must contain the original single backslashes.
+        assert!(
+            raw.contains("Edit_Install_Location_Val=D:\\ARK\\ARKSA_Server"),
+            "file content was: {raw:?}"
+        );
+        assert!(
+            !raw.contains("\\\\"),
+            "file content unexpectedly has \\\\: {raw:?}"
+        );
+
+        let reloaded = IniDoc::load(&tmp).unwrap();
+        assert_eq!(
+            reloaded
+                .get_string("General", "Edit_Install_Location_Val")
+                .as_deref(),
+            Some("D:\\ARK\\ARKSA_Server")
+        );
+        let _ = std::fs::remove_file(tmp);
     }
 
     #[test]
