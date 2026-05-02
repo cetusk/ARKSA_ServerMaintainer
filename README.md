@@ -76,11 +76,20 @@ D:\ARK\
 ```
 
 For convenience there is a [`run.example.ps1`](./run.example.ps1) launcher.
-Copy it to `run.ps1` (gitignored), edit the `ARKSA_DIR` line to suit, then:
+Copy it to `run.ps1` (gitignored), edit the `ARKSA_DIR` line to suit, then
+either of:
 
 ```powershell
-.\run.ps1
+.\run.ps1            # from a PowerShell prompt
 ```
+```text
+run.bat              # double-click in Explorer (calls run.ps1 with bypass)
+```
+
+`run.bat` is a thin wrapper that forwards to `run.ps1` with
+`-ExecutionPolicy Bypass`, so a fresh Windows install does not need
+`Set-ExecutionPolicy` configured. `.ps1` files do not run on double-click by
+Windows default — that is why `run.bat` exists.
 
 First-time flow inside the GUI:
 
