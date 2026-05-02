@@ -24,6 +24,10 @@ desktop.ini
 # Local sandbox launcher (環境固有のため除外。共有が必要なら個別に -f で add)
 /claude_sandbox.bat
 
+# Personal launcher (embeds the user's ARKSA_DIR path).
+# Use run.example.ps1 as a template instead.
+/run.ps1
+
 # Local secrets
 .env
 .env.local
