@@ -1,0 +1,28 @@
+object Find_ui: TFind_ui
+  Left = 491
+  Height = 24
+  Top = 250
+  Width = 430
+  BorderStyle = bsToolWindow
+  Caption = 'Find'
+  ClientHeight = 24
+  ClientWidth = 430
+  LCLVersion = '2.2.6.0'
+  object Edit_Find: TEdit
+    Left = 0
+    Height = 23
+    Top = 0
+    Width = 354
+    OnKeyDown = Edit_FindKeyDown
+    TabOrder = 0
+  end
+  object Button_Find: TButton
+    Left = 355
+    Height = 25
+    Top = -1
+    Width = 75
+    Caption = 'Find'
+    OnClick = Button_FindClick
+    TabOrder = 1
+  end
+end

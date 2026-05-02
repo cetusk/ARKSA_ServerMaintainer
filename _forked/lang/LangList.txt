@@ -1,0 +1,4 @@
+default=en
+english=en
+日本語=ja
+日本語Dev=ja_dev

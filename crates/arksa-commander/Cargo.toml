@@ -1,0 +1,21 @@
+[package]
+name = "arksa-commander"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "CLI command sender for a running ARK SA dedicated server (RCON wrapper)."
+
+[[bin]]
+name = "arksa-commander"
+path = "src/main.rs"
+
+[dependencies]
+arksa-core = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

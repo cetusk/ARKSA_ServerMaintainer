@@ -1,0 +1,49 @@
+// ARKSA_ServerMaintainer - main window (Phase 0 skeleton).
+// UI is intentionally minimal here; per-feature panels are added in later phases.
+
+import { Button, VerticalBox, HorizontalBox, GroupBox } from "std-widgets.slint";
+
+export component MainWindow inherits Window {
+    title: "ARKSA Server Maintainer";
+    preferred-width: 720px;
+    preferred-height: 480px;
+    min-width: 480px;
+    min-height: 320px;
+
+    callback start-server();
+    callback stop-server();
+
+    in property <string> server-status: "Offline";
+    in property <string> server-name: "(no profile loaded)";
+
+    VerticalBox {
+        padding: 16px;
+        spacing: 12px;
+
+        GroupBox {
+            title: "Server";
+            VerticalBox {
+                Text {
+                    text: "Profile: " + root.server-name;
+                }
+                Text {
+                    text: "Status: " + root.server-status;
+                }
+            }
+        }
+
+        HorizontalBox {
+            alignment: start;
+            Button {
+                text: "Start";
+                clicked => { root.start-server(); }
+            }
+            Button {
+                text: "Stop";
+                clicked => { root.stop-server(); }
+            }
+        }
+
+        Rectangle { /* spacer */ }
+    }
+}

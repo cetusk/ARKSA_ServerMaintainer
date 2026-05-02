@@ -1,0 +1,27 @@
+[package]
+name = "arksa-gui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "ARKSA_ServerMaintainer main GUI application (Slint)."
+default-run = "arksa-gui"
+
+[[bin]]
+name = "arksa-gui"
+path = "src/main.rs"
+
+[dependencies]
+arksa-core = { workspace = true }
+arksa-notify = { workspace = true }
+slint = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[build-dependencies]
+slint-build = { workspace = true }

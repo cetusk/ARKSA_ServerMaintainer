@@ -1,0 +1,23 @@
+[package]
+name = "arksa-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "Core library for ARKSA_ServerMaintainer: server control, RCON, process monitoring, INI, mod data."
+
+[dependencies]
+windows = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+rust-ini = { workspace = true }
+zip = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+once_cell = { workspace = true }
+chrono = { workspace = true }
+encoding_rs = { workspace = true }

@@ -1,0 +1,1 @@
+mcrcon\mcrcon.exe -P %1 -p %2 SaveWorld DoExit
