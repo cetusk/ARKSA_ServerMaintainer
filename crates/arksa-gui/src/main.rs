@@ -18,6 +18,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context, Result};
 use arksa_core::{
+    ark_config, game_config,
     gamedata, launch_args::{self, LaunchArgs, COMMON_MAPS}, modlist,
     profile::Profile,
     rcon::RconClient,
@@ -137,11 +138,24 @@ fn main() -> Result<()> {
         window.as_weak(),
     );
 
+    // World settings dialog (Game.ini + GameUserSettings.ini editor).
+    let world_window = WorldSettingsWindow::new()?;
+    world_window.set_labels(labels.to_ui());
+    wire_world_settings_callbacks(
+        &world_window,
+        ctx.clone(),
+        profiles.clone(),
+        selected.clone(),
+        log.clone(),
+        window.as_weak(),
+    );
+
     wire_main_callbacks(
         &window,
         &dialog,
         &find_window,
         &notif_window,
+        &world_window,
         ctx.clone(),
         profiles.clone(),
         selected.clone(),
@@ -232,6 +246,7 @@ fn wire_main_callbacks(
     dialog: &NewProfileWindow,
     find_window: &FindWindow,
     notif_window: &NotificationsWindow,
+    world_window: &WorldSettingsWindow,
     ctx: AppCtx,
     profiles: ProfileList,
     selected: SelectedIndex,
@@ -364,11 +379,22 @@ fn wire_main_callbacks(
     {
         let weak = window.as_weak();
         let log = log.clone();
+        let install_dir = ctx.install_dir.clone();
         window.on_browse_install_dir(move || {
+            let chosen = pick_folder(Some(&install_dir));
+            let Some(path) = chosen else {
+                return;
+            };
+            // We don't have a runtime-restart mechanism, so this is
+            // informational: the user has to update run.ps1 / ARKSA_DIR
+            // manually for the change to apply on next launch.
             push_log_async(
                 &weak,
                 &log,
-                "Browse… not yet implemented. Set ARKSA_DIR env var to override.",
+                &format!(
+                    "Selected {}. To use it next launch, edit run.ps1 (set $env:ARKSA_DIR) or set the ARKSA_DIR env var.",
+                    path.display()
+                ),
             );
         });
     }
@@ -397,6 +423,37 @@ fn wire_main_callbacks(
                 // Re-populate from current config in case it changed since
                 // the dialog was last shown.
                 populate_notifications_window(&w, &cfg.lock().unwrap());
+                w.set_validation_error(SharedString::default());
+                let _ = w.show();
+            }
+        });
+    }
+    {
+        let world_weak = world_window.as_weak();
+        let weak = window.as_weak();
+        let log = log.clone();
+        let ctx = ctx.clone();
+        let profiles = profiles.clone();
+        let selected = selected.clone();
+        window.on_open_world_settings(move || {
+            let Some(profile_path) = current_profile_path(&profiles, &selected) else {
+                push_log_async(&weak, &log, "No profile selected.");
+                return;
+            };
+            // Resolve install root from profile so the dialog knows which
+            // pair of INIs to read/write.
+            let install_root = match Profile::load(&profile_path)
+                .ok()
+                .and_then(|p| p.resolved_install_path(&ctx.install_dir))
+            {
+                Some(r) => r,
+                None => {
+                    push_log_async(&weak, &log, "Profile has no install location.");
+                    return;
+                }
+            };
+            if let Some(w) = world_weak.upgrade() {
+                populate_world_settings_window(&w, &install_root);
                 w.set_validation_error(SharedString::default());
                 let _ = w.show();
             }
@@ -726,6 +783,19 @@ struct Labels {
     notif_section_language: String,
     notif_btn_save: String,
     notif_btn_cancel: String,
+    btn_world_settings: String,
+    world_window_title: String,
+    world_tab_rates: String,
+    world_tab_day: String,
+    world_tab_player: String,
+    world_tab_tamed: String,
+    world_tab_wild: String,
+    world_tab_difficulty: String,
+    world_btn_import: String,
+    world_btn_reset: String,
+    world_btn_save: String,
+    world_btn_cancel: String,
+    world_hint: String,
 }
 
 impl Labels {
@@ -780,6 +850,22 @@ impl Labels {
             notif_section_language: "Language (requires restart)".into(),
             notif_btn_save: "Save".into(),
             notif_btn_cancel: "Cancel".into(),
+            btn_world_settings: "World Settings…".into(),
+            world_window_title: "World settings".into(),
+            world_tab_rates: "Rates".into(),
+            world_tab_day: "Day cycle".into(),
+            world_tab_player: "Player".into(),
+            world_tab_tamed: "Tamed dino".into(),
+            world_tab_wild: "Wild dino".into(),
+            world_tab_difficulty: "Difficulty / structure".into(),
+            world_btn_import: "Import settings from file…".into(),
+            world_btn_reset: "Reset to defaults".into(),
+            world_btn_save: "Save".into(),
+            world_btn_cancel: "Cancel".into(),
+            world_hint:
+                "Edits Game.ini and GameUserSettings.ini for the current profile. \
+                 ARK only re-reads these at server start, so changes take effect on next launch."
+                    .into(),
         }
     }
 
@@ -834,6 +920,22 @@ impl Labels {
             notif_section_language: "言語 (再起動が必要)".into(),
             notif_btn_save: "保存".into(),
             notif_btn_cancel: "キャンセル".into(),
+            btn_world_settings: "ワールド設定…".into(),
+            world_window_title: "ワールド設定".into(),
+            world_tab_rates: "倍率".into(),
+            world_tab_day: "昼夜".into(),
+            world_tab_player: "プレイヤー".into(),
+            world_tab_tamed: "テイム済み恐竜".into(),
+            world_tab_wild: "野生恐竜".into(),
+            world_tab_difficulty: "難易度・建造物".into(),
+            world_btn_import: "ファイルから設定をインポート…".into(),
+            world_btn_reset: "デフォルトに戻す".into(),
+            world_btn_save: "保存".into(),
+            world_btn_cancel: "キャンセル".into(),
+            world_hint:
+                "現在のプロファイルの Game.ini と GameUserSettings.ini を編集します。\
+                 ARK は起動時にしかこれらを読み込まないため、変更は次回 Start から反映されます。"
+                    .into(),
         }
     }
 
@@ -901,6 +1003,19 @@ impl Labels {
             notif_section_language: self.notif_section_language.as_str().into(),
             notif_btn_save: self.notif_btn_save.as_str().into(),
             notif_btn_cancel: self.notif_btn_cancel.as_str().into(),
+            btn_world_settings: self.btn_world_settings.as_str().into(),
+            world_window_title: self.world_window_title.as_str().into(),
+            world_tab_rates: self.world_tab_rates.as_str().into(),
+            world_tab_day: self.world_tab_day.as_str().into(),
+            world_tab_player: self.world_tab_player.as_str().into(),
+            world_tab_tamed: self.world_tab_tamed.as_str().into(),
+            world_tab_wild: self.world_tab_wild.as_str().into(),
+            world_tab_difficulty: self.world_tab_difficulty.as_str().into(),
+            world_btn_import: self.world_btn_import.as_str().into(),
+            world_btn_reset: self.world_btn_reset.as_str().into(),
+            world_btn_save: self.world_btn_save.as_str().into(),
+            world_btn_cancel: self.world_btn_cancel.as_str().into(),
+            world_hint: self.world_hint.as_str().into(),
         }
     }
 }
@@ -1093,6 +1208,589 @@ fn build_notify_context(profile: &Profile) -> NotifyContext {
         ctx = ctx.with_map(map);
     }
     ctx
+}
+
+// ─── World settings ───────────────────────────────────────────────────────
+
+/// Format a float for display in a `LineEdit`. Always carries at least one
+/// digit after the point so users can see "this is a float".
+fn fmt_float_for_form(v: f64) -> SharedString {
+    let s = format!("{}", v);
+    if s.contains('.') || s.contains('e') {
+        s.into()
+    } else {
+        format!("{s}.0").into()
+    }
+}
+
+/// Apply the values from the two INIs at `install_root` to the form. Missing
+/// keys fall back to ARK's documented vanilla defaults so a brand-new
+/// profile (no Game.ini yet) shows sensible starting values.
+fn populate_world_settings_window(window: &WorldSettingsWindow, install_root: &Path) {
+    let game = game_config::GameSettings::load_or_empty(
+        game_config::game_ini_path(install_root),
+    )
+    .ok();
+    let gus = ark_config::GameUserSettings::load_or_empty(
+        ark_config::game_user_settings_path(install_root),
+    )
+    .ok();
+
+    let g = |get: fn(&game_config::GameSettings) -> Option<f64>, default: f64| -> SharedString {
+        let v = game.as_ref().and_then(get).unwrap_or(default);
+        fmt_float_for_form(v)
+    };
+    let gb = |get: fn(&game_config::GameSettings) -> Option<bool>, default: bool| -> bool {
+        game.as_ref().and_then(get).unwrap_or(default)
+    };
+    let u = |get: fn(&ark_config::GameUserSettings) -> Option<f64>, default: f64| -> SharedString {
+        let v = gus.as_ref().and_then(get).unwrap_or(default);
+        fmt_float_for_form(v)
+    };
+
+    // Rates
+    window.set_f_xp_multiplier(g(game_config::GameSettings::xp_multiplier, 1.0));
+    window.set_f_harvest_amount_multiplier(g(game_config::GameSettings::harvest_amount_multiplier, 1.0));
+    window.set_f_harvest_health_multiplier(g(game_config::GameSettings::harvest_health_multiplier, 1.0));
+    window.set_f_resources_respawn_period_multiplier(g(game_config::GameSettings::resources_respawn_period_multiplier, 1.0));
+    window.set_f_taming_speed_multiplier(g(game_config::GameSettings::taming_speed_multiplier, 1.0));
+    window.set_f_mating_interval_multiplier(g(game_config::GameSettings::mating_interval_multiplier, 1.0));
+    window.set_f_egg_hatch_speed_multiplier(g(game_config::GameSettings::egg_hatch_speed_multiplier, 1.0));
+    window.set_f_baby_mature_speed_multiplier(g(game_config::GameSettings::baby_mature_speed_multiplier, 1.0));
+
+    // Day cycle
+    window.set_f_day_cycle_speed_scale(g(game_config::GameSettings::day_cycle_speed_scale, 1.0));
+    window.set_f_day_time_speed_scale(g(game_config::GameSettings::day_time_speed_scale, 1.0));
+    window.set_f_night_time_speed_scale(g(game_config::GameSettings::night_time_speed_scale, 1.0));
+
+    // Player
+    window.set_f_player_food(g(game_config::GameSettings::player_character_food_drain_multiplier, 1.0));
+    window.set_f_player_water(g(game_config::GameSettings::player_character_water_drain_multiplier, 1.0));
+    window.set_f_player_stamina(g(game_config::GameSettings::player_character_stamina_drain_multiplier, 1.0));
+    window.set_f_player_health_recovery(g(game_config::GameSettings::player_character_health_recovery_multiplier, 1.0));
+    window.set_f_player_damage(g(game_config::GameSettings::player_damage_multiplier, 1.0));
+    window.set_f_player_resistance(g(game_config::GameSettings::player_resistance_multiplier, 1.0));
+    window.set_f_player_harvesting(g(game_config::GameSettings::player_harvesting_damage_multiplier, 1.0));
+
+    // Tamed dino
+    window.set_f_dino_food(g(game_config::GameSettings::dino_character_food_drain_multiplier, 1.0));
+    window.set_f_dino_stamina(g(game_config::GameSettings::dino_character_stamina_drain_multiplier, 1.0));
+    window.set_f_dino_health_recovery(g(game_config::GameSettings::dino_character_health_recovery_multiplier, 1.0));
+    window.set_f_tamed_damage(g(game_config::GameSettings::tamed_dino_damage_multiplier, 1.0));
+    window.set_f_tamed_resistance(g(game_config::GameSettings::tamed_dino_resistance_multiplier, 1.0));
+
+    // Wild dino
+    window.set_f_wild_food(g(game_config::GameSettings::wild_dino_character_food_drain_multiplier, 1.0));
+    window.set_f_wild_stamina(g(game_config::GameSettings::wild_dino_character_stamina_drain_multiplier, 1.0));
+    window.set_f_wild_torpor(g(game_config::GameSettings::wild_dino_torpor_drain_multiplier, 1.0));
+    window.set_f_dino_count(g(game_config::GameSettings::dino_count_multiplier, 1.0));
+
+    // Difficulty / structure
+    window.set_f_difficulty_offset(u(ark_config::GameUserSettings::difficulty_offset, 0.2));
+    window.set_f_override_official_difficulty(u(ark_config::GameUserSettings::override_official_difficulty, 5.0));
+    window.set_f_structure_damage(g(game_config::GameSettings::structure_damage_multiplier, 1.0));
+    window.set_f_structure_resistance(g(game_config::GameSettings::structure_resistance_multiplier, 1.0));
+    window.set_f_structure_repair_cooldown(g(game_config::GameSettings::structure_damage_repair_cooldown, 180.0));
+    window.set_b_disable_imprint_dino_buff(gb(game_config::GameSettings::disable_imprint_dino_buff, false));
+    window.set_b_allow_anyone_baby_imprint(gb(game_config::GameSettings::allow_anyone_baby_imprint_cuddle, false));
+}
+
+/// Reset every form field to ARK's vanilla defaults (mostly 1.0, plus the
+/// difficulty/structure values noted upstream).
+fn reset_world_settings_window(window: &WorldSettingsWindow) {
+    let one = SharedString::from("1.0");
+    window.set_f_xp_multiplier(one.clone());
+    window.set_f_harvest_amount_multiplier(one.clone());
+    window.set_f_harvest_health_multiplier(one.clone());
+    window.set_f_resources_respawn_period_multiplier(one.clone());
+    window.set_f_taming_speed_multiplier(one.clone());
+    window.set_f_mating_interval_multiplier(one.clone());
+    window.set_f_egg_hatch_speed_multiplier(one.clone());
+    window.set_f_baby_mature_speed_multiplier(one.clone());
+
+    window.set_f_day_cycle_speed_scale(one.clone());
+    window.set_f_day_time_speed_scale(one.clone());
+    window.set_f_night_time_speed_scale(one.clone());
+
+    window.set_f_player_food(one.clone());
+    window.set_f_player_water(one.clone());
+    window.set_f_player_stamina(one.clone());
+    window.set_f_player_health_recovery(one.clone());
+    window.set_f_player_damage(one.clone());
+    window.set_f_player_resistance(one.clone());
+    window.set_f_player_harvesting(one.clone());
+
+    window.set_f_dino_food(one.clone());
+    window.set_f_dino_stamina(one.clone());
+    window.set_f_dino_health_recovery(one.clone());
+    window.set_f_tamed_damage(one.clone());
+    window.set_f_tamed_resistance(one.clone());
+
+    window.set_f_wild_food(one.clone());
+    window.set_f_wild_stamina(one.clone());
+    window.set_f_wild_torpor(one.clone());
+    window.set_f_dino_count(one.clone());
+
+    window.set_f_difficulty_offset(SharedString::from("0.2"));
+    window.set_f_override_official_difficulty(SharedString::from("5.0"));
+    window.set_f_structure_damage(one.clone());
+    window.set_f_structure_resistance(one.clone());
+    window.set_f_structure_repair_cooldown(SharedString::from("180.0"));
+    window.set_b_disable_imprint_dino_buff(false);
+    window.set_b_allow_anyone_baby_imprint(false);
+}
+
+/// Read all form fields, parse floats, return per-file struct values or a
+/// validation error pinpointing the first bad input.
+struct WorldFormValues {
+    // Game.ini side
+    xp_multiplier: f64,
+    harvest_amount_multiplier: f64,
+    harvest_health_multiplier: f64,
+    resources_respawn_period_multiplier: f64,
+    taming_speed_multiplier: f64,
+    mating_interval_multiplier: f64,
+    egg_hatch_speed_multiplier: f64,
+    baby_mature_speed_multiplier: f64,
+
+    day_cycle_speed_scale: f64,
+    day_time_speed_scale: f64,
+    night_time_speed_scale: f64,
+
+    player_food: f64,
+    player_water: f64,
+    player_stamina: f64,
+    player_health_recovery: f64,
+    player_damage: f64,
+    player_resistance: f64,
+    player_harvesting: f64,
+
+    dino_food: f64,
+    dino_stamina: f64,
+    dino_health_recovery: f64,
+    tamed_damage: f64,
+    tamed_resistance: f64,
+
+    wild_food: f64,
+    wild_stamina: f64,
+    wild_torpor: f64,
+    dino_count: f64,
+
+    structure_damage: f64,
+    structure_resistance: f64,
+    structure_repair_cooldown: f64,
+    disable_imprint_dino_buff: bool,
+    allow_anyone_baby_imprint: bool,
+
+    // GameUserSettings.ini side
+    difficulty_offset: f64,
+    override_official_difficulty: f64,
+}
+
+fn parse_form_float(value: SharedString, label: &str) -> Result<f64, String> {
+    value
+        .as_str()
+        .trim()
+        .parse::<f64>()
+        .map_err(|_| format!("Invalid number for {label}: {value:?}"))
+}
+
+fn collect_world_form(window: &WorldSettingsWindow) -> Result<WorldFormValues, String> {
+    Ok(WorldFormValues {
+        xp_multiplier: parse_form_float(window.get_f_xp_multiplier(), "XPMultiplier")?,
+        harvest_amount_multiplier: parse_form_float(
+            window.get_f_harvest_amount_multiplier(),
+            "HarvestAmountMultiplier",
+        )?,
+        harvest_health_multiplier: parse_form_float(
+            window.get_f_harvest_health_multiplier(),
+            "HarvestHealthMultiplier",
+        )?,
+        resources_respawn_period_multiplier: parse_form_float(
+            window.get_f_resources_respawn_period_multiplier(),
+            "ResourcesRespawnPeriodMultiplier",
+        )?,
+        taming_speed_multiplier: parse_form_float(
+            window.get_f_taming_speed_multiplier(),
+            "TamingSpeedMultiplier",
+        )?,
+        mating_interval_multiplier: parse_form_float(
+            window.get_f_mating_interval_multiplier(),
+            "MatingIntervalMultiplier",
+        )?,
+        egg_hatch_speed_multiplier: parse_form_float(
+            window.get_f_egg_hatch_speed_multiplier(),
+            "EggHatchSpeedMultiplier",
+        )?,
+        baby_mature_speed_multiplier: parse_form_float(
+            window.get_f_baby_mature_speed_multiplier(),
+            "BabyMatureSpeedMultiplier",
+        )?,
+        day_cycle_speed_scale: parse_form_float(
+            window.get_f_day_cycle_speed_scale(),
+            "DayCycleSpeedScale",
+        )?,
+        day_time_speed_scale: parse_form_float(
+            window.get_f_day_time_speed_scale(),
+            "DayTimeSpeedScale",
+        )?,
+        night_time_speed_scale: parse_form_float(
+            window.get_f_night_time_speed_scale(),
+            "NightTimeSpeedScale",
+        )?,
+        player_food: parse_form_float(window.get_f_player_food(), "PlayerCharacterFoodDrainMultiplier")?,
+        player_water: parse_form_float(window.get_f_player_water(), "PlayerCharacterWaterDrainMultiplier")?,
+        player_stamina: parse_form_float(window.get_f_player_stamina(), "PlayerCharacterStaminaDrainMultiplier")?,
+        player_health_recovery: parse_form_float(window.get_f_player_health_recovery(), "PlayerCharacterHealthRecoveryMultiplier")?,
+        player_damage: parse_form_float(window.get_f_player_damage(), "PlayerDamageMultiplier")?,
+        player_resistance: parse_form_float(window.get_f_player_resistance(), "PlayerResistanceMultiplier")?,
+        player_harvesting: parse_form_float(window.get_f_player_harvesting(), "PlayerHarvestingDamageMultiplier")?,
+        dino_food: parse_form_float(window.get_f_dino_food(), "DinoCharacterFoodDrainMultiplier")?,
+        dino_stamina: parse_form_float(window.get_f_dino_stamina(), "DinoCharacterStaminaDrainMultiplier")?,
+        dino_health_recovery: parse_form_float(window.get_f_dino_health_recovery(), "DinoCharacterHealthRecoveryMultiplier")?,
+        tamed_damage: parse_form_float(window.get_f_tamed_damage(), "TamedDinoDamageMultiplier")?,
+        tamed_resistance: parse_form_float(window.get_f_tamed_resistance(), "TamedDinoResistanceMultiplier")?,
+        wild_food: parse_form_float(window.get_f_wild_food(), "WildDinoCharacterFoodDrainMultiplier")?,
+        wild_stamina: parse_form_float(window.get_f_wild_stamina(), "WildDinoCharacterStaminaDrainMultiplier")?,
+        wild_torpor: parse_form_float(window.get_f_wild_torpor(), "WildDinoTorporDrainMultiplier")?,
+        dino_count: parse_form_float(window.get_f_dino_count(), "DinoCountMultiplier")?,
+        structure_damage: parse_form_float(window.get_f_structure_damage(), "StructureDamageMultiplier")?,
+        structure_resistance: parse_form_float(window.get_f_structure_resistance(), "StructureResistanceMultiplier")?,
+        structure_repair_cooldown: parse_form_float(window.get_f_structure_repair_cooldown(), "StructureDamageRepairCooldown")?,
+        disable_imprint_dino_buff: window.get_b_disable_imprint_dino_buff(),
+        allow_anyone_baby_imprint: window.get_b_allow_anyone_baby_imprint(),
+        difficulty_offset: parse_form_float(window.get_f_difficulty_offset(), "DifficultyOffset")?,
+        override_official_difficulty: parse_form_float(window.get_f_override_official_difficulty(), "OverrideOfficialDifficulty")?,
+    })
+}
+
+/// Apply parsed form values to the install root's two INIs, preserving every
+/// other key that already lived there.
+fn write_world_form(install_root: &Path, v: &WorldFormValues) -> Result<()> {
+    let mut game = game_config::GameSettings::load_or_empty(
+        game_config::game_ini_path(install_root),
+    )?;
+
+    game.set_xp_multiplier(v.xp_multiplier);
+    game.set_harvest_amount_multiplier(v.harvest_amount_multiplier);
+    game.set_harvest_health_multiplier(v.harvest_health_multiplier);
+    game.set_resources_respawn_period_multiplier(v.resources_respawn_period_multiplier);
+    game.set_taming_speed_multiplier(v.taming_speed_multiplier);
+    game.set_mating_interval_multiplier(v.mating_interval_multiplier);
+    game.set_egg_hatch_speed_multiplier(v.egg_hatch_speed_multiplier);
+    game.set_baby_mature_speed_multiplier(v.baby_mature_speed_multiplier);
+
+    game.set_day_cycle_speed_scale(v.day_cycle_speed_scale);
+    game.set_day_time_speed_scale(v.day_time_speed_scale);
+    game.set_night_time_speed_scale(v.night_time_speed_scale);
+
+    game.set_player_character_food_drain_multiplier(v.player_food);
+    game.set_player_character_water_drain_multiplier(v.player_water);
+    game.set_player_character_stamina_drain_multiplier(v.player_stamina);
+    game.set_player_character_health_recovery_multiplier(v.player_health_recovery);
+    game.set_player_damage_multiplier(v.player_damage);
+    game.set_player_resistance_multiplier(v.player_resistance);
+    game.set_player_harvesting_damage_multiplier(v.player_harvesting);
+
+    game.set_dino_character_food_drain_multiplier(v.dino_food);
+    game.set_dino_character_stamina_drain_multiplier(v.dino_stamina);
+    game.set_dino_character_health_recovery_multiplier(v.dino_health_recovery);
+    game.set_tamed_dino_damage_multiplier(v.tamed_damage);
+    game.set_tamed_dino_resistance_multiplier(v.tamed_resistance);
+
+    game.set_wild_dino_character_food_drain_multiplier(v.wild_food);
+    game.set_wild_dino_character_stamina_drain_multiplier(v.wild_stamina);
+    game.set_wild_dino_torpor_drain_multiplier(v.wild_torpor);
+    game.set_dino_count_multiplier(v.dino_count);
+
+    game.set_structure_damage_multiplier(v.structure_damage);
+    game.set_structure_resistance_multiplier(v.structure_resistance);
+    game.set_structure_damage_repair_cooldown(v.structure_repair_cooldown);
+    game.set_disable_imprint_dino_buff(v.disable_imprint_dino_buff);
+    game.set_allow_anyone_baby_imprint_cuddle(v.allow_anyone_baby_imprint);
+
+    game.save()?;
+
+    let mut gus = ark_config::GameUserSettings::load_or_empty(
+        ark_config::game_user_settings_path(install_root),
+    )?;
+    gus.set_difficulty_offset(v.difficulty_offset);
+    gus.set_override_official_difficulty(v.override_official_difficulty);
+    gus.save()?;
+
+    Ok(())
+}
+
+/// Overlay every recognised key from `source_path` onto the form, leaving
+/// fields untouched when the source has no value for them.
+fn import_world_settings(window: &WorldSettingsWindow, source_path: &Path) -> Result<()> {
+    // The same file may declare both sections (rare, but possible) or only
+    // one — try both wrappers so a Game.ini, a GameUserSettings.ini, or a
+    // user-merged INI all import cleanly.
+    let game = game_config::GameSettings::load_or_empty(source_path)?;
+    let gus = ark_config::GameUserSettings::load_or_empty(source_path)?;
+
+    let g = |get: fn(&game_config::GameSettings) -> Option<f64>| get(&game);
+    let gb = |get: fn(&game_config::GameSettings) -> Option<bool>| get(&game);
+    let u = |get: fn(&ark_config::GameUserSettings) -> Option<f64>| get(&gus);
+
+    if let Some(v) = g(game_config::GameSettings::xp_multiplier) {
+        window.set_f_xp_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::harvest_amount_multiplier) {
+        window.set_f_harvest_amount_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::harvest_health_multiplier) {
+        window.set_f_harvest_health_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::resources_respawn_period_multiplier) {
+        window.set_f_resources_respawn_period_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::taming_speed_multiplier) {
+        window.set_f_taming_speed_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::mating_interval_multiplier) {
+        window.set_f_mating_interval_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::egg_hatch_speed_multiplier) {
+        window.set_f_egg_hatch_speed_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::baby_mature_speed_multiplier) {
+        window.set_f_baby_mature_speed_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::day_cycle_speed_scale) {
+        window.set_f_day_cycle_speed_scale(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::day_time_speed_scale) {
+        window.set_f_day_time_speed_scale(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::night_time_speed_scale) {
+        window.set_f_night_time_speed_scale(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::player_character_food_drain_multiplier) {
+        window.set_f_player_food(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::player_character_water_drain_multiplier) {
+        window.set_f_player_water(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::player_character_stamina_drain_multiplier) {
+        window.set_f_player_stamina(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::player_character_health_recovery_multiplier) {
+        window.set_f_player_health_recovery(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::player_damage_multiplier) {
+        window.set_f_player_damage(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::player_resistance_multiplier) {
+        window.set_f_player_resistance(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::player_harvesting_damage_multiplier) {
+        window.set_f_player_harvesting(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::dino_character_food_drain_multiplier) {
+        window.set_f_dino_food(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::dino_character_stamina_drain_multiplier) {
+        window.set_f_dino_stamina(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::dino_character_health_recovery_multiplier) {
+        window.set_f_dino_health_recovery(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::tamed_dino_damage_multiplier) {
+        window.set_f_tamed_damage(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::tamed_dino_resistance_multiplier) {
+        window.set_f_tamed_resistance(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::wild_dino_character_food_drain_multiplier) {
+        window.set_f_wild_food(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::wild_dino_character_stamina_drain_multiplier) {
+        window.set_f_wild_stamina(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::wild_dino_torpor_drain_multiplier) {
+        window.set_f_wild_torpor(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::dino_count_multiplier) {
+        window.set_f_dino_count(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::structure_damage_multiplier) {
+        window.set_f_structure_damage(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::structure_resistance_multiplier) {
+        window.set_f_structure_resistance(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::structure_damage_repair_cooldown) {
+        window.set_f_structure_repair_cooldown(fmt_float_for_form(v));
+    }
+    if let Some(v) = gb(game_config::GameSettings::disable_imprint_dino_buff) {
+        window.set_b_disable_imprint_dino_buff(v);
+    }
+    if let Some(v) = gb(game_config::GameSettings::allow_anyone_baby_imprint_cuddle) {
+        window.set_b_allow_anyone_baby_imprint(v);
+    }
+    if let Some(v) = u(ark_config::GameUserSettings::difficulty_offset) {
+        window.set_f_difficulty_offset(fmt_float_for_form(v));
+    }
+    if let Some(v) = u(ark_config::GameUserSettings::override_official_difficulty) {
+        window.set_f_override_official_difficulty(fmt_float_for_form(v));
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn pick_ini_file(start_dir: Option<&Path>) -> Option<PathBuf> {
+    let mut dialog = rfd::FileDialog::new()
+        .set_title("Import settings from .ini")
+        .add_filter("INI files", &["ini"])
+        .add_filter("All files", &["*"]);
+    if let Some(p) = start_dir {
+        dialog = dialog.set_directory(p);
+    }
+    dialog.pick_file()
+}
+
+#[cfg(not(target_os = "windows"))]
+fn pick_ini_file(_start_dir: Option<&Path>) -> Option<PathBuf> {
+    None
+}
+
+#[cfg(target_os = "windows")]
+fn pick_folder(start_dir: Option<&Path>) -> Option<PathBuf> {
+    let mut dialog = rfd::FileDialog::new().set_title("Choose ARKSA tool data folder");
+    if let Some(p) = start_dir {
+        dialog = dialog.set_directory(p);
+    }
+    dialog.pick_folder()
+}
+
+#[cfg(not(target_os = "windows"))]
+fn pick_folder(_start_dir: Option<&Path>) -> Option<PathBuf> {
+    None
+}
+
+fn wire_world_settings_callbacks(
+    window: &WorldSettingsWindow,
+    ctx: AppCtx,
+    profiles: ProfileList,
+    selected: SelectedIndex,
+    log: LogBuffer,
+    main_weak: slint::Weak<MainWindow>,
+) {
+    {
+        let weak = window.as_weak();
+        window.on_cancel_clicked(move || {
+            if let Some(w) = weak.upgrade() {
+                let _ = w.hide();
+            }
+        });
+    }
+    {
+        let weak = window.as_weak();
+        window.on_reset_clicked(move || {
+            if let Some(w) = weak.upgrade() {
+                reset_world_settings_window(&w);
+                w.set_validation_error(SharedString::default());
+            }
+        });
+    }
+    {
+        let weak = window.as_weak();
+        let log = log.clone();
+        let main_weak = main_weak.clone();
+        let ctx = ctx.clone();
+        let profiles = profiles.clone();
+        let selected = selected.clone();
+        window.on_save_clicked(move || {
+            let Some(window) = weak.upgrade() else { return };
+            // Re-resolve install root each time — user could have switched
+            // profiles after opening the dialog.
+            let Some(profile_path) = current_profile_path(&profiles, &selected) else {
+                window.set_validation_error(SharedString::from("No profile selected."));
+                return;
+            };
+            let install_root = match Profile::load(&profile_path)
+                .ok()
+                .and_then(|p| p.resolved_install_path(&ctx.install_dir))
+            {
+                Some(r) => r,
+                None => {
+                    window.set_validation_error(SharedString::from(
+                        "Profile has no install location.",
+                    ));
+                    return;
+                }
+            };
+            match collect_world_form(&window) {
+                Err(msg) => {
+                    window.set_validation_error(SharedString::from(msg.as_str()));
+                }
+                Ok(values) => match write_world_form(&install_root, &values) {
+                    Ok(()) => {
+                        push_log_async(
+                            &main_weak,
+                            &log,
+                            &format!(
+                                "World settings saved to {} (effective on next Start).",
+                                install_root.display()
+                            ),
+                        );
+                        let _ = window.hide();
+                    }
+                    Err(e) => {
+                        window.set_validation_error(SharedString::from(
+                            format!("Save failed: {e:#}").as_str(),
+                        ));
+                    }
+                },
+            }
+        });
+    }
+    {
+        let weak = window.as_weak();
+        let log = log.clone();
+        let main_weak = main_weak.clone();
+        let ctx = ctx.clone();
+        let profiles = profiles.clone();
+        let selected = selected.clone();
+        window.on_import_clicked(move || {
+            // Default the picker into the current profile's install dir if we
+            // can — most imports come from a sibling install's INI files.
+            let start_dir = current_profile_path(&profiles, &selected)
+                .and_then(|p| Profile::load(&p).ok())
+                .and_then(|p| p.resolved_install_path(&ctx.install_dir))
+                .map(|r| {
+                    r.join("ShooterGame")
+                        .join("Saved")
+                        .join("Config")
+                        .join("WindowsServer")
+                });
+            let chosen = pick_ini_file(start_dir.as_deref());
+            let Some(path) = chosen else {
+                return; // user cancelled
+            };
+            let Some(window) = weak.upgrade() else { return };
+            match import_world_settings(&window, &path) {
+                Ok(()) => {
+                    window.set_validation_error(SharedString::default());
+                    push_log_async(
+                        &main_weak,
+                        &log,
+                        &format!(
+                            "Imported world settings from {}. Click Save to apply.",
+                            path.display()
+                        ),
+                    );
+                }
+                Err(e) => {
+                    window.set_validation_error(SharedString::from(
+                        format!("Import failed: {e:#}").as_str(),
+                    ));
+                }
+            }
+        });
+    }
 }
 
 // ─── Find window ──────────────────────────────────────────────────────────

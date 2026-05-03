@@ -4,7 +4,7 @@ A Rust + Slint GUI tool to maintain a personal **ARK: Survival Ascended** dedica
 
 A personal-use **re-implementation** of [ASA Server Manager (ASASM)](https://sites.google.com/view/asa-server-manager) by *Dの人*. The upstream author explicitly permits forks and re-implementations in other languages. The upstream Object Pascal source is **not redistributed** here; obtain it from the upstream distribution above if you need to cross-reference.
 
-> **Status: Phase 7 — feature-complete enough for daily personal-server use.** The GUI can create a profile, auto-write `GameUserSettings.ini` so RCON works on first start, install the dedicated server via the bundled steamcmd, start/stop the server, send RCON commands, search Mods/Engrams/Items/Dinos, send Discord & Windows toast notifications on lifecycle events, and switch between English / Japanese. Real ARK SA clients have joined a server set up this way (via in-game `open <ip>:<port>`). Backups (Phase ?), CLI commander (Phase 8), and self-updater (Phase 9) are still pending. See [`docs/architecture.md`](./docs/architecture.md) for the full phase plan.
+> **Status: Phase 8a — full per-profile world editor in the GUI.** The GUI can create a profile, auto-write `GameUserSettings.ini` so RCON works on first start, install the dedicated server via the bundled steamcmd, start/stop the server, send RCON commands, search Mods/Engrams/Items/Dinos, send Discord & Windows toast notifications, switch between English / Japanese, and **edit ~30 world / difficulty / structure parameters across `Game.ini` and `GameUserSettings.ini` from a tabbed dialog (with file-import for reusing settings from another install)**. Real ARK SA clients have joined a server set up this way (via in-game `open <ip>:<port>`). CLI commander (Phase 8b), self-updater (Phase 9), backups, and scheduled restarts are still pending. See [`docs/architecture.md`](./docs/architecture.md) for the full phase plan.
 
 ---
 
@@ -190,6 +190,8 @@ If `ARKSA_DIR` is not set, the tool falls back to the directory containing
 | **Update game version** | GUI → *Install / Update server* (re-runs steamcmd; existing files are preserved) |
 | **Send arbitrary RCON command** | GUI's RCON input box → type a command → *Send* |
 | **Find a Mod / Engram / Item / Dino** | GUI → *Find…* → pick category, type substring → results show name + class/ID |
+| **Edit world / difficulty parameters** | GUI → *World Settings…* → 6 tabs of fields → *Save* (re-reads on next Start) |
+| **Reuse settings from another install** | *World Settings…* → *Import settings from file…* → pick a `Game.ini` or `GameUserSettings.ini` |
 | **Discord / toast notifications** | GUI → *Notifications…* → set webhook URL, toggle event types, *Save* |
 | **Switch UI language (EN ↔ JA)** | GUI → *Notifications…* → *Language* dropdown → *Save* (restart required) |
 | **Edit the launch line** | Edit `MM_Command_Val=` in `<ARKSA_DIR>\Profile\<file_name>.ini`, then GUI *Refresh* |
@@ -212,6 +214,39 @@ Currently wired event triggers:
 Other events (Server online / Crash detected / Tool update / Server-app
 update) can be enabled in the dialog and will send out a payload once the
 corresponding detector is implemented in a future phase.
+
+### World Settings dialog
+
+*World Settings…* opens a tabbed editor over the current profile's
+`Game.ini` and `GameUserSettings.ini`. Six tabs:
+
+| Tab | Where the values land |
+|---|---|
+| Rates | `Game.ini → [/Script/ShooterGame.ShooterGameMode]` |
+| Day cycle | `Game.ini → [/Script/ShooterGame.ShooterGameMode]` |
+| Player | `Game.ini → [/Script/ShooterGame.ShooterGameMode]` |
+| Tamed dino | `Game.ini → [/Script/ShooterGame.ShooterGameMode]` |
+| Wild dino | `Game.ini → [/Script/ShooterGame.ShooterGameMode]` |
+| Difficulty / structure | `Game.ini` for structure multipliers + `GameUserSettings.ini → [ServerSettings]` for `DifficultyOffset` / `OverrideOfficialDifficulty` |
+
+**Workflows**
+
+- *Brand-new profile* — open the dialog before first `Start`. Defaults
+  (mostly `1.0`) are shown because no Game.ini exists yet. Tweak whatever
+  you want, hit **Save**, then **Start**.
+- *Existing profile* — the dialog reads whatever is already in the two
+  INIs. Editing is non-destructive: keys we don't model (e.g.
+  `OverrideEngramEntries[…]`) are preserved on save.
+- *Reuse settings from another install* — click **Import settings from
+  file…**, pick a `Game.ini` (or `GameUserSettings.ini`, or a hand-merged
+  combined INI). Recognised keys flow into the form; nothing is written
+  until you click **Save**.
+- *Reset* — **Reset to defaults** restores all fields to vanilla values
+  (1.0 for multipliers, false for the booleans). Click **Cancel** to
+  discard, **Save** to persist.
+
+ARK only re-reads these files at startup, so changes take effect on the
+next *Start*.
 
 ## Connecting from the ARK SA client
 
@@ -305,9 +340,11 @@ and the `.pas → Rust` mapping.
 | 5 | Auto `GameUserSettings.ini` + Mod/Engram/Item/Dino search UI | ✅ |
 | 6 | Discord webhook + tray notifications | ✅ |
 | 7 | i18n (EN + JA) | ✅ |
-| 8 | `arksa-commander` CLI | next |
+| 8a | World Settings dialog (Game.ini + GameUserSettings.ini editor) | ✅ |
+| 8b | `arksa-commander` CLI | next |
 | 9 | `arksa-updater` self-update against GitHub Releases | |
 | (?) | Backup / scheduled restart / crash auto-restart | |
+| (?) | Profile editor for the remaining 200+ INI fields | |
 
 ## License
 

@@ -9,7 +9,8 @@
 
 import {
     Button, CheckBox, ComboBox, GroupBox, HorizontalBox, LineEdit,
-    ListView, ScrollView, SpinBox, StandardListView, TextEdit, VerticalBox
+    ListView, ScrollView, SpinBox, StandardListView, TabWidget,
+    TextEdit, VerticalBox
 } from "std-widgets.slint";
 
 export struct ServerStatusView {
@@ -70,6 +71,19 @@ export struct UiLabels {
     notif_section_language: string,
     notif_btn_save: string,
     notif_btn_cancel: string,
+    btn_world_settings: string,
+    world_window_title: string,
+    world_tab_rates: string,
+    world_tab_day: string,
+    world_tab_player: string,
+    world_tab_tamed: string,
+    world_tab_wild: string,
+    world_tab_difficulty: string,
+    world_btn_import: string,
+    world_btn_reset: string,
+    world_btn_save: string,
+    world_btn_cancel: string,
+    world_hint: string,
 }
 
 // ─── Main window ───────────────────────────────────────────────────────────
@@ -107,6 +121,7 @@ export component MainWindow inherits Window {
     callback install-update-server();
     callback open-find();
     callback open-notifications();
+    callback open-world-settings();
 
     VerticalBox {
         padding: 12px;
@@ -217,6 +232,11 @@ export component MainWindow inherits Window {
                 enabled: !root.action-busy && !root.status.running;
                 clicked => { root.install-update-server(); }
             }
+            Button {
+                text: root.labels.btn_world_settings;
+                enabled: !root.action-busy;
+                clicked => { root.open-world-settings(); }
+            }
         }
 
         if root.profile-names.length > 0: GroupBox {
@@ -245,6 +265,252 @@ export component MainWindow inherits Window {
                 text: root.log-text;
                 read-only: true;
                 wrap: word-wrap;
+            }
+        }
+    }
+}
+
+// ─── World settings dialog ────────────────────────────────────────────────
+
+/// One labelled float row used inside the World Settings tabs. Keeps the
+/// per-field markup short so the window definition below stays scannable.
+component WorldFloatRow inherits HorizontalBox {
+    in property <string> label;
+    in-out property <string> value;
+    spacing: 8px;
+    Text {
+        text: label;
+        min-width: 320px;
+        vertical-alignment: center;
+    }
+    LineEdit {
+        text <=> root.value;
+        horizontal-stretch: 1;
+        input-type: text;
+    }
+}
+
+component WorldBoolRow inherits HorizontalBox {
+    in property <string> label;
+    in-out property <bool> value;
+    spacing: 8px;
+    Text {
+        text: label;
+        min-width: 320px;
+        vertical-alignment: center;
+    }
+    CheckBox {
+        checked <=> root.value;
+        horizontal-stretch: 1;
+    }
+}
+
+export component WorldSettingsWindow inherits Window {
+    title: root.labels.world_window_title;
+    preferred-width: 720px;
+    preferred-height: 640px;
+    min-width: 580px;
+    min-height: 480px;
+
+    in property <UiLabels> labels;
+    in property <string> validation-error: "";
+    in property <bool> busy: false;
+
+    // Field properties — strings for floats so we can validate / format on
+    // the Rust side, bools for booleans. Each is grouped by tab.
+
+    // Rates
+    in-out property <string> f_xp_multiplier: "1.0";
+    in-out property <string> f_harvest_amount_multiplier: "1.0";
+    in-out property <string> f_harvest_health_multiplier: "1.0";
+    in-out property <string> f_resources_respawn_period_multiplier: "1.0";
+    in-out property <string> f_taming_speed_multiplier: "1.0";
+    in-out property <string> f_mating_interval_multiplier: "1.0";
+    in-out property <string> f_egg_hatch_speed_multiplier: "1.0";
+    in-out property <string> f_baby_mature_speed_multiplier: "1.0";
+
+    // Day cycle
+    in-out property <string> f_day_cycle_speed_scale: "1.0";
+    in-out property <string> f_day_time_speed_scale: "1.0";
+    in-out property <string> f_night_time_speed_scale: "1.0";
+
+    // Player
+    in-out property <string> f_player_food: "1.0";
+    in-out property <string> f_player_water: "1.0";
+    in-out property <string> f_player_stamina: "1.0";
+    in-out property <string> f_player_health_recovery: "1.0";
+    in-out property <string> f_player_damage: "1.0";
+    in-out property <string> f_player_resistance: "1.0";
+    in-out property <string> f_player_harvesting: "1.0";
+
+    // Tamed dino
+    in-out property <string> f_dino_food: "1.0";
+    in-out property <string> f_dino_stamina: "1.0";
+    in-out property <string> f_dino_health_recovery: "1.0";
+    in-out property <string> f_tamed_damage: "1.0";
+    in-out property <string> f_tamed_resistance: "1.0";
+
+    // Wild dino
+    in-out property <string> f_wild_food: "1.0";
+    in-out property <string> f_wild_stamina: "1.0";
+    in-out property <string> f_wild_torpor: "1.0";
+    in-out property <string> f_dino_count: "1.0";
+
+    // Difficulty / structure
+    in-out property <string> f_difficulty_offset: "0.2";
+    in-out property <string> f_override_official_difficulty: "5.0";
+    in-out property <string> f_structure_damage: "1.0";
+    in-out property <string> f_structure_resistance: "1.0";
+    in-out property <string> f_structure_repair_cooldown: "180.0";
+    in-out property <bool> b_disable_imprint_dino_buff: false;
+    in-out property <bool> b_allow_anyone_baby_imprint: false;
+
+    callback import-clicked();
+    callback reset-clicked();
+    callback save-clicked();
+    callback cancel-clicked();
+
+    VerticalBox {
+        padding: 12px;
+        spacing: 8px;
+
+        Text {
+            text: root.labels.world_hint;
+            wrap: word-wrap;
+        }
+
+        HorizontalBox {
+            alignment: start;
+            spacing: 8px;
+            Button {
+                text: root.labels.world_btn_import;
+                enabled: !root.busy;
+                clicked => { root.import-clicked(); }
+            }
+            Button {
+                text: root.labels.world_btn_reset;
+                enabled: !root.busy;
+                clicked => { root.reset-clicked(); }
+            }
+        }
+
+        TabWidget {
+            vertical-stretch: 1;
+
+            Tab {
+                title: root.labels.world_tab_rates;
+                ScrollView {
+                    VerticalBox {
+                        padding: 8px;
+                        spacing: 4px;
+                        WorldFloatRow { label: "XPMultiplier";                       value <=> root.f_xp_multiplier; }
+                        WorldFloatRow { label: "HarvestAmountMultiplier";            value <=> root.f_harvest_amount_multiplier; }
+                        WorldFloatRow { label: "HarvestHealthMultiplier";            value <=> root.f_harvest_health_multiplier; }
+                        WorldFloatRow { label: "ResourcesRespawnPeriodMultiplier";   value <=> root.f_resources_respawn_period_multiplier; }
+                        WorldFloatRow { label: "TamingSpeedMultiplier";              value <=> root.f_taming_speed_multiplier; }
+                        WorldFloatRow { label: "MatingIntervalMultiplier";           value <=> root.f_mating_interval_multiplier; }
+                        WorldFloatRow { label: "EggHatchSpeedMultiplier";            value <=> root.f_egg_hatch_speed_multiplier; }
+                        WorldFloatRow { label: "BabyMatureSpeedMultiplier";          value <=> root.f_baby_mature_speed_multiplier; }
+                    }
+                }
+            }
+
+            Tab {
+                title: root.labels.world_tab_day;
+                ScrollView {
+                    VerticalBox {
+                        padding: 8px;
+                        spacing: 4px;
+                        WorldFloatRow { label: "DayCycleSpeedScale";                 value <=> root.f_day_cycle_speed_scale; }
+                        WorldFloatRow { label: "DayTimeSpeedScale";                  value <=> root.f_day_time_speed_scale; }
+                        WorldFloatRow { label: "NightTimeSpeedScale";                value <=> root.f_night_time_speed_scale; }
+                    }
+                }
+            }
+
+            Tab {
+                title: root.labels.world_tab_player;
+                ScrollView {
+                    VerticalBox {
+                        padding: 8px;
+                        spacing: 4px;
+                        WorldFloatRow { label: "PlayerCharacterFoodDrainMultiplier";        value <=> root.f_player_food; }
+                        WorldFloatRow { label: "PlayerCharacterWaterDrainMultiplier";       value <=> root.f_player_water; }
+                        WorldFloatRow { label: "PlayerCharacterStaminaDrainMultiplier";     value <=> root.f_player_stamina; }
+                        WorldFloatRow { label: "PlayerCharacterHealthRecoveryMultiplier";   value <=> root.f_player_health_recovery; }
+                        WorldFloatRow { label: "PlayerDamageMultiplier";                    value <=> root.f_player_damage; }
+                        WorldFloatRow { label: "PlayerResistanceMultiplier";                value <=> root.f_player_resistance; }
+                        WorldFloatRow { label: "PlayerHarvestingDamageMultiplier";          value <=> root.f_player_harvesting; }
+                    }
+                }
+            }
+
+            Tab {
+                title: root.labels.world_tab_tamed;
+                ScrollView {
+                    VerticalBox {
+                        padding: 8px;
+                        spacing: 4px;
+                        WorldFloatRow { label: "DinoCharacterFoodDrainMultiplier";          value <=> root.f_dino_food; }
+                        WorldFloatRow { label: "DinoCharacterStaminaDrainMultiplier";       value <=> root.f_dino_stamina; }
+                        WorldFloatRow { label: "DinoCharacterHealthRecoveryMultiplier";     value <=> root.f_dino_health_recovery; }
+                        WorldFloatRow { label: "TamedDinoDamageMultiplier";                 value <=> root.f_tamed_damage; }
+                        WorldFloatRow { label: "TamedDinoResistanceMultiplier";             value <=> root.f_tamed_resistance; }
+                    }
+                }
+            }
+
+            Tab {
+                title: root.labels.world_tab_wild;
+                ScrollView {
+                    VerticalBox {
+                        padding: 8px;
+                        spacing: 4px;
+                        WorldFloatRow { label: "WildDinoCharacterFoodDrainMultiplier";      value <=> root.f_wild_food; }
+                        WorldFloatRow { label: "WildDinoCharacterStaminaDrainMultiplier";   value <=> root.f_wild_stamina; }
+                        WorldFloatRow { label: "WildDinoTorporDrainMultiplier";             value <=> root.f_wild_torpor; }
+                        WorldFloatRow { label: "DinoCountMultiplier";                       value <=> root.f_dino_count; }
+                    }
+                }
+            }
+
+            Tab {
+                title: root.labels.world_tab_difficulty;
+                ScrollView {
+                    VerticalBox {
+                        padding: 8px;
+                        spacing: 4px;
+                        WorldFloatRow { label: "DifficultyOffset (GameUserSettings.ini)";     value <=> root.f_difficulty_offset; }
+                        WorldFloatRow { label: "OverrideOfficialDifficulty (GameUserSettings.ini)"; value <=> root.f_override_official_difficulty; }
+                        WorldFloatRow { label: "StructureDamageMultiplier";                  value <=> root.f_structure_damage; }
+                        WorldFloatRow { label: "StructureResistanceMultiplier";              value <=> root.f_structure_resistance; }
+                        WorldFloatRow { label: "StructureDamageRepairCooldown";              value <=> root.f_structure_repair_cooldown; }
+                        WorldBoolRow  { label: "DisableImprintDinoBuff";                     value <=> root.b_disable_imprint_dino_buff; }
+                        WorldBoolRow  { label: "AllowAnyoneBabyImprintCuddle";               value <=> root.b_allow_anyone_baby_imprint; }
+                    }
+                }
+            }
+        }
+
+        if root.validation-error != "": Text {
+            text: root.validation-error;
+            color: #c62828;
+            wrap: word-wrap;
+        }
+
+        HorizontalBox {
+            alignment: end;
+            spacing: 8px;
+            Button {
+                text: root.labels.world_btn_cancel;
+                enabled: !root.busy;
+                clicked => { root.cancel-clicked(); }
+            }
+            Button {
+                text: root.labels.world_btn_save;
+                primary: true;
+                enabled: !root.busy;
+                clicked => { root.save-clicked(); }
             }
         }
     }

@@ -7,6 +7,7 @@
 pub mod ark_config;
 pub mod backup;
 pub mod error;
+pub mod game_config;
 pub mod gamedata;
 pub mod ini_doc;
 pub mod launch_args;

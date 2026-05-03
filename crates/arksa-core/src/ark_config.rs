@@ -99,6 +99,32 @@ impl GameUserSettings {
         self.doc
             .get_string(SECTION_SERVER_SETTINGS, "ServerAdminPassword")
     }
+
+    // ── Difficulty (canonical home: GameUserSettings.ini) ────────────
+
+    /// `DifficultyOffset` — typically 0.0 to 1.0, controls wild dino max
+    /// level scaling along with `OverrideOfficialDifficulty`.
+    pub fn difficulty_offset(&self) -> Option<f64> {
+        self.doc
+            .get_f64(SECTION_SERVER_SETTINGS, "DifficultyOffset")
+    }
+
+    pub fn set_difficulty_offset(&mut self, v: f64) {
+        self.doc
+            .set_f64(SECTION_SERVER_SETTINGS, "DifficultyOffset", v);
+    }
+
+    /// `OverrideOfficialDifficulty` — common values are 4.0 (vanilla cap),
+    /// 5.0 (max wild dino level 150), or higher for boosted servers.
+    pub fn override_official_difficulty(&self) -> Option<f64> {
+        self.doc
+            .get_f64(SECTION_SERVER_SETTINGS, "OverrideOfficialDifficulty")
+    }
+
+    pub fn set_override_official_difficulty(&mut self, v: f64) {
+        self.doc
+            .set_f64(SECTION_SERVER_SETTINGS, "OverrideOfficialDifficulty", v);
+    }
 }
 
 /// Apply the RCON settings from a `LaunchArgs`-style triple to the file at

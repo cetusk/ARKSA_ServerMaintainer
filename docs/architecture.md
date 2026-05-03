@@ -46,7 +46,8 @@
 | 5 | Auto `GameUserSettings.ini` (`ark_config`) + Find UI (Mod/Engram/Item/Dino) | ✅ | `arksa-core::{ark_config,gamedata,modlist}`, `arksa-gui` |
 | 6 | Discord webhook + Windows toast + notification settings UI | ✅ | `arksa-notify`, `arksa-gui` |
 | 7 | i18n (English + Japanese) — UiLabels struct, Rust-side translation | ✅ | `arksa-gui` |
-| 8 | `arksa-commander` CLI | next | `arksa-commander` |
+| 8a | World Settings dialog: 6 tabs / ~30 fields, edits Game.ini + GameUserSettings.ini, Import from file via `rfd` | ✅ | `arksa-core::game_config`, `arksa-gui` |
+| 8b | `arksa-commander` CLI | next | `arksa-commander` |
 | 9 | `arksa-updater` against GitHub Releases | | `arksa-updater` |
 | ? | Backup, scheduled restart, crash auto-restart | | `arksa-core::backup`, `arksa-gui` |
 | ? | Profile editor (full settings dialog) | | `arksa-gui` |
