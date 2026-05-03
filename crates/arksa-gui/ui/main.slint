@@ -9,7 +9,7 @@
 
 import {
     Button, CheckBox, ComboBox, GroupBox, HorizontalBox, LineEdit,
-    ScrollView, SpinBox, TextEdit, VerticalBox
+    ListView, ScrollView, SpinBox, StandardListView, TextEdit, VerticalBox
 } from "std-widgets.slint";
 
 export struct ServerStatusView {
@@ -53,6 +53,7 @@ export component MainWindow inherits Window {
     callback browse-install-dir();
     callback new-profile();
     callback install-update-server();
+    callback open-find();
 
     VerticalBox {
         padding: 12px;
@@ -90,6 +91,11 @@ export component MainWindow inherits Window {
                 text: "New…";
                 enabled: !root.action-busy;
                 clicked => { root.new-profile(); }
+            }
+            Button {
+                text: "Find…";
+                enabled: !root.action-busy;
+                clicked => { root.open-find(); }
             }
             Button {
                 text: "Refresh";
@@ -181,6 +187,116 @@ export component MainWindow inherits Window {
                 text: root.log-text;
                 read-only: true;
                 wrap: word-wrap;
+            }
+        }
+    }
+}
+
+// ─── Find window (Mods / Engrams / Items / Dinos) ─────────────────────────
+
+export struct FindEntry {
+    name: string,
+    class_name: string,
+    detail: string,
+}
+
+export component FindWindow inherits Window {
+    title: "Find — Mods / Engrams / Items / Dinos";
+    preferred-width: 760px;
+    preferred-height: 560px;
+    min-width: 540px;
+    min-height: 380px;
+
+    in property <[string]> categories: ["Mods", "Engrams", "Items", "Dinos"];
+    in-out property <int> selected-category: 0;
+    in-out property <string> filter-text: "";
+    in property <[FindEntry]> entries: [];
+    in property <int> total-count: 0;
+    in property <int> filtered-count: 0;
+
+    callback category-changed(int);
+    callback filter-changed(string);
+
+    VerticalBox {
+        padding: 12px;
+        spacing: 8px;
+
+        HorizontalBox {
+            spacing: 8px;
+            Text { text: "Category:"; vertical-alignment: center; }
+            ComboBox {
+                model: root.categories;
+                current-index <=> root.selected-category;
+                horizontal-stretch: 1;
+                selected => { root.category-changed(self.current-index); }
+            }
+        }
+
+        HorizontalBox {
+            spacing: 8px;
+            Text { text: "Filter:"; vertical-alignment: center; }
+            LineEdit {
+                text <=> root.filter-text;
+                placeholder-text: "type a substring (case-insensitive)";
+                horizontal-stretch: 1;
+                edited => { root.filter-changed(self.text); }
+            }
+            Text {
+                text: root.filtered-count + " / " + root.total-count;
+                vertical-alignment: center;
+            }
+        }
+
+        // Header row
+        Rectangle {
+            background: #2a2a2a;
+            HorizontalBox {
+                padding-left: 8px;
+                padding-right: 8px;
+                Text {
+                    text: "Name";
+                    horizontal-stretch: 2;
+                    font-weight: 700;
+                }
+                Text {
+                    text: "Class / ID";
+                    horizontal-stretch: 3;
+                    font-weight: 700;
+                }
+                Text {
+                    text: "Info";
+                    horizontal-stretch: 1;
+                    font-weight: 700;
+                }
+            }
+        }
+
+        ListView {
+            vertical-stretch: 1;
+            for entry in root.entries: Rectangle {
+                height: 24px;
+                HorizontalBox {
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    Text {
+                        text: entry.name;
+                        horizontal-stretch: 2;
+                        overflow: elide;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        text: entry.class_name;
+                        horizontal-stretch: 3;
+                        overflow: elide;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        text: entry.detail;
+                        horizontal-stretch: 1;
+                        overflow: elide;
+                        vertical-alignment: center;
+                    }
+                }
             }
         }
     }

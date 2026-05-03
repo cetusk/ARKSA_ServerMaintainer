@@ -18,7 +18,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context, Result};
 use arksa_core::{
-    launch_args::{self, LaunchArgs, COMMON_MAPS},
+    gamedata, launch_args::{self, LaunchArgs, COMMON_MAPS}, modlist,
     profile::Profile,
     rcon::RconClient,
     server::{self, ServerStatus, StopOptions, StopOutcome},
@@ -30,6 +30,16 @@ use tracing_subscriber::EnvFilter;
 slint::include_modules!();
 
 const POLL_INTERVAL: Duration = Duration::from_secs(5);
+/// Cap on rows rendered in the Find window. Mods can be thousands of rows;
+/// no UI ever needs more than a few hundred at a time.
+const FIND_RESULT_LIMIT: usize = 500;
+
+// Bake the data files into the binary so the GUI doesn't depend on a side
+// `assets/` folder being shipped next to the exe.
+const ASSET_MODLIST: &[u8] = include_bytes!("../../../assets/ModList.txt");
+const ASSET_ENGRAMS: &[u8] = include_bytes!("../../../assets/EngramData.txt");
+const ASSET_ITEMS: &[u8] = include_bytes!("../../../assets/ItemData.txt");
+const ASSET_DINOS: &[u8] = include_bytes!("../../../assets/DinoData.txt");
 
 #[derive(Clone)]
 struct AppCtx {
@@ -75,9 +85,16 @@ fn main() -> Result<()> {
         log.clone(),
     );
 
+    // Find window — pre-load the bundled data once at startup.
+    let find_data = Arc::new(FindData::load());
+    let find_window = FindWindow::new()?;
+    refresh_find(&find_window, &find_data);
+    wire_find_callbacks(&find_window, find_data.clone());
+
     wire_main_callbacks(
         &window,
         &dialog,
+        &find_window,
         ctx.clone(),
         profiles.clone(),
         selected.clone(),
@@ -165,6 +182,7 @@ fn push_map_suggestions(dialog: &NewProfileWindow) {
 fn wire_main_callbacks(
     window: &MainWindow,
     dialog: &NewProfileWindow,
+    find_window: &FindWindow,
     ctx: AppCtx,
     profiles: ProfileList,
     selected: SelectedIndex,
@@ -297,6 +315,14 @@ fn wire_main_callbacks(
             let Some(dialog) = dialog_weak.upgrade() else { return };
             reset_dialog_to_defaults(&dialog, &install_dir);
             let _ = dialog.show();
+        });
+    }
+    {
+        let find_weak = find_window.as_weak();
+        window.on_open_find(move || {
+            if let Some(w) = find_weak.upgrade() {
+                let _ = w.show();
+            }
         });
     }
     {
@@ -564,6 +590,153 @@ fn collect_dialog_inputs(dialog: &NewProfileWindow) -> Result<DialogInputs, Stri
 
 fn clamp_port(v: i32) -> u16 {
     v.clamp(1, 65535) as u16
+}
+
+// ─── Find window ──────────────────────────────────────────────────────────
+
+/// Bundled-asset cache, parsed once at startup.
+struct FindData {
+    /// (id, display name), sorted alphabetically by name (case-insensitive).
+    mods: Vec<(u64, String)>,
+    engrams: Vec<gamedata::Engram>,
+    items: Vec<gamedata::Item>,
+    dinos: Vec<gamedata::Dino>,
+}
+
+impl FindData {
+    fn load() -> Self {
+        let mut mods: Vec<(u64, String)> = modlist::parse(ASSET_MODLIST).into_iter().collect();
+        mods.sort_by_key(|a| a.1.to_lowercase());
+        Self {
+            mods,
+            engrams: gamedata::parse_engrams_bytes(ASSET_ENGRAMS),
+            items: gamedata::parse_items_bytes(ASSET_ITEMS),
+            dinos: gamedata::parse_dinos_bytes(ASSET_DINOS),
+        }
+    }
+
+    /// Build the entries displayed in the list view for a given category and
+    /// substring filter. Returns `(entries_capped, filtered_count, total_count)`.
+    fn entries_for(&self, category: usize, filter: &str) -> (Vec<FindEntry>, usize, usize) {
+        let needle = filter.trim().to_lowercase();
+        let pass = |hay: &str| -> bool {
+            needle.is_empty() || hay.to_lowercase().contains(&needle)
+        };
+
+        match category {
+            // Mods
+            0 => {
+                let total = self.mods.len();
+                let filtered: Vec<&(u64, String)> = self
+                    .mods
+                    .iter()
+                    .filter(|(id, name)| pass(name) || pass(&id.to_string()))
+                    .collect();
+                let count = filtered.len();
+                let entries: Vec<FindEntry> = filtered
+                    .into_iter()
+                    .take(FIND_RESULT_LIMIT)
+                    .map(|(id, name)| FindEntry {
+                        name: name.as_str().into(),
+                        class_name: id.to_string().into(),
+                        detail: SharedString::default(),
+                    })
+                    .collect();
+                (entries, count, total)
+            }
+            // Engrams
+            1 => {
+                let total = self.engrams.len();
+                let filtered: Vec<&gamedata::Engram> = self
+                    .engrams
+                    .iter()
+                    .filter(|e| pass(&e.name) || pass(&e.class_name))
+                    .collect();
+                let count = filtered.len();
+                let entries: Vec<FindEntry> = filtered
+                    .into_iter()
+                    .take(FIND_RESULT_LIMIT)
+                    .map(|e| FindEntry {
+                        name: e.name.as_str().into(),
+                        class_name: e.class_name.as_str().into(),
+                        detail: format!("Lv {} / {}p", e.level, e.points).into(),
+                    })
+                    .collect();
+                (entries, count, total)
+            }
+            // Items
+            2 => {
+                let total = self.items.len();
+                let filtered: Vec<&gamedata::Item> = self
+                    .items
+                    .iter()
+                    .filter(|i| pass(&i.name) || pass(&i.class_name))
+                    .collect();
+                let count = filtered.len();
+                let entries: Vec<FindEntry> = filtered
+                    .into_iter()
+                    .take(FIND_RESULT_LIMIT)
+                    .map(|i| FindEntry {
+                        name: i.name.as_str().into(),
+                        class_name: i.class_name.as_str().into(),
+                        detail: format!("Stack {}", i.stack_size).into(),
+                    })
+                    .collect();
+                (entries, count, total)
+            }
+            // Dinos (or any out-of-range index — treat as Dinos)
+            _ => {
+                let total = self.dinos.len();
+                let filtered: Vec<&gamedata::Dino> = self
+                    .dinos
+                    .iter()
+                    .filter(|d| pass(&d.name) || pass(&d.class_name))
+                    .collect();
+                let count = filtered.len();
+                let entries: Vec<FindEntry> = filtered
+                    .into_iter()
+                    .take(FIND_RESULT_LIMIT)
+                    .map(|d| FindEntry {
+                        name: d.name.as_str().into(),
+                        class_name: d.class_name.as_str().into(),
+                        detail: SharedString::default(),
+                    })
+                    .collect();
+                (entries, count, total)
+            }
+        }
+    }
+}
+
+fn refresh_find(window: &FindWindow, data: &FindData) {
+    let category = window.get_selected_category().max(0) as usize;
+    let filter = window.get_filter_text().to_string();
+    let (entries, filtered_count, total) = data.entries_for(category, &filter);
+    let model = std::rc::Rc::new(VecModel::from(entries));
+    window.set_entries(ModelRc::from(model));
+    window.set_filtered_count(filtered_count as i32);
+    window.set_total_count(total as i32);
+}
+
+fn wire_find_callbacks(window: &FindWindow, data: Arc<FindData>) {
+    {
+        let weak = window.as_weak();
+        let data = data.clone();
+        window.on_category_changed(move |_idx| {
+            if let Some(w) = weak.upgrade() {
+                refresh_find(&w, &data);
+            }
+        });
+    }
+    {
+        let weak = window.as_weak();
+        let data = data.clone();
+        window.on_filter_changed(move |_text| {
+            if let Some(w) = weak.upgrade() {
+                refresh_find(&w, &data);
+            }
+        });
+    }
 }
 
 // ─── status refresh ────────────────────────────────────────────────────────
