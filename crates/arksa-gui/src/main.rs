@@ -22,8 +22,10 @@ use arksa_core::{
     profile::Profile,
     rcon::RconClient,
     server::{self, ServerStatus, StopOptions, StopOutcome},
+    settings::AppSettings,
     steamcmd,
 };
+use arksa_notify::{NotifyConfig, NotifyContext, NotifyEvent};
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use tracing_subscriber::EnvFilter;
 
@@ -44,6 +46,7 @@ const ASSET_DINOS: &[u8] = include_bytes!("../../../assets/DinoData.txt");
 #[derive(Clone)]
 struct AppCtx {
     install_dir: PathBuf,
+    notify_config: Arc<Mutex<NotifyConfig>>,
 }
 
 type ProfileList = Arc<Mutex<Vec<(String, PathBuf)>>>;
@@ -58,8 +61,19 @@ fn main() -> Result<()> {
         .init();
 
     let install_dir = detect_install_dir().context("could not determine ARKSA install dir")?;
+
+    // Load (or initialise) the persistent app settings + derive the notify
+    // config from it. Both are shared with worker threads and the
+    // notifications dialog.
+    let settings_path = install_dir.join(arksa_core::settings::DEFAULT_FILENAME);
+    let app_settings =
+        AppSettings::load(&settings_path).context("load app settings INI")?;
+    let notify_config = Arc::new(Mutex::new(notify_config_from_settings(&app_settings)));
+    let app_settings = Arc::new(Mutex::new(app_settings));
+
     let ctx = AppCtx {
         install_dir: install_dir.clone(),
+        notify_config: notify_config.clone(),
     };
     let profiles: ProfileList = Arc::new(Mutex::new(scan_profiles(&install_dir)));
     let selected: SelectedIndex = Arc::new(Mutex::new(0));
@@ -91,10 +105,23 @@ fn main() -> Result<()> {
     refresh_find(&find_window, &find_data);
     wire_find_callbacks(&find_window, find_data.clone());
 
+    // Notification settings dialog.
+    let notif_window = NotificationsWindow::new()?;
+    populate_notifications_window(&notif_window, &notify_config.lock().unwrap());
+    wire_notifications_callbacks(
+        &notif_window,
+        app_settings.clone(),
+        notify_config.clone(),
+        settings_path.clone(),
+        log.clone(),
+        window.as_weak(),
+    );
+
     wire_main_callbacks(
         &window,
         &dialog,
         &find_window,
+        &notif_window,
         ctx.clone(),
         profiles.clone(),
         selected.clone(),
@@ -179,10 +206,12 @@ fn push_map_suggestions(dialog: &NewProfileWindow) {
 
 // ─── main window callbacks ─────────────────────────────────────────────────
 
+#[allow(clippy::too_many_arguments)]
 fn wire_main_callbacks(
     window: &MainWindow,
     dialog: &NewProfileWindow,
     find_window: &FindWindow,
+    notif_window: &NotificationsWindow,
     ctx: AppCtx,
     profiles: ProfileList,
     selected: SelectedIndex,
@@ -227,6 +256,11 @@ fn wire_main_callbacks(
                     let prof = Profile::load(&profile_path)
                         .with_context(|| format!("load {}", profile_path.display()))?;
                     let pid = server::start(&prof, &ctx.install_dir)?;
+                    fire_notification(
+                        ctx.notify_config.clone(),
+                        NotifyEvent::ServerStarting,
+                        build_notify_context(&prof),
+                    );
                     Ok(format!("Server started (PID {pid})."))
                 }
             });
@@ -254,6 +288,16 @@ fn wire_main_callbacks(
                         &ctx.install_dir,
                         StopOptions::default(),
                     )?;
+                    if matches!(
+                        outcome,
+                        StopOutcome::GracefulRcon | StopOutcome::GracefulWindowClose
+                    ) {
+                        fire_notification(
+                            ctx.notify_config.clone(),
+                            NotifyEvent::ServerStopped,
+                            build_notify_context(&prof),
+                        );
+                    }
                     Ok(format!("Stop result: {}.", describe_stop(outcome)))
                 }
             });
@@ -321,6 +365,19 @@ fn wire_main_callbacks(
         let find_weak = find_window.as_weak();
         window.on_open_find(move || {
             if let Some(w) = find_weak.upgrade() {
+                let _ = w.show();
+            }
+        });
+    }
+    {
+        let notif_weak = notif_window.as_weak();
+        let cfg = ctx.notify_config.clone();
+        window.on_open_notifications(move || {
+            if let Some(w) = notif_weak.upgrade() {
+                // Re-populate from current config in case it changed since
+                // the dialog was last shown.
+                populate_notifications_window(&w, &cfg.lock().unwrap());
+                w.set_validation_error(SharedString::default());
                 let _ = w.show();
             }
         });
@@ -590,6 +647,169 @@ fn collect_dialog_inputs(dialog: &NewProfileWindow) -> Result<DialogInputs, Stri
 
 fn clamp_port(v: i32) -> u16 {
     v.clamp(1, 65535) as u16
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────
+
+fn notify_config_from_settings(settings: &AppSettings) -> NotifyConfig {
+    let mask = settings.discord_admin_event_mask().unwrap_or_default();
+    let events_enabled = NotifyConfig::parse_events_mask(&mask);
+    // Tray on/off is encoded as a single-character mask: any '1' counts as on.
+    let tray_mask = settings.tray_event_mask().unwrap_or_default();
+    let tray_enabled = tray_mask.chars().any(|c| c == '1');
+    NotifyConfig {
+        discord_webhook_url: settings.discord_admin_webhook_url().unwrap_or_default(),
+        display_name: settings.discord_display_name().unwrap_or_default(),
+        events_enabled,
+        tray_enabled,
+    }
+}
+
+fn populate_notifications_window(window: &NotificationsWindow, cfg: &NotifyConfig) {
+    window.set_webhook_url(SharedString::from(cfg.discord_webhook_url.as_str()));
+    window.set_display_name(SharedString::from(cfg.display_name.as_str()));
+    window.set_tray_enabled(cfg.tray_enabled);
+    window.set_ev_server_starting(cfg.events_enabled[NotifyEvent::ServerStarting as usize]);
+    window.set_ev_server_online(cfg.events_enabled[NotifyEvent::ServerOnline as usize]);
+    window.set_ev_server_stopped(cfg.events_enabled[NotifyEvent::ServerStopped as usize]);
+    window.set_ev_crash_detected(cfg.events_enabled[NotifyEvent::ServerCrashDetected as usize]);
+    window.set_ev_asasm_update(cfg.events_enabled[NotifyEvent::AsasmUpdateAvailable as usize]);
+    window.set_ev_server_app_update(cfg.events_enabled[NotifyEvent::ServerAppUpdateAvailable as usize]);
+}
+
+fn collect_notifications_window(window: &NotificationsWindow) -> NotifyConfig {
+    let events_enabled = [
+        window.get_ev_server_starting(),
+        window.get_ev_server_online(),
+        window.get_ev_server_stopped(),
+        window.get_ev_crash_detected(),
+        window.get_ev_asasm_update(),
+        window.get_ev_server_app_update(),
+    ];
+    NotifyConfig {
+        discord_webhook_url: window.get_webhook_url().to_string().trim().to_string(),
+        display_name: window.get_display_name().to_string().trim().to_string(),
+        events_enabled,
+        tray_enabled: window.get_tray_enabled(),
+    }
+}
+
+fn wire_notifications_callbacks(
+    window: &NotificationsWindow,
+    settings: Arc<Mutex<AppSettings>>,
+    notify_config: Arc<Mutex<NotifyConfig>>,
+    settings_path: PathBuf,
+    log: LogBuffer,
+    main_weak: slint::Weak<MainWindow>,
+) {
+    {
+        let weak = window.as_weak();
+        window.on_cancel_clicked(move || {
+            if let Some(w) = weak.upgrade() {
+                let _ = w.hide();
+            }
+        });
+    }
+    {
+        let weak = window.as_weak();
+        let settings = settings.clone();
+        let notify_config = notify_config.clone();
+        let log = log.clone();
+        let main_weak = main_weak.clone();
+        let settings_path = settings_path.clone();
+        window.on_save_clicked(move || {
+            let Some(window) = weak.upgrade() else { return };
+            let new_cfg = collect_notifications_window(&window);
+
+            // Persist into AppSettings + INI on disk.
+            {
+                let mut s = settings.lock().unwrap();
+                s.set_discord_admin_webhook_url(&new_cfg.discord_webhook_url);
+                s.set_discord_display_name(&new_cfg.display_name);
+                s.set_discord_admin_event_mask(&new_cfg.events_mask_string());
+                // Single-bit "tray on/off" stored as a 1-char mask, the same
+                // shape the upstream INI uses.
+                s.set_tray_event_mask(if new_cfg.tray_enabled { "1" } else { "0" });
+                if let Err(e) = s.save() {
+                    window.set_validation_error(SharedString::from(
+                        format!("Save failed: {e:#}").as_str(),
+                    ));
+                    return;
+                }
+            }
+
+            *notify_config.lock().unwrap() = new_cfg;
+            push_log_async(&main_weak, &log, "Notification settings saved.");
+            let _ = settings_path; // settings.save() reuses its bound path
+            let _ = window.hide();
+        });
+    }
+    {
+        let weak = window.as_weak();
+        let log = log.clone();
+        let main_weak = main_weak.clone();
+        window.on_test_webhook_clicked(move || {
+            let Some(window) = weak.upgrade() else { return };
+            let url = window.get_webhook_url().to_string().trim().to_string();
+            let display = window.get_display_name().to_string();
+            if url.is_empty() {
+                window.set_validation_error(SharedString::from("Enter a webhook URL first."));
+                return;
+            }
+            window.set_validation_error(SharedString::from("Sending test message…"));
+            let log = log.clone();
+            let weak = weak.clone();
+            let main_weak = main_weak.clone();
+            std::thread::spawn(move || {
+                let name = if display.trim().is_empty() {
+                    "ARKSA".to_string()
+                } else {
+                    display.trim().to_string()
+                };
+                let msg = format!("**[{name}] test message**\nWebhook is reachable.");
+                let result = arksa_notify::discord::send(&url, &msg);
+                let label = match &result {
+                    Ok(()) => "Test message sent successfully.".to_string(),
+                    Err(e) => format!("Test failed: {e:#}"),
+                };
+                push_log_async(&main_weak, &log, &label);
+                let label_for_dialog = label.clone();
+                let _ = weak.upgrade_in_event_loop(move |w| {
+                    w.set_validation_error(SharedString::from(label_for_dialog.as_str()));
+                });
+            });
+        });
+    }
+}
+
+/// Fire a notification on a background thread so the calling lifecycle path
+/// is never blocked by Discord HTTP latency or toast initialisation.
+fn fire_notification(
+    config: Arc<Mutex<NotifyConfig>>,
+    event: NotifyEvent,
+    ctx: NotifyContext,
+) {
+    std::thread::spawn(move || {
+        let cfg = config.lock().unwrap().clone();
+        arksa_notify::dispatch(&cfg, event, &ctx);
+    });
+}
+
+fn build_notify_context(profile: &Profile) -> NotifyContext {
+    let name = profile
+        .display_name()
+        .or_else(|| {
+            profile
+                .path()
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+        })
+        .unwrap_or_else(|| "(unnamed)".into());
+    let mut ctx = NotifyContext::new(name);
+    if let Some(map) = profile.map_name() {
+        ctx = ctx.with_map(map);
+    }
+    ctx
 }
 
 // ─── Find window ──────────────────────────────────────────────────────────

@@ -17,5 +17,8 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
-tray-icon = { workspace = true }
+
+# Windows-only deps. We don't use tray-icon's persistent menu (the upstream
+# tray menu is out of scope) — only tauri-winrt-notification for toasts.
+[target.'cfg(target_os = "windows")'.dependencies]
 tauri-winrt-notification = { workspace = true }

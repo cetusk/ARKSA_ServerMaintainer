@@ -54,6 +54,7 @@ export component MainWindow inherits Window {
     callback new-profile();
     callback install-update-server();
     callback open-find();
+    callback open-notifications();
 
     VerticalBox {
         padding: 12px;
@@ -96,6 +97,11 @@ export component MainWindow inherits Window {
                 text: "Find…";
                 enabled: !root.action-busy;
                 clicked => { root.open-find(); }
+            }
+            Button {
+                text: "Notifications…";
+                enabled: !root.action-busy;
+                clicked => { root.open-notifications(); }
             }
             Button {
                 text: "Refresh";
@@ -187,6 +193,107 @@ export component MainWindow inherits Window {
                 text: root.log-text;
                 read-only: true;
                 wrap: word-wrap;
+            }
+        }
+    }
+}
+
+// ─── Notification settings dialog ─────────────────────────────────────────
+
+export component NotificationsWindow inherits Window {
+    title: "Notifications";
+    preferred-width: 520px;
+    preferred-height: 480px;
+
+    in-out property <string> webhook-url: "";
+    in-out property <string> display-name: "";
+    in-out property <bool> tray-enabled: true;
+
+    in-out property <bool> ev-server-starting: true;
+    in-out property <bool> ev-server-online: false;
+    in-out property <bool> ev-server-stopped: true;
+    in-out property <bool> ev-crash-detected: false;
+    in-out property <bool> ev-asasm-update: false;
+    in-out property <bool> ev-server-app-update: false;
+
+    in property <string> validation-error: "";
+
+    callback save-clicked();
+    callback cancel-clicked();
+    callback test-webhook-clicked();
+
+    VerticalBox {
+        padding: 14px;
+        spacing: 10px;
+
+        GroupBox {
+            title: "Discord Webhook";
+            VerticalBox {
+                spacing: 6px;
+                HorizontalBox {
+                    Text { text: "Webhook URL:"; vertical-alignment: center; min-width: 130px; }
+                    LineEdit {
+                        text <=> root.webhook-url;
+                        placeholder-text: "https://discord.com/api/webhooks/...";
+                        horizontal-stretch: 1;
+                    }
+                }
+                HorizontalBox {
+                    Text { text: "Display name:"; vertical-alignment: center; min-width: 130px; }
+                    LineEdit {
+                        text <=> root.display-name;
+                        placeholder-text: "ARKSA";
+                        horizontal-stretch: 1;
+                    }
+                    Button {
+                        text: "Test";
+                        clicked => { root.test-webhook-clicked(); }
+                    }
+                }
+            }
+        }
+
+        GroupBox {
+            title: "Windows Toast";
+            VerticalBox {
+                spacing: 6px;
+                CheckBox {
+                    text: "Show Windows toast notifications for the events below";
+                    checked <=> root.tray-enabled;
+                }
+            }
+        }
+
+        GroupBox {
+            title: "Events";
+            VerticalBox {
+                spacing: 4px;
+                CheckBox { text: "Server starting";              checked <=> root.ev-server-starting; }
+                CheckBox { text: "Server online";                checked <=> root.ev-server-online; }
+                CheckBox { text: "Server stopped";               checked <=> root.ev-server-stopped; }
+                CheckBox { text: "Server crash detected";        checked <=> root.ev-crash-detected; }
+                CheckBox { text: "ARKSA tool update available";  checked <=> root.ev-asasm-update; }
+                CheckBox { text: "ARK server update available";  checked <=> root.ev-server-app-update; }
+            }
+        }
+
+        if root.validation-error != "": Text {
+            text: root.validation-error;
+            color: #c62828;
+            wrap: word-wrap;
+        }
+
+        HorizontalBox {
+            alignment: end;
+            spacing: 8px;
+            Button {
+                text: "Cancel";
+                clicked => { root.cancel-clicked(); }
+            }
+            Button {
+                text: "Save";
+                primary: true;
+                clicked => { root.save-clicked(); }
             }
         }
     }
