@@ -15,6 +15,7 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::ark_config;
 use crate::error::{Error, Result};
 use crate::ini_doc::IniDoc;
 use crate::launch_args::{self, LaunchArgs};
@@ -22,6 +23,22 @@ use crate::launch_args::{self, LaunchArgs};
 pub const SECTION_ASASM: &str = "ASASM";
 pub const SECTION_GENERAL: &str = "General";
 pub const SECTION_SERVER: &str = "Server";
+
+/// Mirror of `Profile::resolved_install_path` available at construction time.
+/// We need this in `create_new` before we have a `Profile` object to call.
+fn resolve_install_root(
+    profiles_dir: &Path,
+    install_location: &str,
+    relative_path: bool,
+) -> PathBuf {
+    if relative_path {
+        // `profiles_dir` is `<ARKSA_DIR>/Profile`, so its parent is `<ARKSA_DIR>`.
+        let arksa_dir = profiles_dir.parent().unwrap_or(profiles_dir);
+        arksa_dir.join(install_location)
+    } else {
+        PathBuf::from(install_location)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Profile {
@@ -118,6 +135,23 @@ impl Profile {
         profile.set_server_command_line(&launch_args::build_command_line(args));
 
         profile.save()?;
+
+        // Mirror RCON-relevant settings into GameUserSettings.ini at the
+        // install root. The URL form of these keys cannot be relied on (see
+        // launch_args::build_command_line for the rationale), so we write
+        // them directly into the file ARK actually consults at startup. The
+        // file may not yet exist (the user has not run "Install / Update
+        // server") — load_or_empty handles that, and parent directories are
+        // created on save().
+        let install_root = resolve_install_root(profiles_dir, install_location, relative_path);
+        let gus_path = ark_config::game_user_settings_path(&install_root);
+        ark_config::write_rcon_settings(
+            &gus_path,
+            args.rcon_enabled,
+            args.rcon_port,
+            &args.admin_password,
+        )?;
+
         Ok(profile)
     }
 
@@ -402,8 +436,23 @@ Edit_ServerAdminPassword=hunter2
         assert_eq!(reloaded.admin_password().as_deref(), Some("fixed-pw"));
         let cmd = reloaded.server_command_line().unwrap();
         assert!(cmd.starts_with("ArkAscendedServer.exe TheIsland_WP?listen"));
-        assert!(cmd.contains("ServerAdminPassword=fixed-pw"));
-        assert!(cmd.contains("RCONEnabled=True"));
+        // ServerAdminPassword / RCONEnabled / RCONPort live in
+        // GameUserSettings.ini now (URL parser corruption workaround), so
+        // they must NOT appear in the launch line.
+        assert!(!cmd.contains("ServerAdminPassword"));
+        assert!(!cmd.contains("RCONEnabled"));
+        assert!(!cmd.contains("RCONPort"));
+
+        // The matching values must show up in GameUserSettings.ini under the
+        // install root we declared (which here is `<tmp_dir>/../ark001`).
+        let arksa_dir = dir.parent().unwrap();
+        let install_root = arksa_dir.join("ark001");
+        let gus_path = crate::ark_config::game_user_settings_path(&install_root);
+        let gus = crate::ark_config::GameUserSettings::load_or_empty(&gus_path).unwrap();
+        assert_eq!(gus.rcon_enabled(), Some(true));
+        assert_eq!(gus.rcon_port(), Some(args.rcon_port));
+        assert_eq!(gus.admin_password().as_deref(), Some("fixed-pw"));
+        let _ = std::fs::remove_dir_all(install_root);
 
         // Repeating the create should fail with "already exists".
         let again = Profile::create_new(

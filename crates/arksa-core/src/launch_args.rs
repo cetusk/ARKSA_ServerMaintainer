@@ -98,6 +98,12 @@ pub fn generate_password(len: usize) -> String {
 }
 
 /// Build a string suitable for `[General] MM_Command_Val`.
+///
+/// **Deliberately omitted from the URL**: `ServerAdminPassword`, `RCONEnabled`,
+/// `RCONPort`. ARK SA's URL parser corrupts the password value (it swallows
+/// the rest of the URL into the `ServerAdminPassword=` value, which then
+/// silently disables RCON). These three live exclusively in
+/// `GameUserSettings.ini` — see `ark_config::write_rcon_settings`.
 pub fn build_command_line(args: &LaunchArgs) -> String {
     let mut url = String::new();
     url.push_str(&args.map);
@@ -106,13 +112,8 @@ pub fn build_command_line(args: &LaunchArgs) -> String {
     if !args.server_password.is_empty() {
         push_param(&mut url, "ServerPassword", &args.server_password);
     }
-    push_param(&mut url, "ServerAdminPassword", &args.admin_password);
     push_param(&mut url, "Port", &args.game_port.to_string());
     push_param(&mut url, "QueryPort", &args.query_port.to_string());
-    if args.rcon_enabled {
-        push_param(&mut url, "RCONEnabled", "True");
-        push_param(&mut url, "RCONPort", &args.rcon_port.to_string());
-    }
     push_param(&mut url, "MaxPlayers", &args.max_players.to_string());
 
     let mut cmd = format!("ArkAscendedServer.exe {url}");
@@ -179,28 +180,35 @@ mod tests {
             extra_flags: vec!["-log".into()],
         };
         let cmd = build_command_line(&args);
+        // ServerAdminPassword / RCONEnabled / RCONPort intentionally not in the URL.
         assert_eq!(
             cmd,
             "ArkAscendedServer.exe TheIsland_WP?listen?SessionName=Test\
-             ?ServerAdminPassword=pw?Port=7777?QueryPort=27015\
-             ?RCONEnabled=True?RCONPort=27020?MaxPlayers=10 -log"
+             ?Port=7777?QueryPort=27015?MaxPlayers=10 -log"
         );
     }
 
     #[test]
     fn omits_server_password_when_empty() {
-        let mut args = LaunchArgs::defaults();
-        args.admin_password = "pw".into();
+        let args = LaunchArgs::defaults();
         let cmd = build_command_line(&args);
-        assert!(!cmd.contains("ServerPassword="));
-        assert!(cmd.contains("ServerAdminPassword=pw"));
+        assert!(!cmd.contains("?ServerPassword="));
     }
 
     #[test]
-    fn omits_rcon_when_disabled() {
+    fn never_includes_server_admin_password_in_url() {
         let mut args = LaunchArgs::defaults();
-        args.admin_password = "pw".into();
-        args.rcon_enabled = false;
+        args.admin_password = "anything".into();
+        let cmd = build_command_line(&args);
+        assert!(
+            !cmd.contains("ServerAdminPassword"),
+            "URL must never carry ServerAdminPassword (ARK URL parser corrupts it)"
+        );
+    }
+
+    #[test]
+    fn never_includes_rcon_keys_in_url() {
+        let args = LaunchArgs::defaults();
         let cmd = build_command_line(&args);
         assert!(!cmd.contains("RCONEnabled"));
         assert!(!cmd.contains("RCONPort"));

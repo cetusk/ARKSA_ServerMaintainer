@@ -4,6 +4,7 @@
 //! Houses server lifecycle, RCON protocol, Win32 process monitoring,
 //! steamcmd integration, profile/settings INI handling, mod data, and backup.
 
+pub mod ark_config;
 pub mod backup;
 pub mod error;
 pub mod gamedata;
