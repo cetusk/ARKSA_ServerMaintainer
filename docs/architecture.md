@@ -36,27 +36,57 @@
 
 ## Phases
 
-| Phase | Deliverable | Key crates touched |
-|---|---|---|
-| 0 | Workspace skeleton, builds with stub UI | (all) |
-| 1 | INI / profile / settings / modlist / Win32 process monitoring | `arksa-core` |
-| 2 | RCON client + steamcmd wrapper + server start/stop | `arksa-core` |
-| 3 | Slint UI: status panel, start/stop wired to core, periodic poll | `arksa-gui` |
-| 4 | Profile editor, settings dialog, backup | `arksa-gui`, `arksa-core::backup` |
-| 5 | Find UI (Mod / Dino / Item / Engram) | `arksa-gui`, `arksa-core::{modlist,gamedata}` |
-| 6 | Discord webhook + tray + toast notifications | `arksa-notify` |
-| 7 | i18n: English + Japanese | `arksa-gui` |
-| 8 | `arksa-commander` CLI | `arksa-commander` |
-| 9 | `arksa-updater` against GitHub Releases | `arksa-updater` |
+| Phase | Deliverable | Status | Key crates touched |
+|---|---|---|---|
+| 0 | Workspace skeleton, builds with stub UI | ✅ | (all) |
+| 1 | INI / profile / settings / modlist / Win32 process monitoring | ✅ | `arksa-core` |
+| 2 | RCON client + steamcmd wrapper + server start/stop | ✅ | `arksa-core` |
+| 3 | Slint UI: status panel, start/stop wired to core, periodic poll | ✅ | `arksa-gui` |
+| 4 | New Profile dialog + Install/Update button + empty state | ✅ | `arksa-gui` |
+| 5 | Auto `GameUserSettings.ini` (`ark_config`) + Find UI (Mod/Engram/Item/Dino) | ✅ | `arksa-core::{ark_config,gamedata,modlist}`, `arksa-gui` |
+| 6 | Discord webhook + Windows toast + notification settings UI | ✅ | `arksa-notify`, `arksa-gui` |
+| 7 | i18n (English + Japanese) — UiLabels struct, Rust-side translation | ✅ | `arksa-gui` |
+| 8 | `arksa-commander` CLI | next | `arksa-commander` |
+| 9 | `arksa-updater` against GitHub Releases | | `arksa-updater` |
+| ? | Backup, scheduled restart, crash auto-restart | | `arksa-core::backup`, `arksa-gui` |
+| ? | Profile editor (full settings dialog) | | `arksa-gui` |
 
-Each phase ends in a runnable build with the new feature visible from the GUI (or, for binaries, from the command line).
+Each completed phase ships in a single runnable build with the new feature visible from the GUI (or, for binaries, from the command line).
 
 ## Async strategy
 
-A single multi-thread tokio runtime is owned by `arksa-gui`. Slint runs on the
-main thread; long-running I/O (RCON, HTTP, steamcmd, zip) is spawned via
-`tokio::spawn` and results are marshalled back to the UI using
-`slint::invoke_from_event_loop`.
+Long-running I/O (RCON, HTTP, steamcmd, zip) runs on `std::thread::spawn`
+workers from `arksa-gui`; results are marshalled back to Slint via
+`slint::Weak::upgrade_in_event_loop`. The `tokio` runtime is in the
+dependency graph for future async-native work but the GUI does not currently
+mount it. Notifications (Discord HTTP / toast) are fired on a fresh thread
+from each lifecycle event so they never block the originating worker.
+
+## Notifications wiring
+
+`arksa-notify::dispatch(config, event, ctx)` is the single dispatch
+function. The GUI calls it via `fire_notification`, which spawns a thread
+that takes a snapshot of the (mutex-guarded) `NotifyConfig` and invokes
+`dispatch`. Discord and toast failures are logged via `tracing::warn` and
+never interrupt the calling lifecycle path.
+
+`Profile::create_new` writes the RCON-relevant subset of `NotifyConfig`-style
+settings (RCONEnabled / RCONPort / ServerAdminPassword) into the install
+root's `GameUserSettings.ini` via `arksa-core::ark_config`, working around a
+known ARK SA URL-parser bug that mangles the password and silently disables
+RCON when those keys are passed via `?key=value` in the launch URL.
+
+## i18n
+
+UI strings flow through a Rust `Labels` struct (47 fields covering all four
+top-level windows). At startup the GUI reads `AppSettings::language()`
+(0 = auto, 1 = English, 2 = Japanese, matching upstream ASASM's encoding),
+chooses a translation table, and pushes it into each Slint window's
+`labels: UiLabels` property. Live language switching is intentionally not
+supported — changing the dropdown in *Notifications…* persists the new
+choice and the GUI applies it on next launch. This lets us avoid the
+runtime cost (and library-dependency cost) of a gettext-style translation
+loader while keeping the door open for a richer integration later.
 
 ## Win32 access
 

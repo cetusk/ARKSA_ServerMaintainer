@@ -4,7 +4,7 @@ A Rust + Slint GUI tool to maintain a personal **ARK: Survival Ascended** dedica
 
 A personal-use **re-implementation** of [ASA Server Manager (ASASM)](https://sites.google.com/view/asa-server-manager) by *Dの人*. The upstream author explicitly permits forks and re-implementations in other languages. The upstream Object Pascal source is **not redistributed** here; obtain it from the upstream distribution above if you need to cross-reference.
 
-> **Status: Phase 4 — first usable build, validated end-to-end.** The GUI can create a profile, install the dedicated server via the bundled steamcmd, start/stop the server, send RCON commands, and a real ARK SA client has successfully joined a server set up this way (via in-game `open <ip>:<port>`). Backups, scheduled restarts, and the Discord/tray notification UIs are still pending. See [`docs/architecture.md`](./docs/architecture.md) for the phase-by-phase plan.
+> **Status: Phase 7 — feature-complete enough for daily personal-server use.** The GUI can create a profile, auto-write `GameUserSettings.ini` so RCON works on first start, install the dedicated server via the bundled steamcmd, start/stop the server, send RCON commands, search Mods/Engrams/Items/Dinos, send Discord & Windows toast notifications on lifecycle events, and switch between English / Japanese. Real ARK SA clients have joined a server set up this way (via in-game `open <ip>:<port>`). Backups (Phase ?), CLI commander (Phase 8), and self-updater (Phase 9) are still pending. See [`docs/architecture.md`](./docs/architecture.md) for the full phase plan.
 
 ---
 
@@ -130,43 +130,7 @@ Success! App '2430930' fully installed.
 steamcmd exited with code 0.
 ```
 
-### 6. Apply the manual RCON workaround (one-time, current limitation)
-
-ARK SA's URL parser corrupts a few launch-line parameters. Until Phase 5
-auto-generates `GameUserSettings.ini`, do this once:
-
-a. Stop the server if it is running:
-```powershell
-Stop-Process -Name ArkAscendedServer* -Force
-```
-
-b. Open the freshly-installed `GameUserSettings.ini`:
-```powershell
-notepad "D:\ARK\ARKSA_Server\ShooterGame\Saved\Config\WindowsServer\GameUserSettings.ini"
-```
-
-c. In the `[ServerSettings]` section, ensure exactly these three lines exist
-   (replace the password with the value of `Edit_ServerAdminPassword`
-   from `<ARKSA_DIR>\Profile\<file_name>.ini`, with no `?…` tail):
-```ini
-[ServerSettings]
-RCONEnabled=True
-RCONPort=27020
-ServerAdminPassword=<your-admin-password>
-```
-
-d. Open the profile INI:
-```powershell
-notepad "D:\ARK\ARKSA_Tools\Profile\<file_name>.ini"
-```
-Confirm the `MM_Command_Val=` line **does not contain** `?ServerAdminPassword=`. If it does, delete the `?ServerAdminPassword=…?` segment so the URL is just map / SessionName / Port / QueryPort / RCONEnabled / RCONPort / MaxPlayers, e.g.:
-```
-MM_Command_Val=ArkAscendedServer.exe TheIsland_WP?listen?SessionName=ARKSAServer?Port=7777?QueryPort=27015?RCONEnabled=True?RCONPort=27020?MaxPlayers=10 -log -NoBattlEye
-```
-
-> Why: see [Known issues](#known-issues--current-workarounds) below.
-
-### 7. Start
+### 6. Start
 
 Click **Start** in the GUI. The Log panel shows `Server started (PID …).`,
 the Status panel updates every 5 s (`Running`, memory, uptime).
@@ -178,10 +142,15 @@ Get-Content "D:\ARK\ARKSA_Server\ShooterGame\Saved\Logs\ShooterGame.log" -Wait -
 ```
 Wait for `Server has completed startup and is now advertising for join.`
 
-### 8. Test RCON
+### 7. Test RCON
 
 In the GUI's RCON box, type `ListPlayers` and **Send**. You should see
 `No Players Connected` (or a list of names) in the log. RCON is now wired.
+
+> Phase 5 wires this up automatically: `Profile::create_new` writes the
+> right `RCONEnabled=True` / `RCONPort=…` / `ServerAdminPassword=…` lines
+> directly into `GameUserSettings.ini` (under the install root), so the
+> manual edit step earlier versions needed is no longer required.
 
 ## Recommended on-disk layout
 
@@ -220,11 +189,29 @@ If `ARKSA_DIR` is not set, the tool falls back to the directory containing
 | **Stop (graceful)** | GUI → *Stop (graceful)* — sends `SaveWorld` + `DoExit` over RCON, falls back to `WM_CLOSE` if RCON is down |
 | **Update game version** | GUI → *Install / Update server* (re-runs steamcmd; existing files are preserved) |
 | **Send arbitrary RCON command** | GUI's RCON input box → type a command → *Send* |
+| **Find a Mod / Engram / Item / Dino** | GUI → *Find…* → pick category, type substring → results show name + class/ID |
+| **Discord / toast notifications** | GUI → *Notifications…* → set webhook URL, toggle event types, *Save* |
+| **Switch UI language (EN ↔ JA)** | GUI → *Notifications…* → *Language* dropdown → *Save* (restart required) |
 | **Edit the launch line** | Edit `MM_Command_Val=` in `<ARKSA_DIR>\Profile\<file_name>.ini`, then GUI *Refresh* |
 | **Switch profile** | GUI's profile dropdown (when more than one profile exists) |
 
 The Status panel polls `server::status` every 5 s — PID, working-set memory,
 and uptime are kept current without you doing anything.
+
+### Notifications
+
+The *Notifications…* dialog persists settings to
+`<ARKSA_DIR>/AsaServerManegerWin.ini` (compatible with the upstream layout).
+Currently wired event triggers:
+
+| Event | Fires when |
+|---|---|
+| `Server starting` | After `server::start` returns a PID |
+| `Server stopped` | After `stop_graceful` returns `GracefulRcon` or `GracefulWindowClose` |
+
+Other events (Server online / Crash detected / Tool update / Server-app
+update) can be enabled in the dialog and will send out a payload once the
+corresponding detector is implemented in a future phase.
 
 ## Connecting from the ARK SA client
 
@@ -267,48 +254,41 @@ Otherwise the client refuses to connect to a non-BattlEye server.
 
 ## Known issues & current workarounds
 
-These are tracked for fixing in upcoming phases — they are listed here so
-the workarounds are visible until then.
-
-### 1. ARK URL parser corrupts `ServerAdminPassword` in `MM_Command_Val`
-ARK SA's launch-URL parser swallows the rest of the URL into the value of
-`?ServerAdminPassword=`, also breaks if the value starts with `-`, and
-breaks if `?SessionName=` contains a space. Symptoms:
-- `GameUserSettings.ini → ServerAdminPassword=…?Port=7777?…?MaxPlayers=10` (one giant string)
-- RCON authentication fails (the password the client expects no longer matches what ARK stored)
-- `RCONEnabled=True` from the URL is ignored
-
-**Workaround (current):** the manual GameUserSettings.ini step in the
-[Quickstart](#6-apply-the-manual-rcon-workaround-one-time-current-limitation),
-plus removing `?ServerAdminPassword=…?` from `MM_Command_Val`.
-
-**Fix planned (next phase):** `Profile::create_new` will write
-`GameUserSettings.ini` itself with the correct `RCONEnabled=True`,
-`RCONPort=`, and `ServerAdminPassword=` lines, and the launch URL will
-omit those keys entirely. After that the workaround disappears.
-
-### 2. Server does not appear in ARK SA's Unofficial server browser
+### 1. Server does not appear in ARK SA's Unofficial server browser
 Wildcard's matchmaking is slow / unreliable for small personal servers.
 **Workaround:** connect via in-game console (`open <ip>:<port>`). See
 [Connecting from the ARK SA client](#connecting-from-the-ark-sa-client).
 
-### 3. ICU4X warning on JP-locale Windows
+### 2. ICU4X warning on JP-locale Windows
 On startup the GUI may log:
 ```
 ICU4X data error: No segmentation model for language: ja
 ```
 Slint's bundled software renderer ships only English text-segmentation
-data. The warning is harmless because the UI text is English. If it
-becomes annoying later, switching the renderer feature in
-`Cargo.toml` from `renderer-software` to `renderer-skia` (which carries
-full CJK data) eliminates it — at the cost of needing the C++ Skia
-toolchain at build time.
+data. The warning is harmless. If it becomes annoying later, switching
+the renderer feature in `Cargo.toml` from `renderer-software` to
+`renderer-skia` (which carries full CJK data) eliminates it — at the
+cost of needing the C++ Skia toolchain at build time.
 
-### 4. RCON port silently changes after a malformed first start
-If ARK ever falls back to its default RCON port (often `query_port + 2`)
-the value can stick in `GameUserSettings.ini`. Edit
-`GameUserSettings.ini → RCONPort=27020` and restart to recover. The fix
-in (1) makes this self-healing.
+### 3. Live language switching is not supported
+The Language dropdown in *Notifications…* writes the choice to
+`AppSettings`, but the actual UI labels are sampled from the language
+setting once at startup. Restart the GUI to apply a language change.
+
+### 4. NewProfileWindow internals are still English-only
+The Quickstart's *New Profile* dialog has many internal field labels (game
+port, query port, mods, etc.) that are not yet wired through the i18n
+labels struct. Section/window titles and buttons are translated, but the
+in-form field labels stay in English regardless of language setting. Will
+be filled in incrementally.
+
+### 5. Resolved by Phase 5: ARK URL parser corrupting `ServerAdminPassword`
+Earlier versions required the user to manually edit `GameUserSettings.ini`
+because ARK SA's URL parser merged the rest of the launch URL into the
+admin-password value. Phase 5's `arksa-core::ark_config` writes
+`RCONEnabled` / `RCONPort` / `ServerAdminPassword` straight into
+`GameUserSettings.ini` and the launch URL no longer carries them. New
+profiles created by *New…* are RCON-ready immediately.
 
 ## Roadmap
 
@@ -322,11 +302,12 @@ and the `.pas → Rust` mapping.
 | 2 | RCON + steamcmd + server lifecycle | ✅ |
 | 3 | Slint UI wired to core | ✅ |
 | 4 | New Profile dialog + Install button + empty state | ✅ |
-| 5 | Auto `GameUserSettings.ini` + Mod/Dino/Item search UI | next |
-| 6 | Discord webhook + tray notifications | |
-| 7 | i18n (EN + JA) | |
-| 8 | `arksa-commander` CLI | |
+| 5 | Auto `GameUserSettings.ini` + Mod/Engram/Item/Dino search UI | ✅ |
+| 6 | Discord webhook + tray notifications | ✅ |
+| 7 | i18n (EN + JA) | ✅ |
+| 8 | `arksa-commander` CLI | next |
 | 9 | `arksa-updater` self-update against GitHub Releases | |
+| (?) | Backup / scheduled restart / crash auto-restart | |
 
 ## License
 
