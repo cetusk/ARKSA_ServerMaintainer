@@ -43,10 +43,19 @@ const ASSET_ENGRAMS: &[u8] = include_bytes!("../../../assets/EngramData.txt");
 const ASSET_ITEMS: &[u8] = include_bytes!("../../../assets/ItemData.txt");
 const ASSET_DINOS: &[u8] = include_bytes!("../../../assets/DinoData.txt");
 
+/// Language code as stored in `AppSettings::language()`:
+///   0 = auto (system locale; for now treated as English on Windows)
+///   1 = English
+///   2 = Japanese
+const LANG_AUTO: i64 = 0;
+const LANG_ENGLISH: i64 = 1;
+const LANG_JAPANESE: i64 = 2;
+
 #[derive(Clone)]
 struct AppCtx {
     install_dir: PathBuf,
     notify_config: Arc<Mutex<NotifyConfig>>,
+    labels: Arc<Labels>,
 }
 
 type ProfileList = Arc<Mutex<Vec<(String, PathBuf)>>>;
@@ -69,17 +78,24 @@ fn main() -> Result<()> {
     let app_settings =
         AppSettings::load(&settings_path).context("load app settings INI")?;
     let notify_config = Arc::new(Mutex::new(notify_config_from_settings(&app_settings)));
+
+    // i18n labels for the current session. Live language switching requires
+    // a restart so we capture the value once here.
+    let labels = Arc::new(Labels::for_language(app_settings.language()));
+    let language_setting = app_settings.language();
     let app_settings = Arc::new(Mutex::new(app_settings));
 
     let ctx = AppCtx {
         install_dir: install_dir.clone(),
         notify_config: notify_config.clone(),
+        labels: labels.clone(),
     };
     let profiles: ProfileList = Arc::new(Mutex::new(scan_profiles(&install_dir)));
     let selected: SelectedIndex = Arc::new(Mutex::new(0));
     let log: LogBuffer = Arc::new(Mutex::new(String::new()));
 
     let window = MainWindow::new()?;
+    window.set_labels(labels.to_ui());
     window.set_install_dir(install_dir.display().to_string().into());
     push_profiles_to_ui(&window, &profiles.lock().unwrap());
     append_log(
@@ -89,6 +105,7 @@ fn main() -> Result<()> {
     );
 
     let dialog = NewProfileWindow::new()?;
+    dialog.set_labels(labels.to_ui());
     push_map_suggestions(&dialog);
     wire_dialog_callbacks(
         &dialog,
@@ -102,11 +119,14 @@ fn main() -> Result<()> {
     // Find window — pre-load the bundled data once at startup.
     let find_data = Arc::new(FindData::load());
     let find_window = FindWindow::new()?;
+    find_window.set_labels(labels.to_ui());
     refresh_find(&find_window, &find_data);
     wire_find_callbacks(&find_window, find_data.clone());
 
     // Notification settings dialog.
     let notif_window = NotificationsWindow::new()?;
+    notif_window.set_labels(labels.to_ui());
+    notif_window.set_language_index(language_index_for_setting(language_setting));
     populate_notifications_window(&notif_window, &notify_config.lock().unwrap());
     wire_notifications_callbacks(
         &notif_window,
@@ -649,6 +669,260 @@ fn clamp_port(v: i32) -> u16 {
     v.clamp(1, 65535) as u16
 }
 
+// ─── i18n ─────────────────────────────────────────────────────────────────
+
+/// Translated UI strings, owned by Rust. We hand these to Slint via
+/// `Labels::to_ui` whenever we need to populate a window's `labels`
+/// property; status / error strings shown later are also drawn from here so
+/// the whole UI follows one language source.
+#[derive(Clone)]
+struct Labels {
+    main_window_title: String,
+    arksa_dir: String,
+    btn_browse: String,
+    profile_label: String,
+    btn_new: String,
+    btn_find: String,
+    btn_notifications: String,
+    btn_refresh: String,
+    panel_server_status: String,
+    label_status: String,
+    label_map: String,
+    label_ports: String,
+    label_memory: String,
+    label_uptime: String,
+    btn_start: String,
+    btn_stop: String,
+    btn_install: String,
+    panel_rcon: String,
+    placeholder_rcon: String,
+    btn_send: String,
+    panel_log: String,
+    empty_title: String,
+    empty_subtitle: String,
+    empty_create_first: String,
+    status_stopped: String,
+    /// Format string used as `format!("{prefix} {pid}")` — the prefix already
+    /// contains the parenthesised "PID" word so callers just append the PID.
+    status_running_prefix: String,
+    status_no_profile: String,
+    status_profile_error: String,
+    find_window_title: String,
+    find_category: String,
+    find_filter: String,
+    find_filter_placeholder: String,
+    find_col_name: String,
+    find_col_class: String,
+    find_col_info: String,
+    new_profile_window_title: String,
+    notifications_window_title: String,
+    notif_section_discord: String,
+    notif_webhook_url: String,
+    notif_display_name: String,
+    notif_btn_test: String,
+    notif_section_tray: String,
+    notif_tray_enabled_text: String,
+    notif_section_events: String,
+    notif_section_language: String,
+    notif_btn_save: String,
+    notif_btn_cancel: String,
+}
+
+impl Labels {
+    fn english() -> Self {
+        Self {
+            main_window_title: "ARKSA Server Maintainer".into(),
+            arksa_dir: "ARKSA dir:".into(),
+            btn_browse: "Browse…".into(),
+            profile_label: "Profile:".into(),
+            btn_new: "New…".into(),
+            btn_find: "Find…".into(),
+            btn_notifications: "Notifications…".into(),
+            btn_refresh: "Refresh".into(),
+            panel_server_status: "Server status".into(),
+            label_status: "Status:".into(),
+            label_map: "Map:".into(),
+            label_ports: "Ports:".into(),
+            label_memory: "Memory:".into(),
+            label_uptime: "Uptime:".into(),
+            btn_start: "Start".into(),
+            btn_stop: "Stop (graceful)".into(),
+            btn_install: "Install / Update server".into(),
+            panel_rcon: "RCON".into(),
+            placeholder_rcon: "Command, e.g. ListPlayers".into(),
+            btn_send: "Send".into(),
+            panel_log: "Log".into(),
+            empty_title: "No server profiles yet.".into(),
+            empty_subtitle:
+                "Create one to install and run your ARK Survival Ascended server.".into(),
+            empty_create_first: "Create your first server…".into(),
+            status_stopped: "Stopped".into(),
+            status_running_prefix: "Running (PID".into(),
+            status_no_profile: "(no profile loaded)".into(),
+            status_profile_error: "(profile error)".into(),
+            find_window_title: "Find — Mods / Engrams / Items / Dinos".into(),
+            find_category: "Category:".into(),
+            find_filter: "Filter:".into(),
+            find_filter_placeholder: "type a substring (case-insensitive)".into(),
+            find_col_name: "Name".into(),
+            find_col_class: "Class / ID".into(),
+            find_col_info: "Info".into(),
+            new_profile_window_title: "New profile".into(),
+            notifications_window_title: "Notifications".into(),
+            notif_section_discord: "Discord Webhook".into(),
+            notif_webhook_url: "Webhook URL:".into(),
+            notif_display_name: "Display name:".into(),
+            notif_btn_test: "Test".into(),
+            notif_section_tray: "Windows Toast".into(),
+            notif_tray_enabled_text:
+                "Show Windows toast notifications for the events below".into(),
+            notif_section_events: "Events".into(),
+            notif_section_language: "Language (requires restart)".into(),
+            notif_btn_save: "Save".into(),
+            notif_btn_cancel: "Cancel".into(),
+        }
+    }
+
+    fn japanese() -> Self {
+        Self {
+            main_window_title: "ARKSA サーバーメンテナー".into(),
+            arksa_dir: "ARKSA フォルダ:".into(),
+            btn_browse: "参照…".into(),
+            profile_label: "プロファイル:".into(),
+            btn_new: "新規…".into(),
+            btn_find: "検索…".into(),
+            btn_notifications: "通知…".into(),
+            btn_refresh: "更新".into(),
+            panel_server_status: "サーバー状態".into(),
+            label_status: "状態:".into(),
+            label_map: "マップ:".into(),
+            label_ports: "ポート:".into(),
+            label_memory: "メモリ:".into(),
+            label_uptime: "稼働時間:".into(),
+            btn_start: "起動".into(),
+            btn_stop: "停止（正規）".into(),
+            btn_install: "サーバーをインストール／更新".into(),
+            panel_rcon: "RCON".into(),
+            placeholder_rcon: "コマンド (例: ListPlayers)".into(),
+            btn_send: "送信".into(),
+            panel_log: "ログ".into(),
+            empty_title: "サーバープロファイルがありません。".into(),
+            empty_subtitle:
+                "新規作成すると ARK Survival Ascended サーバーをインストール・起動できます。"
+                    .into(),
+            empty_create_first: "最初のサーバーを作成…".into(),
+            status_stopped: "停止中".into(),
+            status_running_prefix: "起動中 (PID".into(),
+            status_no_profile: "(プロファイル未選択)".into(),
+            status_profile_error: "(プロファイルエラー)".into(),
+            find_window_title: "検索 ─ Mod / エングラム / アイテム / 恐竜".into(),
+            find_category: "種別:".into(),
+            find_filter: "フィルタ:".into(),
+            find_filter_placeholder: "部分一致 (大文字小文字無視)".into(),
+            find_col_name: "名前".into(),
+            find_col_class: "クラス / ID".into(),
+            find_col_info: "情報".into(),
+            new_profile_window_title: "新規プロファイル".into(),
+            notifications_window_title: "通知設定".into(),
+            notif_section_discord: "Discord Webhook".into(),
+            notif_webhook_url: "Webhook URL:".into(),
+            notif_display_name: "表示名:".into(),
+            notif_btn_test: "テスト".into(),
+            notif_section_tray: "Windows トースト".into(),
+            notif_tray_enabled_text: "下記イベントで Windows トースト通知を表示する".into(),
+            notif_section_events: "イベント".into(),
+            notif_section_language: "言語 (再起動が必要)".into(),
+            notif_btn_save: "保存".into(),
+            notif_btn_cancel: "キャンセル".into(),
+        }
+    }
+
+    fn for_language(setting: i64) -> Self {
+        match setting {
+            LANG_JAPANESE => Self::japanese(),
+            LANG_ENGLISH => Self::english(),
+            // LANG_AUTO and unknown: detect from `LANG` env var, fall back to English.
+            _ => {
+                let lang = std::env::var("LANG").unwrap_or_default();
+                if lang.starts_with("ja") {
+                    Self::japanese()
+                } else {
+                    Self::english()
+                }
+            }
+        }
+    }
+
+    fn to_ui(&self) -> UiLabels {
+        UiLabels {
+            main_window_title: self.main_window_title.as_str().into(),
+            arksa_dir: self.arksa_dir.as_str().into(),
+            btn_browse: self.btn_browse.as_str().into(),
+            profile_label: self.profile_label.as_str().into(),
+            btn_new: self.btn_new.as_str().into(),
+            btn_find: self.btn_find.as_str().into(),
+            btn_notifications: self.btn_notifications.as_str().into(),
+            btn_refresh: self.btn_refresh.as_str().into(),
+            panel_server_status: self.panel_server_status.as_str().into(),
+            label_status: self.label_status.as_str().into(),
+            label_map: self.label_map.as_str().into(),
+            label_ports: self.label_ports.as_str().into(),
+            label_memory: self.label_memory.as_str().into(),
+            label_uptime: self.label_uptime.as_str().into(),
+            btn_start: self.btn_start.as_str().into(),
+            btn_stop: self.btn_stop.as_str().into(),
+            btn_install: self.btn_install.as_str().into(),
+            panel_rcon: self.panel_rcon.as_str().into(),
+            placeholder_rcon: self.placeholder_rcon.as_str().into(),
+            btn_send: self.btn_send.as_str().into(),
+            panel_log: self.panel_log.as_str().into(),
+            empty_title: self.empty_title.as_str().into(),
+            empty_subtitle: self.empty_subtitle.as_str().into(),
+            empty_create_first: self.empty_create_first.as_str().into(),
+            status_stopped: self.status_stopped.as_str().into(),
+            status_no_profile: self.status_no_profile.as_str().into(),
+            status_profile_error: self.status_profile_error.as_str().into(),
+            find_window_title: self.find_window_title.as_str().into(),
+            find_category: self.find_category.as_str().into(),
+            find_filter: self.find_filter.as_str().into(),
+            find_filter_placeholder: self.find_filter_placeholder.as_str().into(),
+            find_col_name: self.find_col_name.as_str().into(),
+            find_col_class: self.find_col_class.as_str().into(),
+            find_col_info: self.find_col_info.as_str().into(),
+            new_profile_window_title: self.new_profile_window_title.as_str().into(),
+            notifications_window_title: self.notifications_window_title.as_str().into(),
+            notif_section_discord: self.notif_section_discord.as_str().into(),
+            notif_webhook_url: self.notif_webhook_url.as_str().into(),
+            notif_display_name: self.notif_display_name.as_str().into(),
+            notif_btn_test: self.notif_btn_test.as_str().into(),
+            notif_section_tray: self.notif_section_tray.as_str().into(),
+            notif_tray_enabled_text: self.notif_tray_enabled_text.as_str().into(),
+            notif_section_events: self.notif_section_events.as_str().into(),
+            notif_section_language: self.notif_section_language.as_str().into(),
+            notif_btn_save: self.notif_btn_save.as_str().into(),
+            notif_btn_cancel: self.notif_btn_cancel.as_str().into(),
+        }
+    }
+}
+
+/// Map AppSettings.language() → ComboBox index. Auto = 0, English = 1, JA = 2.
+fn language_index_for_setting(setting: i64) -> i32 {
+    match setting {
+        LANG_ENGLISH => 1,
+        LANG_JAPANESE => 2,
+        _ => 0,
+    }
+}
+
+/// Reverse of `language_index_for_setting`.
+fn language_setting_for_index(index: i32) -> i64 {
+    match index {
+        1 => LANG_ENGLISH,
+        2 => LANG_JAPANESE,
+        _ => LANG_AUTO,
+    }
+}
+
 // ─── Notifications ────────────────────────────────────────────────────────
 
 fn notify_config_from_settings(settings: &AppSettings) -> NotifyConfig {
@@ -720,26 +994,35 @@ fn wire_notifications_callbacks(
         window.on_save_clicked(move || {
             let Some(window) = weak.upgrade() else { return };
             let new_cfg = collect_notifications_window(&window);
+            let new_language = language_setting_for_index(window.get_language_index());
 
             // Persist into AppSettings + INI on disk.
-            {
+            let language_changed = {
                 let mut s = settings.lock().unwrap();
+                let prev_lang = s.language();
                 s.set_discord_admin_webhook_url(&new_cfg.discord_webhook_url);
                 s.set_discord_display_name(&new_cfg.display_name);
                 s.set_discord_admin_event_mask(&new_cfg.events_mask_string());
                 // Single-bit "tray on/off" stored as a 1-char mask, the same
                 // shape the upstream INI uses.
                 s.set_tray_event_mask(if new_cfg.tray_enabled { "1" } else { "0" });
+                s.set_language(new_language);
                 if let Err(e) = s.save() {
                     window.set_validation_error(SharedString::from(
                         format!("Save failed: {e:#}").as_str(),
                     ));
                     return;
                 }
-            }
+                prev_lang != new_language
+            };
 
             *notify_config.lock().unwrap() = new_cfg;
-            push_log_async(&main_weak, &log, "Notification settings saved.");
+            let msg = if language_changed {
+                "Notification settings saved. Language change takes effect on next launch."
+            } else {
+                "Notification settings saved."
+            };
+            push_log_async(&main_weak, &log, msg);
             let _ = settings_path; // settings.save() reuses its bound path
             let _ = window.hide();
         });
@@ -990,6 +1273,7 @@ fn refresh_status_async(
     let weak = weak.clone();
     let ctx = ctx.clone();
     let log = log.clone();
+    let labels = ctx.labels.clone();
     std::thread::spawn(move || {
         let result = (|| -> Result<(ServerStatus, String, String, String)> {
             let prof = Profile::load(&profile_path)
@@ -1004,15 +1288,13 @@ fn refresh_status_async(
                 fmt_port(prof.rcon_port())
             );
             let title = if status.running {
-                format!(
-                    "Running (PID {})",
-                    status
-                        .pid
-                        .map(|p| p.to_string())
-                        .unwrap_or_else(|| "?".into())
-                )
+                let pid = status
+                    .pid
+                    .map(|p| p.to_string())
+                    .unwrap_or_else(|| "?".into());
+                format!("{} {})", labels.status_running_prefix, pid)
             } else {
-                "Stopped".to_string()
+                labels.status_stopped.clone()
             };
             Ok((status, map, ports, title))
         })();
@@ -1032,7 +1314,7 @@ fn refresh_status_async(
             Err(e) => (
                 ServerStatusView {
                     running: false,
-                    title: "(profile error)".into(),
+                    title: labels.status_profile_error.as_str().into(),
                     map: "—".into(),
                     ports: "—".into(),
                     memory: "—".into(),

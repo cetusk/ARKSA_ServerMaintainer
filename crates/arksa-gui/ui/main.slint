@@ -21,15 +21,67 @@ export struct ServerStatusView {
     uptime: string,
 }
 
+/// Translated UI strings. Populated from Rust at startup based on
+/// `AppSettings::language()`. Live language switching requires a restart.
+export struct UiLabels {
+    main_window_title: string,
+    arksa_dir: string,
+    btn_browse: string,
+    profile_label: string,
+    btn_new: string,
+    btn_find: string,
+    btn_notifications: string,
+    btn_refresh: string,
+    panel_server_status: string,
+    label_status: string,
+    label_map: string,
+    label_ports: string,
+    label_memory: string,
+    label_uptime: string,
+    btn_start: string,
+    btn_stop: string,
+    btn_install: string,
+    panel_rcon: string,
+    placeholder_rcon: string,
+    btn_send: string,
+    panel_log: string,
+    empty_title: string,
+    empty_subtitle: string,
+    empty_create_first: string,
+    status_stopped: string,
+    status_no_profile: string,
+    status_profile_error: string,
+    find_window_title: string,
+    find_category: string,
+    find_filter: string,
+    find_filter_placeholder: string,
+    find_col_name: string,
+    find_col_class: string,
+    find_col_info: string,
+    new_profile_window_title: string,
+    notifications_window_title: string,
+    notif_section_discord: string,
+    notif_webhook_url: string,
+    notif_display_name: string,
+    notif_btn_test: string,
+    notif_section_tray: string,
+    notif_tray_enabled_text: string,
+    notif_section_events: string,
+    notif_section_language: string,
+    notif_btn_save: string,
+    notif_btn_cancel: string,
+}
+
 // ─── Main window ───────────────────────────────────────────────────────────
 
 export component MainWindow inherits Window {
-    title: "ARKSA Server Maintainer";
+    title: root.labels.main_window_title;
     preferred-width: 860px;
     preferred-height: 680px;
     min-width: 540px;
     min-height: 440px;
 
+    in property <UiLabels> labels;
     in property <[string]> profile-names: [];
     in-out property <int> selected-profile-index: 0;
     in property <ServerStatusView> status: {
@@ -63,7 +115,7 @@ export component MainWindow inherits Window {
         // Top bar: ARKSA install dir
         HorizontalBox {
             spacing: 8px;
-            Text { text: "ARKSA dir:"; vertical-alignment: center; }
+            Text { text: root.labels.arksa_dir; vertical-alignment: center; }
             Text {
                 text: root.install-dir;
                 vertical-alignment: center;
@@ -71,7 +123,7 @@ export component MainWindow inherits Window {
                 overflow: elide;
             }
             Button {
-                text: "Browse…";
+                text: root.labels.btn_browse;
                 enabled: !root.action-busy;
                 clicked => { root.browse-install-dir(); }
             }
@@ -80,7 +132,7 @@ export component MainWindow inherits Window {
         // Profile row
         HorizontalBox {
             spacing: 8px;
-            Text { text: "Profile:"; vertical-alignment: center; }
+            Text { text: root.labels.profile_label; vertical-alignment: center; }
             ComboBox {
                 model: root.profile-names;
                 current-index <=> root.selected-profile-index;
@@ -89,22 +141,22 @@ export component MainWindow inherits Window {
                 selected => { root.profile-selected(self.current-index); }
             }
             Button {
-                text: "New…";
+                text: root.labels.btn_new;
                 enabled: !root.action-busy;
                 clicked => { root.new-profile(); }
             }
             Button {
-                text: "Find…";
+                text: root.labels.btn_find;
                 enabled: !root.action-busy;
                 clicked => { root.open-find(); }
             }
             Button {
-                text: "Notifications…";
+                text: root.labels.btn_notifications;
                 enabled: !root.action-busy;
                 clicked => { root.open-notifications(); }
             }
             Button {
-                text: "Refresh";
+                text: root.labels.btn_refresh;
                 enabled: !root.action-busy;
                 clicked => { root.refresh-status(); }
             }
@@ -116,19 +168,19 @@ export component MainWindow inherits Window {
             spacing: 12px;
             vertical-stretch: 1;
             Text {
-                text: "No server profiles yet.";
+                text: root.labels.empty_title;
                 font-size: 18px;
                 horizontal-alignment: center;
             }
             Text {
-                text: "Create one to install and run your ARK Survival Ascended server.";
+                text: root.labels.empty_subtitle;
                 horizontal-alignment: center;
                 wrap: word-wrap;
             }
             HorizontalBox {
                 alignment: center;
                 Button {
-                    text: "Create your first server…";
+                    text: root.labels.empty_create_first;
                     enabled: !root.action-busy;
                     clicked => { root.new-profile(); }
                 }
@@ -136,14 +188,14 @@ export component MainWindow inherits Window {
         }
 
         if root.profile-names.length > 0: GroupBox {
-            title: "Server status";
+            title: root.labels.panel_server_status;
             VerticalBox {
                 spacing: 4px;
-                Text { text: "Status: " + root.status.title; }
-                Text { text: "Map:    " + root.status.map; }
-                Text { text: "Ports:  " + root.status.ports; }
-                Text { text: "Memory: " + root.status.memory; }
-                Text { text: "Uptime: " + root.status.uptime; }
+                Text { text: root.labels.label_status + " " + root.status.title; }
+                Text { text: root.labels.label_map + " " + root.status.map; }
+                Text { text: root.labels.label_ports + " " + root.status.ports; }
+                Text { text: root.labels.label_memory + " " + root.status.memory; }
+                Text { text: root.labels.label_uptime + " " + root.status.uptime; }
             }
         }
 
@@ -151,35 +203,35 @@ export component MainWindow inherits Window {
             alignment: start;
             spacing: 8px;
             Button {
-                text: "Start";
+                text: root.labels.btn_start;
                 enabled: !root.action-busy && !root.status.running;
                 clicked => { root.start-server(); }
             }
             Button {
-                text: "Stop (graceful)";
+                text: root.labels.btn_stop;
                 enabled: !root.action-busy && root.status.running;
                 clicked => { root.stop-server(); }
             }
             Button {
-                text: "Install / Update server";
+                text: root.labels.btn_install;
                 enabled: !root.action-busy && !root.status.running;
                 clicked => { root.install-update-server(); }
             }
         }
 
         if root.profile-names.length > 0: GroupBox {
-            title: "RCON";
+            title: root.labels.panel_rcon;
             HorizontalBox {
                 spacing: 6px;
                 LineEdit {
-                    placeholder-text: "Command, e.g. ListPlayers";
+                    placeholder-text: root.labels.placeholder_rcon;
                     text <=> root.rcon-input;
                     horizontal-stretch: 1;
                     enabled: !root.action-busy && root.status.running;
                     accepted => { root.send-rcon(); }
                 }
                 Button {
-                    text: "Send";
+                    text: root.labels.btn_send;
                     enabled: !root.action-busy && root.status.running;
                     clicked => { root.send-rcon(); }
                 }
@@ -187,7 +239,7 @@ export component MainWindow inherits Window {
         }
 
         GroupBox {
-            title: "Log";
+            title: root.labels.panel_log;
             vertical-stretch: 1;
             TextEdit {
                 text: root.log-text;
@@ -201,9 +253,13 @@ export component MainWindow inherits Window {
 // ─── Notification settings dialog ─────────────────────────────────────────
 
 export component NotificationsWindow inherits Window {
-    title: "Notifications";
+    title: root.labels.notifications_window_title;
     preferred-width: 520px;
-    preferred-height: 480px;
+    preferred-height: 540px;
+
+    in property <UiLabels> labels;
+    in property <[string]> language-options: ["Auto (system)", "English", "日本語"];
+    in-out property <int> language-index: 0;
 
     in-out property <string> webhook-url: "";
     in-out property <string> display-name: "";
@@ -227,11 +283,11 @@ export component NotificationsWindow inherits Window {
         spacing: 10px;
 
         GroupBox {
-            title: "Discord Webhook";
+            title: root.labels.notif_section_discord;
             VerticalBox {
                 spacing: 6px;
                 HorizontalBox {
-                    Text { text: "Webhook URL:"; vertical-alignment: center; min-width: 130px; }
+                    Text { text: root.labels.notif_webhook_url; vertical-alignment: center; min-width: 130px; }
                     LineEdit {
                         text <=> root.webhook-url;
                         placeholder-text: "https://discord.com/api/webhooks/...";
@@ -239,14 +295,14 @@ export component NotificationsWindow inherits Window {
                     }
                 }
                 HorizontalBox {
-                    Text { text: "Display name:"; vertical-alignment: center; min-width: 130px; }
+                    Text { text: root.labels.notif_display_name; vertical-alignment: center; min-width: 130px; }
                     LineEdit {
                         text <=> root.display-name;
                         placeholder-text: "ARKSA";
                         horizontal-stretch: 1;
                     }
                     Button {
-                        text: "Test";
+                        text: root.labels.notif_btn_test;
                         clicked => { root.test-webhook-clicked(); }
                     }
                 }
@@ -254,18 +310,18 @@ export component NotificationsWindow inherits Window {
         }
 
         GroupBox {
-            title: "Windows Toast";
+            title: root.labels.notif_section_tray;
             VerticalBox {
                 spacing: 6px;
                 CheckBox {
-                    text: "Show Windows toast notifications for the events below";
+                    text: root.labels.notif_tray_enabled_text;
                     checked <=> root.tray-enabled;
                 }
             }
         }
 
         GroupBox {
-            title: "Events";
+            title: root.labels.notif_section_events;
             VerticalBox {
                 spacing: 4px;
                 CheckBox { text: "Server starting";              checked <=> root.ev-server-starting; }
@@ -274,6 +330,17 @@ export component NotificationsWindow inherits Window {
                 CheckBox { text: "Server crash detected";        checked <=> root.ev-crash-detected; }
                 CheckBox { text: "ARKSA tool update available";  checked <=> root.ev-asasm-update; }
                 CheckBox { text: "ARK server update available";  checked <=> root.ev-server-app-update; }
+            }
+        }
+
+        GroupBox {
+            title: root.labels.notif_section_language;
+            HorizontalBox {
+                ComboBox {
+                    model: root.language-options;
+                    current-index <=> root.language-index;
+                    horizontal-stretch: 1;
+                }
             }
         }
 
@@ -287,11 +354,11 @@ export component NotificationsWindow inherits Window {
             alignment: end;
             spacing: 8px;
             Button {
-                text: "Cancel";
+                text: root.labels.notif_btn_cancel;
                 clicked => { root.cancel-clicked(); }
             }
             Button {
-                text: "Save";
+                text: root.labels.notif_btn_save;
                 primary: true;
                 clicked => { root.save-clicked(); }
             }
@@ -308,12 +375,13 @@ export struct FindEntry {
 }
 
 export component FindWindow inherits Window {
-    title: "Find — Mods / Engrams / Items / Dinos";
+    title: root.labels.find_window_title;
     preferred-width: 760px;
     preferred-height: 560px;
     min-width: 540px;
     min-height: 380px;
 
+    in property <UiLabels> labels;
     in property <[string]> categories: ["Mods", "Engrams", "Items", "Dinos"];
     in-out property <int> selected-category: 0;
     in-out property <string> filter-text: "";
@@ -330,7 +398,7 @@ export component FindWindow inherits Window {
 
         HorizontalBox {
             spacing: 8px;
-            Text { text: "Category:"; vertical-alignment: center; }
+            Text { text: root.labels.find_category; vertical-alignment: center; }
             ComboBox {
                 model: root.categories;
                 current-index <=> root.selected-category;
@@ -341,10 +409,10 @@ export component FindWindow inherits Window {
 
         HorizontalBox {
             spacing: 8px;
-            Text { text: "Filter:"; vertical-alignment: center; }
+            Text { text: root.labels.find_filter; vertical-alignment: center; }
             LineEdit {
                 text <=> root.filter-text;
-                placeholder-text: "type a substring (case-insensitive)";
+                placeholder-text: root.labels.find_filter_placeholder;
                 horizontal-stretch: 1;
                 edited => { root.filter-changed(self.text); }
             }
@@ -361,17 +429,17 @@ export component FindWindow inherits Window {
                 padding-left: 8px;
                 padding-right: 8px;
                 Text {
-                    text: "Name";
+                    text: root.labels.find_col_name;
                     horizontal-stretch: 2;
                     font-weight: 700;
                 }
                 Text {
-                    text: "Class / ID";
+                    text: root.labels.find_col_class;
                     horizontal-stretch: 3;
                     font-weight: 700;
                 }
                 Text {
-                    text: "Info";
+                    text: root.labels.find_col_info;
                     horizontal-stretch: 1;
                     font-weight: 700;
                 }
@@ -412,12 +480,13 @@ export component FindWindow inherits Window {
 // ─── New Profile dialog ────────────────────────────────────────────────────
 
 export component NewProfileWindow inherits Window {
-    title: "New profile";
+    title: root.labels.new_profile_window_title;
     preferred-width: 560px;
     preferred-height: 720px;
     min-width: 460px;
     min-height: 560px;
 
+    in property <UiLabels> labels;
     in property <[string]> map-suggestions: [];
 
     in-out property <string> profile-name: "MyServer";
