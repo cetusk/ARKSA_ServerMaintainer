@@ -166,6 +166,13 @@ export component MainWindow inherits Window {
                 clicked => { root.open-find(); }
             }
             Button {
+                text: root.labels.btn_world_settings;
+                // Editing Game.ini / GameUserSettings.ini only makes sense
+                // for a real profile; greyed out otherwise.
+                enabled: !root.action-busy && root.profile-names.length > 0;
+                clicked => { root.open-world-settings(); }
+            }
+            Button {
                 text: root.labels.btn_notifications;
                 enabled: !root.action-busy;
                 clicked => { root.open-notifications(); }
@@ -231,11 +238,6 @@ export component MainWindow inherits Window {
                 text: root.labels.btn_install;
                 enabled: !root.action-busy && !root.status.running;
                 clicked => { root.install-update-server(); }
-            }
-            Button {
-                text: root.labels.btn_world_settings;
-                enabled: !root.action-busy;
-                clicked => { root.open-world-settings(); }
             }
         }
 
