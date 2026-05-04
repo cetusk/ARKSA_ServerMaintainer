@@ -340,6 +340,67 @@ fn wire_main_callbacks(
     }
     {
         let weak = window.as_weak();
+        let ctx = ctx.clone();
+        let profiles = profiles.clone();
+        let selected = selected.clone();
+        let log = log.clone();
+        window.on_restart_server(move || {
+            let Some(profile_path) = current_profile_path(&profiles, &selected) else {
+                push_log_async(&weak, &log, "No profile selected.");
+                return;
+            };
+            set_busy_async(&weak, true);
+            spawn_worker(weak.clone(), log.clone(), {
+                let ctx = ctx.clone();
+                move || {
+                    let prof = Profile::load(&profile_path)
+                        .with_context(|| format!("load {}", profile_path.display()))?;
+
+                    // 1. graceful stop
+                    let outcome = server::stop_graceful(
+                        &prof,
+                        &ctx.install_dir,
+                        StopOptions::default(),
+                    )?;
+                    if matches!(outcome, StopOutcome::StillRunning) {
+                        return Err(anyhow!(
+                            "Restart aborted: stop_graceful timed out, server still running"
+                        ));
+                    }
+                    if matches!(
+                        outcome,
+                        StopOutcome::GracefulRcon | StopOutcome::GracefulWindowClose
+                    ) {
+                        fire_notification(
+                            ctx.notify_config.clone(),
+                            NotifyEvent::ServerStopped,
+                            build_notify_context(&prof),
+                        );
+                    }
+
+                    // 2. small grace period for ARK to release file/socket handles
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+
+                    // 3. start fresh — Profile is reloaded so any World Settings
+                    //    edits made between Stop and Start take effect.
+                    let prof = Profile::load(&profile_path)
+                        .with_context(|| format!("reload {}", profile_path.display()))?;
+                    let pid = server::start(&prof, &ctx.install_dir)?;
+                    fire_notification(
+                        ctx.notify_config.clone(),
+                        NotifyEvent::ServerStarting,
+                        build_notify_context(&prof),
+                    );
+                    Ok(format!(
+                        "Restarted via {}; new PID {pid}.",
+                        describe_stop(outcome)
+                    ))
+                }
+            });
+        });
+    }
+    {
+        let weak = window.as_weak();
         let profiles = profiles.clone();
         let selected = selected.clone();
         let log = log.clone();
@@ -750,6 +811,7 @@ struct Labels {
     label_uptime: String,
     btn_start: String,
     btn_stop: String,
+    btn_restart: String,
     btn_install: String,
     panel_rcon: String,
     placeholder_rcon: String,
@@ -817,6 +879,7 @@ impl Labels {
             label_uptime: "Uptime:".into(),
             btn_start: "Start".into(),
             btn_stop: "Stop (graceful)".into(),
+            btn_restart: "Restart".into(),
             btn_install: "Install / Update server".into(),
             panel_rcon: "RCON".into(),
             placeholder_rcon: "Command, e.g. ListPlayers".into(),
@@ -887,6 +950,7 @@ impl Labels {
             label_uptime: "稼働時間:".into(),
             btn_start: "起動".into(),
             btn_stop: "停止（正規）".into(),
+            btn_restart: "再起動".into(),
             btn_install: "サーバーをインストール／更新".into(),
             panel_rcon: "RCON".into(),
             placeholder_rcon: "コマンド (例: ListPlayers)".into(),
@@ -973,6 +1037,7 @@ impl Labels {
             label_uptime: self.label_uptime.as_str().into(),
             btn_start: self.btn_start.as_str().into(),
             btn_stop: self.btn_stop.as_str().into(),
+            btn_restart: self.btn_restart.as_str().into(),
             btn_install: self.btn_install.as_str().into(),
             panel_rcon: self.panel_rcon.as_str().into(),
             placeholder_rcon: self.placeholder_rcon.as_str().into(),

@@ -41,6 +41,7 @@ export struct UiLabels {
     label_uptime: string,
     btn_start: string,
     btn_stop: string,
+    btn_restart: string,
     btn_install: string,
     panel_rcon: string,
     placeholder_rcon: string,
@@ -114,6 +115,7 @@ export component MainWindow inherits Window {
     callback profile-selected(int);
     callback start-server();
     callback stop-server();
+    callback restart-server();
     callback refresh-status();
     callback send-rcon();
     callback browse-install-dir();
@@ -233,6 +235,11 @@ export component MainWindow inherits Window {
                 text: root.labels.btn_stop;
                 enabled: !root.action-busy && root.status.running;
                 clicked => { root.stop-server(); }
+            }
+            Button {
+                text: root.labels.btn_restart;
+                enabled: !root.action-busy && root.status.running;
+                clicked => { root.restart-server(); }
             }
             Button {
                 text: root.labels.btn_install;
