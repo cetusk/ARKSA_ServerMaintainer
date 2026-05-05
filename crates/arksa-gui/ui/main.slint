@@ -220,9 +220,13 @@ export component MainWindow inherits Window {
     callback open-world-settings();
     callback language-changed(int);
 
-    VerticalBox {
-        padding: 12px;
-        spacing: 8px;
+    ScrollView {
+        // The overall window can be resized smaller than its contents
+        // (six SectionGroups + a chunky Log textarea). Wrap everything
+        // in a ScrollView so nothing gets cropped at narrow window sizes.
+        VerticalBox {
+            padding: 12px;
+            spacing: 8px;
 
         // ── Setup section ──────────────────────────────────────────────
         // Tool data dir + UI language live here together with global
@@ -442,16 +446,20 @@ export component MainWindow inherits Window {
         }
 
         // ── Log section ────────────────────────────────────────────────
+        // Inside a ScrollView, vertical-stretch is meaningless — the log
+        // area gets a fixed min-height so it remains usable without
+        // collapsing to a single line.
         SectionGroup {
             title: root.labels.panel_log;
-            vertical-stretch: 1;
             TextEdit {
                 text: root.log-text;
                 read-only: true;
                 wrap: word-wrap;
+                min-height: 240px;
             }
         }
-    }
+        }   // ── end VerticalBox inside ScrollView ──────────────────
+    }       // ── end ScrollView ─────────────────────────────────────
 }
 
 // ─── World settings dialog ────────────────────────────────────────────────
@@ -464,7 +472,11 @@ component LabelCell inherits Rectangle {
     in property <string> label;
     in property <string> description: "";
 
-    width: 260px;
+    // Wide enough for ~95% of ARK SA parameter names without truncation.
+    // The longest realistic key is ~45 chars (e.g.
+    // "BabyCuddleLoseImprintQualitySpeedMultiplier"), which still fits
+    // here at the default font size.
+    width: 360px;
     background: ta.has-hover && root.description != ""
         ? AppTheme.accent-soft
         : transparent;
@@ -478,6 +490,9 @@ component LabelCell inherits Rectangle {
             vertical-alignment: center;
             color: Palette.foreground;
             horizontal-stretch: 1;
+            // Wrap rather than elide so long names stay fully readable
+            // even when they overflow the cell width.
+            wrap: word-wrap;
         }
         // A subtle "ⓘ" affordance only when a description exists.
         if root.description != "": Text {
