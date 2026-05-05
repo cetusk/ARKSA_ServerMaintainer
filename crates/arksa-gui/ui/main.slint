@@ -910,6 +910,36 @@ export component WorldSettingsWindow inherits Window {
     in-out property <string> f_server_auto_force_respawn_wild_dinos_interval: "0.0";
     in-out property <string> f_destroy_tames_over_level_clamp: "0";
 
+    // Phase 8L — extra GameUserSettings.ini knobs (PvP/decay,
+    // multipliers/物量, behaviour/safety/disease)
+    in-out property <bool> b_fast_decay_unsnapped_core_structures: false;
+    in-out property <bool> b_override_structure_platform_prevention: false;
+    in-out property <bool> b_prevent_offline_pvp: false;
+    in-out property <string> f_prevent_offline_pvp_interval: "0.0";
+    in-out property <bool> b_pvp_dino_decay: false;
+    in-out property <bool> b_pvp_structure_decay: false;
+    in-out property <string> f_pve_dino_decay_period_multiplier: "1.0";
+    in-out property <bool> b_only_auto_destroy_core_structures: false;
+    in-out property <bool> b_auto_destroy_decayed_dinos: false;
+    in-out property <bool> b_tribe_log_destroyed_enemy_structures: false;
+    in-out property <bool> b_pve_allow_structures_at_supply_drops: false;
+    in-out property <string> f_oxygen_swim_speed_stat_multiplier: "1.0";
+    in-out property <string> f_tribe_name_change_cooldown: "15.0";
+    in-out property <string> f_platform_saddle_build_area_bounds_multiplier: "1.0";
+    in-out property <string> f_raid_dino_character_food_drain_multiplier: "1.0";
+    in-out property <string> f_item_stack_size_multiplier: "1.0";
+    in-out property <string> f_start_time_hour: "-1.0";
+    in-out property <string> f_rcon_server_game_log_buffer: "600";
+    in-out property <bool> b_allow_raid_dino_feeding: true;
+    in-out property <bool> b_enable_extra_structure_prevention_volumes: false;
+    in-out property <bool> b_prevent_spawn_animations: false;
+    in-out property <bool> b_prevent_diseases: false;
+    in-out property <bool> b_non_permanent_diseases: false;
+    in-out property <bool> b_use_optimized_harvesting_health: false;
+    in-out property <bool> b_allow_multiple_attached_c4: false;
+    in-out property <bool> b_allow_flying_stamina_recovery: false;
+    in-out property <bool> b_allow_crate_spawns_on_top_of_structures: false;
+
     // Phase 8k — Launch flags (saved into Profile MM_Command_Val)
     in-out property <string> f_launch_flags: "";
     in property <string> f_launch_flags_reference: "";
@@ -1145,6 +1175,13 @@ export component WorldSettingsWindow inherits Window {
                                 : "Night length scale.";
                             value <=> root.f_night_time_speed_scale;
                         }
+                        WorldFloatRow {
+                            label: "StartTimeHour";
+                            description: root.lang-ja
+                                ? "ワールド開始時刻 (時間, -1 で上書きなし=既定挙動)。"
+                                : "Override start time of day in hours (-1 = no override).";
+                            value <=> root.f_start_time_hour;
+                        }
                     }
                 }
             }
@@ -1204,6 +1241,27 @@ export component WorldSettingsWindow inherits Window {
                                 : "Damage when manually harvesting (e.g. with a pick).";
                             value <=> root.f_player_harvesting;
                         }
+                        WorldFloatRow {
+                            label: "OxygenSwimSpeedStatMultiplier";
+                            description: root.lang-ja
+                                ? "酸素ステ依存の水泳速度ボーナス倍率。"
+                                : "Multiplier on oxygen-based swim speed bonus.";
+                            value <=> root.f_oxygen_swim_speed_stat_multiplier;
+                        }
+                        WorldBoolRow {
+                            label: "PreventDiseases";
+                            description: root.lang-ja
+                                ? "病気を全面無効化。"
+                                : "Disable diseases entirely.";
+                            value <=> root.b_prevent_diseases;
+                        }
+                        WorldBoolRow {
+                            label: "NonPermanentDiseases";
+                            description: root.lang-ja
+                                ? "病気を治療可能（永続化させない）。"
+                                : "Diseases are curable (not permanent).";
+                            value <=> root.b_non_permanent_diseases;
+                        }
                     }
                 }
             }
@@ -1249,6 +1307,13 @@ export component WorldSettingsWindow inherits Window {
                                 : "Damage resistance of tamed dinos.";
                             value <=> root.f_tamed_resistance;
                         }
+                        WorldBoolRow {
+                            label: "AllowFlyingStaminaRecovery";
+                            description: root.lang-ja
+                                ? "空飛ぶ恐竜が飛行中もスタミナ回復。"
+                                : "Flyers regenerate stamina while in flight.";
+                            value <=> root.b_allow_flying_stamina_recovery;
+                        }
                     }
                 }
             }
@@ -1286,6 +1351,20 @@ export component WorldSettingsWindow inherits Window {
                                 ? "野生恐竜の出現密度倍率。"
                                 : "Wild dino spawn density.";
                             value <=> root.f_dino_count;
+                        }
+                        WorldFloatRow {
+                            label: "RaidDinoCharacterFoodDrainMultiplier";
+                            description: root.lang-ja
+                                ? "Raid 系恐竜 (タイタノサウルス等) の空腹消費倍率。"
+                                : "Food drain for raid (Titanosaur etc.) dinos.";
+                            value <=> root.f_raid_dino_character_food_drain_multiplier;
+                        }
+                        WorldBoolRow {
+                            label: "AllowRaidDinoFeeding";
+                            description: root.lang-ja
+                                ? "Raid 系恐竜への給餌を許可 (生存維持)。"
+                                : "Allow feeding raid dinos to keep them alive.";
+                            value <=> root.b_allow_raid_dino_feeding;
                         }
                     }
                 }
@@ -1383,6 +1462,48 @@ export component WorldSettingsWindow inherits Window {
                                 ? "PvE で建造物の自動劣化を無効化。"
                                 : "Structures never auto-decay in PvE.";
                             value <=> root.b_disable_structure_decay_pve;
+                        }
+                        WorldBoolRow {
+                            label: "PreventOfflinePvP";
+                            description: root.lang-ja
+                                ? "全員がオフラインの間、トライブが無敵になる。"
+                                : "Players turn invulnerable when fully offline.";
+                            value <=> root.b_prevent_offline_pvp;
+                        }
+                        WorldFloatRow {
+                            label: "PreventOfflinePvPInterval (sec)";
+                            description: root.lang-ja
+                                ? "オフライン保護が有効になるまでの秒数。"
+                                : "Seconds before offline protection kicks in.";
+                            value <=> root.f_prevent_offline_pvp_interval;
+                        }
+                        WorldBoolRow {
+                            label: "PvPDinoDecay";
+                            description: root.lang-ja
+                                ? "PvP でテイムの自動引取り (auto-claim) を有効化。"
+                                : "Tame dinos decay (auto-claim) in PvP.";
+                            value <=> root.b_pvp_dino_decay;
+                        }
+                        WorldBoolRow {
+                            label: "PvPStructureDecay";
+                            description: root.lang-ja
+                                ? "PvP で建造物の自動劣化を有効化。"
+                                : "Structures decay in PvP.";
+                            value <=> root.b_pvp_structure_decay;
+                        }
+                        WorldFloatRow {
+                            label: "PvEDinoDecayPeriodMultiplier";
+                            description: root.lang-ja
+                                ? "PvE でテイムが自動引取りになるまでの期間倍率 (小さいほど早く引取り)。"
+                                : "PvE auto-claim period for tames (lower = sooner).";
+                            value <=> root.f_pve_dino_decay_period_multiplier;
+                        }
+                        WorldBoolRow {
+                            label: "PvEAllowStructuresAtSupplyDrops";
+                            description: root.lang-ja
+                                ? "PvE で補給品クレート近くに建造を許可。"
+                                : "Allow building near supply drops in PvE.";
+                            value <=> root.b_pve_allow_structures_at_supply_drops;
                         }
                     }
                 }
@@ -1623,6 +1744,13 @@ export component WorldSettingsWindow inherits Window {
                                 ? "落下死しない最大速度（大きいほど致死性低）。"
                                 : "Max safe falling speed (higher = more lethal falls).";
                             value <=> root.f_max_fall_speed_multiplier;
+                        }
+                        WorldFloatRow {
+                            label: "ItemStackSizeMultiplier";
+                            description: root.lang-ja
+                                ? "アイテムスタック上限の倍率 (例: 5 で 5 倍)。"
+                                : "Item stack size multiplier (e.g. 5 = 5× default).";
+                            value <=> root.f_item_stack_size_multiplier;
                         }
                     }
                 }
@@ -1940,6 +2068,69 @@ export component WorldSettingsWindow inherits Window {
                                 }
                             }
                         }
+                        GroupBox {
+                            title: "Decay & extra structure controls (GameUserSettings.ini)";
+                            VerticalBox {
+                                padding: 4px;
+                                spacing: 2px;
+                                WorldBoolRow {
+                                    label: "FastDecayUnsnappedCoreStructures";
+                                    description: root.lang-ja
+                                        ? "床等にスナップしていない単体コア建造物の腐敗を高速化（grief 床防止）。"
+                                        : "Free-floating core structures decay quickly (anti grief-foundation).";
+                                    value <=> root.b_fast_decay_unsnapped_core_structures;
+                                }
+                                WorldBoolRow {
+                                    label: "OnlyAutoDestroyCoreStructures";
+                                    description: root.lang-ja
+                                        ? "自動破壊の対象を Core 建造物のみに限定。"
+                                        : "Restrict auto-destroy to core (foundation/wall) structures only.";
+                                    value <=> root.b_only_auto_destroy_core_structures;
+                                }
+                                WorldBoolRow {
+                                    label: "AutoDestroyDecayedDinos";
+                                    description: root.lang-ja
+                                        ? "劣化タイマー切れのテイムを自動削除。"
+                                        : "Auto-delete tames whose decay timer elapsed.";
+                                    value <=> root.b_auto_destroy_decayed_dinos;
+                                }
+                                WorldBoolRow {
+                                    label: "OverrideStructurePlatformPrevention";
+                                    description: root.lang-ja
+                                        ? "プラットフォーム鞍上の建造制限を上書きする。"
+                                        : "Override the rule preventing certain structures on platforms.";
+                                    value <=> root.b_override_structure_platform_prevention;
+                                }
+                                WorldBoolRow {
+                                    label: "EnableExtraStructurePreventionVolumes";
+                                    description: root.lang-ja
+                                        ? "追加の建造禁止ゾーン (洞窟等) を有効化。"
+                                        : "Enable additional no-build volumes (caves, etc.).";
+                                    value <=> root.b_enable_extra_structure_prevention_volumes;
+                                }
+                                WorldBoolRow {
+                                    label: "AllowMultipleAttachedC4";
+                                    description: root.lang-ja
+                                        ? "1 個の対象に複数の C4 を取り付け可能に。"
+                                        : "Allow stacking multiple C4 on one target.";
+                                    value <=> root.b_allow_multiple_attached_c4;
+                                }
+                                WorldBoolRow {
+                                    label: "AllowCrateSpawnsOnTopOfStructures";
+                                    description: root.lang-ja
+                                        ? "補給品クレートが建造物の上にスポーン可能に。"
+                                        : "Supply crates can spawn on top of player structures.";
+                                    value <=> root.b_allow_crate_spawns_on_top_of_structures;
+                                }
+                                WorldFloatRow {
+                                    label: "PlatformSaddleBuildAreaBoundsMultiplier";
+                                    description: root.lang-ja
+                                        ? "プラットフォーム鞍の建造可能範囲倍率。"
+                                        : "Allowed build area on platform saddles.";
+                                    value <=> root.f_platform_saddle_build_area_bounds_multiplier;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -2156,6 +2347,34 @@ export component WorldSettingsWindow inherits Window {
                                 : "Allow gamma override in PvP.";
                             value <=> root.b_enable_pvp_gamma;
                         }
+                        WorldBoolRow {
+                            label: "PreventSpawnAnimations";
+                            description: root.lang-ja
+                                ? "恐竜スポーンアニメをスキップ (処理軽減)。"
+                                : "Skip dino spawn animations (perf).";
+                            value <=> root.b_prevent_spawn_animations;
+                        }
+                        WorldBoolRow {
+                            label: "TribeLogDestroyedEnemyStructures";
+                            description: root.lang-ja
+                                ? "敵建造物の破壊を部族ログに記録。"
+                                : "Log enemy structure destruction in tribe log.";
+                            value <=> root.b_tribe_log_destroyed_enemy_structures;
+                        }
+                        WorldFloatRow {
+                            label: "RCONServerGameLogBuffer (int)";
+                            description: root.lang-ja
+                                ? "RCON 経由で取得可能なゲームログ行数上限。"
+                                : "Max game-log lines RCON exposes in one query.";
+                            value <=> root.f_rcon_server_game_log_buffer;
+                        }
+                        WorldBoolRow {
+                            label: "UseOptimizedHarvestingHealth";
+                            description: root.lang-ja
+                                ? "採取時の体力計算を最適化版に切替。"
+                                : "Use the optimized harvesting health calculations.";
+                            value <=> root.b_use_optimized_harvesting_health;
+                        }
                     }
                 }
             }
@@ -2296,6 +2515,13 @@ export component WorldSettingsWindow inherits Window {
                                         ? "部族員数上限（0 で無制限）。"
                                         : "Tribe size cap (0 = unlimited).";
                                     value <=> root.f_max_number_of_players_in_tribe;
+                                }
+                                WorldFloatRow {
+                                    label: "TribeNameChangeCooldown";
+                                    description: root.lang-ja
+                                        ? "部族名変更のクールダウン (分)。"
+                                        : "Cooldown (minutes) between tribe name changes.";
+                                    value <=> root.f_tribe_name_change_cooldown;
                                 }
                             }
                         }

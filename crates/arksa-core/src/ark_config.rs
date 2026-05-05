@@ -488,6 +488,127 @@ impl GameUserSettings {
         set_server_auto_force_respawn_wild_dinos_interval,
         "ServerAutoForceRespawnWildDinosInterval"
     );
+
+    // ── PvP / decay (Phase 8L — covering an existing real-world config) ─
+    bool_field!(
+        fast_decay_unsnapped_core_structures,
+        set_fast_decay_unsnapped_core_structures,
+        "FastDecayUnsnappedCoreStructures"
+    );
+    bool_field!(
+        override_structure_platform_prevention,
+        set_override_structure_platform_prevention,
+        "OverrideStructurePlatformPrevention"
+    );
+    bool_field!(prevent_offline_pvp, set_prevent_offline_pvp, "PreventOfflinePvP");
+    float_field!(
+        prevent_offline_pvp_interval,
+        set_prevent_offline_pvp_interval,
+        "PreventOfflinePvPInterval"
+    );
+    bool_field!(pvp_dino_decay, set_pvp_dino_decay, "PvPDinoDecay");
+    bool_field!(pvp_structure_decay, set_pvp_structure_decay, "PvPStructureDecay");
+    float_field!(
+        pve_dino_decay_period_multiplier,
+        set_pve_dino_decay_period_multiplier,
+        "PvEDinoDecayPeriodMultiplier"
+    );
+    bool_field!(
+        only_auto_destroy_core_structures,
+        set_only_auto_destroy_core_structures,
+        "OnlyAutoDestroyCoreStructures"
+    );
+    bool_field!(
+        auto_destroy_decayed_dinos,
+        set_auto_destroy_decayed_dinos,
+        "AutoDestroyDecayedDinos"
+    );
+    bool_field!(
+        tribe_log_destroyed_enemy_structures,
+        set_tribe_log_destroyed_enemy_structures,
+        "TribeLogDestroyedEnemyStructures"
+    );
+    bool_field!(
+        pve_allow_structures_at_supply_drops,
+        set_pve_allow_structures_at_supply_drops,
+        "PvEAllowStructuresAtSupplyDrops"
+    );
+
+    // ── Multipliers / 物量系 ─────────────────────────────────────────
+    float_field!(
+        oxygen_swim_speed_stat_multiplier,
+        set_oxygen_swim_speed_stat_multiplier,
+        "OxygenSwimSpeedStatMultiplier"
+    );
+    float_field!(
+        tribe_name_change_cooldown,
+        set_tribe_name_change_cooldown,
+        "TribeNameChangeCooldown"
+    );
+    float_field!(
+        platform_saddle_build_area_bounds_multiplier,
+        set_platform_saddle_build_area_bounds_multiplier,
+        "PlatformSaddleBuildAreaBoundsMultiplier"
+    );
+    float_field!(
+        raid_dino_character_food_drain_multiplier,
+        set_raid_dino_character_food_drain_multiplier,
+        "RaidDinoCharacterFoodDrainMultiplier"
+    );
+    float_field!(
+        item_stack_size_multiplier,
+        set_item_stack_size_multiplier,
+        "ItemStackSizeMultiplier"
+    );
+
+    // ── Misc behaviour / safety / disease ────────────────────────────
+    float_field!(start_time_hour, set_start_time_hour, "StartTimeHour");
+    int_field!(
+        rcon_server_game_log_buffer,
+        set_rcon_server_game_log_buffer,
+        "RCONServerGameLogBuffer"
+    );
+    bool_field!(
+        allow_raid_dino_feeding,
+        set_allow_raid_dino_feeding,
+        "AllowRaidDinoFeeding"
+    );
+    bool_field!(
+        enable_extra_structure_prevention_volumes,
+        set_enable_extra_structure_prevention_volumes,
+        "EnableExtraStructurePreventionVolumes"
+    );
+    bool_field!(
+        prevent_spawn_animations,
+        set_prevent_spawn_animations,
+        "PreventSpawnAnimations"
+    );
+    bool_field!(prevent_diseases, set_prevent_diseases, "PreventDiseases");
+    bool_field!(
+        non_permanent_diseases,
+        set_non_permanent_diseases,
+        "NonPermanentDiseases"
+    );
+    bool_field!(
+        use_optimized_harvesting_health,
+        set_use_optimized_harvesting_health,
+        "UseOptimizedHarvestingHealth"
+    );
+    bool_field!(
+        allow_multiple_attached_c4,
+        set_allow_multiple_attached_c4,
+        "AllowMultipleAttachedC4"
+    );
+    bool_field!(
+        allow_flying_stamina_recovery,
+        set_allow_flying_stamina_recovery,
+        "AllowFlyingStaminaRecovery"
+    );
+    bool_field!(
+        allow_crate_spawns_on_top_of_structures,
+        set_allow_crate_spawns_on_top_of_structures,
+        "AllowCrateSpawnsOnTopOfStructures"
+    );
 }
 
 /// Apply the RCON settings from a `LaunchArgs`-style triple to the file at

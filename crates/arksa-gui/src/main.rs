@@ -1785,6 +1785,35 @@ fn populate_world_settings_window(
     window.set_f_server_auto_force_respawn_wild_dinos_interval(u(ark_config::GameUserSettings::server_auto_force_respawn_wild_dinos_interval, 0.0));
     window.set_f_destroy_tames_over_level_clamp(gi2(game_config::GameSettings::destroy_tames_over_level_clamp, 0));
 
+    // Phase 8L — extra GameUserSettings.ini knobs
+    window.set_b_fast_decay_unsnapped_core_structures(ub(ark_config::GameUserSettings::fast_decay_unsnapped_core_structures, false));
+    window.set_b_override_structure_platform_prevention(ub(ark_config::GameUserSettings::override_structure_platform_prevention, false));
+    window.set_b_prevent_offline_pvp(ub(ark_config::GameUserSettings::prevent_offline_pvp, false));
+    window.set_f_prevent_offline_pvp_interval(u(ark_config::GameUserSettings::prevent_offline_pvp_interval, 0.0));
+    window.set_b_pvp_dino_decay(ub(ark_config::GameUserSettings::pvp_dino_decay, false));
+    window.set_b_pvp_structure_decay(ub(ark_config::GameUserSettings::pvp_structure_decay, false));
+    window.set_f_pve_dino_decay_period_multiplier(u(ark_config::GameUserSettings::pve_dino_decay_period_multiplier, 1.0));
+    window.set_b_only_auto_destroy_core_structures(ub(ark_config::GameUserSettings::only_auto_destroy_core_structures, false));
+    window.set_b_auto_destroy_decayed_dinos(ub(ark_config::GameUserSettings::auto_destroy_decayed_dinos, false));
+    window.set_b_tribe_log_destroyed_enemy_structures(ub(ark_config::GameUserSettings::tribe_log_destroyed_enemy_structures, false));
+    window.set_b_pve_allow_structures_at_supply_drops(ub(ark_config::GameUserSettings::pve_allow_structures_at_supply_drops, false));
+    window.set_f_oxygen_swim_speed_stat_multiplier(u(ark_config::GameUserSettings::oxygen_swim_speed_stat_multiplier, 1.0));
+    window.set_f_tribe_name_change_cooldown(u(ark_config::GameUserSettings::tribe_name_change_cooldown, 15.0));
+    window.set_f_platform_saddle_build_area_bounds_multiplier(u(ark_config::GameUserSettings::platform_saddle_build_area_bounds_multiplier, 1.0));
+    window.set_f_raid_dino_character_food_drain_multiplier(u(ark_config::GameUserSettings::raid_dino_character_food_drain_multiplier, 1.0));
+    window.set_f_item_stack_size_multiplier(u(ark_config::GameUserSettings::item_stack_size_multiplier, 1.0));
+    window.set_f_start_time_hour(u(ark_config::GameUserSettings::start_time_hour, -1.0));
+    window.set_f_rcon_server_game_log_buffer(ui_2(ark_config::GameUserSettings::rcon_server_game_log_buffer, 600));
+    window.set_b_allow_raid_dino_feeding(ub(ark_config::GameUserSettings::allow_raid_dino_feeding, true));
+    window.set_b_enable_extra_structure_prevention_volumes(ub(ark_config::GameUserSettings::enable_extra_structure_prevention_volumes, false));
+    window.set_b_prevent_spawn_animations(ub(ark_config::GameUserSettings::prevent_spawn_animations, false));
+    window.set_b_prevent_diseases(ub(ark_config::GameUserSettings::prevent_diseases, false));
+    window.set_b_non_permanent_diseases(ub(ark_config::GameUserSettings::non_permanent_diseases, false));
+    window.set_b_use_optimized_harvesting_health(ub(ark_config::GameUserSettings::use_optimized_harvesting_health, false));
+    window.set_b_allow_multiple_attached_c4(ub(ark_config::GameUserSettings::allow_multiple_attached_c4, false));
+    window.set_b_allow_flying_stamina_recovery(ub(ark_config::GameUserSettings::allow_flying_stamina_recovery, false));
+    window.set_b_allow_crate_spawns_on_top_of_structures(ub(ark_config::GameUserSettings::allow_crate_spawns_on_top_of_structures, false));
+
     // Phase 8k — Launch flags (Profile MM_Command_Val)
     let flags_text = profile_path
         .and_then(|p| Profile::load(p).ok())
@@ -1983,6 +2012,35 @@ fn reset_world_settings_window(window: &WorldSettingsWindow) {
     window.set_f_implant_suicide_cd(SharedString::from("28800"));
     window.set_f_server_auto_force_respawn_wild_dinos_interval(SharedString::from("0.0"));
     window.set_f_destroy_tames_over_level_clamp(zero);
+
+    // Phase 8L — extra GameUserSettings.ini knobs (defaults)
+    window.set_b_fast_decay_unsnapped_core_structures(false);
+    window.set_b_override_structure_platform_prevention(false);
+    window.set_b_prevent_offline_pvp(false);
+    window.set_f_prevent_offline_pvp_interval(SharedString::from("0.0"));
+    window.set_b_pvp_dino_decay(false);
+    window.set_b_pvp_structure_decay(false);
+    window.set_f_pve_dino_decay_period_multiplier(SharedString::from("1.0"));
+    window.set_b_only_auto_destroy_core_structures(false);
+    window.set_b_auto_destroy_decayed_dinos(false);
+    window.set_b_tribe_log_destroyed_enemy_structures(false);
+    window.set_b_pve_allow_structures_at_supply_drops(false);
+    window.set_f_oxygen_swim_speed_stat_multiplier(SharedString::from("1.0"));
+    window.set_f_tribe_name_change_cooldown(SharedString::from("15.0"));
+    window.set_f_platform_saddle_build_area_bounds_multiplier(SharedString::from("1.0"));
+    window.set_f_raid_dino_character_food_drain_multiplier(SharedString::from("1.0"));
+    window.set_f_item_stack_size_multiplier(SharedString::from("1.0"));
+    window.set_f_start_time_hour(SharedString::from("-1.0"));
+    window.set_f_rcon_server_game_log_buffer(SharedString::from("600"));
+    window.set_b_allow_raid_dino_feeding(true);
+    window.set_b_enable_extra_structure_prevention_volumes(false);
+    window.set_b_prevent_spawn_animations(false);
+    window.set_b_prevent_diseases(false);
+    window.set_b_non_permanent_diseases(false);
+    window.set_b_use_optimized_harvesting_health(false);
+    window.set_b_allow_multiple_attached_c4(false);
+    window.set_b_allow_flying_stamina_recovery(false);
+    window.set_b_allow_crate_spawns_on_top_of_structures(false);
 
     // Phase 8k — Launch flags (default to common starting set)
     window.set_f_launch_flags(SharedString::from("-log\n-NoBattlEye"));
@@ -2183,6 +2241,35 @@ struct WorldFormValues {
     implant_suicide_cd: i64,
     server_auto_force_respawn_wild_dinos_interval: f64,
     destroy_tames_over_level_clamp: i64,
+
+    // Phase 8L — extra GameUserSettings.ini knobs
+    fast_decay_unsnapped_core_structures: bool,
+    override_structure_platform_prevention: bool,
+    prevent_offline_pvp: bool,
+    prevent_offline_pvp_interval: f64,
+    pvp_dino_decay: bool,
+    pvp_structure_decay: bool,
+    pve_dino_decay_period_multiplier: f64,
+    only_auto_destroy_core_structures: bool,
+    auto_destroy_decayed_dinos: bool,
+    tribe_log_destroyed_enemy_structures: bool,
+    pve_allow_structures_at_supply_drops: bool,
+    oxygen_swim_speed_stat_multiplier: f64,
+    tribe_name_change_cooldown: f64,
+    platform_saddle_build_area_bounds_multiplier: f64,
+    raid_dino_character_food_drain_multiplier: f64,
+    item_stack_size_multiplier: f64,
+    start_time_hour: f64,
+    rcon_server_game_log_buffer: i64,
+    allow_raid_dino_feeding: bool,
+    enable_extra_structure_prevention_volumes: bool,
+    prevent_spawn_animations: bool,
+    prevent_diseases: bool,
+    non_permanent_diseases: bool,
+    use_optimized_harvesting_health: bool,
+    allow_multiple_attached_c4: bool,
+    allow_flying_stamina_recovery: bool,
+    allow_crate_spawns_on_top_of_structures: bool,
 
     // Phase 8k — Launch flags (saved into Profile MM_Command_Val)
     launch_flags: String,
@@ -2465,6 +2552,33 @@ fn collect_world_form(window: &WorldSettingsWindow) -> Result<WorldFormValues, S
         implant_suicide_cd: parse_form_int(window.get_f_implant_suicide_cd(), "ImplantSuicideCD")?,
         server_auto_force_respawn_wild_dinos_interval: parse_form_float(window.get_f_server_auto_force_respawn_wild_dinos_interval(), "ServerAutoForceRespawnWildDinosInterval")?,
         destroy_tames_over_level_clamp: parse_form_int(window.get_f_destroy_tames_over_level_clamp(), "DestroyTamesOverLevelClamp")?,
+        fast_decay_unsnapped_core_structures: window.get_b_fast_decay_unsnapped_core_structures(),
+        override_structure_platform_prevention: window.get_b_override_structure_platform_prevention(),
+        prevent_offline_pvp: window.get_b_prevent_offline_pvp(),
+        prevent_offline_pvp_interval: parse_form_float(window.get_f_prevent_offline_pvp_interval(), "PreventOfflinePvPInterval")?,
+        pvp_dino_decay: window.get_b_pvp_dino_decay(),
+        pvp_structure_decay: window.get_b_pvp_structure_decay(),
+        pve_dino_decay_period_multiplier: parse_form_float(window.get_f_pve_dino_decay_period_multiplier(), "PvEDinoDecayPeriodMultiplier")?,
+        only_auto_destroy_core_structures: window.get_b_only_auto_destroy_core_structures(),
+        auto_destroy_decayed_dinos: window.get_b_auto_destroy_decayed_dinos(),
+        tribe_log_destroyed_enemy_structures: window.get_b_tribe_log_destroyed_enemy_structures(),
+        pve_allow_structures_at_supply_drops: window.get_b_pve_allow_structures_at_supply_drops(),
+        oxygen_swim_speed_stat_multiplier: parse_form_float(window.get_f_oxygen_swim_speed_stat_multiplier(), "OxygenSwimSpeedStatMultiplier")?,
+        tribe_name_change_cooldown: parse_form_float(window.get_f_tribe_name_change_cooldown(), "TribeNameChangeCooldown")?,
+        platform_saddle_build_area_bounds_multiplier: parse_form_float(window.get_f_platform_saddle_build_area_bounds_multiplier(), "PlatformSaddleBuildAreaBoundsMultiplier")?,
+        raid_dino_character_food_drain_multiplier: parse_form_float(window.get_f_raid_dino_character_food_drain_multiplier(), "RaidDinoCharacterFoodDrainMultiplier")?,
+        item_stack_size_multiplier: parse_form_float(window.get_f_item_stack_size_multiplier(), "ItemStackSizeMultiplier")?,
+        start_time_hour: parse_form_float(window.get_f_start_time_hour(), "StartTimeHour")?,
+        rcon_server_game_log_buffer: parse_form_int(window.get_f_rcon_server_game_log_buffer(), "RCONServerGameLogBuffer")?,
+        allow_raid_dino_feeding: window.get_b_allow_raid_dino_feeding(),
+        enable_extra_structure_prevention_volumes: window.get_b_enable_extra_structure_prevention_volumes(),
+        prevent_spawn_animations: window.get_b_prevent_spawn_animations(),
+        prevent_diseases: window.get_b_prevent_diseases(),
+        non_permanent_diseases: window.get_b_non_permanent_diseases(),
+        use_optimized_harvesting_health: window.get_b_use_optimized_harvesting_health(),
+        allow_multiple_attached_c4: window.get_b_allow_multiple_attached_c4(),
+        allow_flying_stamina_recovery: window.get_b_allow_flying_stamina_recovery(),
+        allow_crate_spawns_on_top_of_structures: window.get_b_allow_crate_spawns_on_top_of_structures(),
         launch_flags: window.get_f_launch_flags().as_str().to_string(),
     })
 }
@@ -2675,6 +2789,35 @@ fn write_world_form(
     gus.set_implant_suicide_cd(v.implant_suicide_cd);
     gus.set_server_auto_force_respawn_wild_dinos_interval(v.server_auto_force_respawn_wild_dinos_interval);
     game.set_destroy_tames_over_level_clamp(v.destroy_tames_over_level_clamp);
+
+    // Phase 8L — extra GameUserSettings.ini knobs
+    gus.set_fast_decay_unsnapped_core_structures(v.fast_decay_unsnapped_core_structures);
+    gus.set_override_structure_platform_prevention(v.override_structure_platform_prevention);
+    gus.set_prevent_offline_pvp(v.prevent_offline_pvp);
+    gus.set_prevent_offline_pvp_interval(v.prevent_offline_pvp_interval);
+    gus.set_pvp_dino_decay(v.pvp_dino_decay);
+    gus.set_pvp_structure_decay(v.pvp_structure_decay);
+    gus.set_pve_dino_decay_period_multiplier(v.pve_dino_decay_period_multiplier);
+    gus.set_only_auto_destroy_core_structures(v.only_auto_destroy_core_structures);
+    gus.set_auto_destroy_decayed_dinos(v.auto_destroy_decayed_dinos);
+    gus.set_tribe_log_destroyed_enemy_structures(v.tribe_log_destroyed_enemy_structures);
+    gus.set_pve_allow_structures_at_supply_drops(v.pve_allow_structures_at_supply_drops);
+    gus.set_oxygen_swim_speed_stat_multiplier(v.oxygen_swim_speed_stat_multiplier);
+    gus.set_tribe_name_change_cooldown(v.tribe_name_change_cooldown);
+    gus.set_platform_saddle_build_area_bounds_multiplier(v.platform_saddle_build_area_bounds_multiplier);
+    gus.set_raid_dino_character_food_drain_multiplier(v.raid_dino_character_food_drain_multiplier);
+    gus.set_item_stack_size_multiplier(v.item_stack_size_multiplier);
+    gus.set_start_time_hour(v.start_time_hour);
+    gus.set_rcon_server_game_log_buffer(v.rcon_server_game_log_buffer);
+    gus.set_allow_raid_dino_feeding(v.allow_raid_dino_feeding);
+    gus.set_enable_extra_structure_prevention_volumes(v.enable_extra_structure_prevention_volumes);
+    gus.set_prevent_spawn_animations(v.prevent_spawn_animations);
+    gus.set_prevent_diseases(v.prevent_diseases);
+    gus.set_non_permanent_diseases(v.non_permanent_diseases);
+    gus.set_use_optimized_harvesting_health(v.use_optimized_harvesting_health);
+    gus.set_allow_multiple_attached_c4(v.allow_multiple_attached_c4);
+    gus.set_allow_flying_stamina_recovery(v.allow_flying_stamina_recovery);
+    gus.set_allow_crate_spawns_on_top_of_structures(v.allow_crate_spawns_on_top_of_structures);
 
     game.save()?;
     gus.save()?;
@@ -3127,6 +3270,34 @@ fn import_world_settings(window: &WorldSettingsWindow, source_path: &Path) -> Re
     if let Some(v) = ui_(ark_config::GameUserSettings::implant_suicide_cd) { window.set_f_implant_suicide_cd(fmt_int_for_form(v)); }
     if let Some(v) = u(ark_config::GameUserSettings::server_auto_force_respawn_wild_dinos_interval) { window.set_f_server_auto_force_respawn_wild_dinos_interval(fmt_float_for_form(v)); }
     if let Some(v) = gi(game_config::GameSettings::destroy_tames_over_level_clamp) { window.set_f_destroy_tames_over_level_clamp(fmt_int_for_form(v)); }
+    // Phase 8L — extra GameUserSettings.ini knobs
+    if let Some(v) = ub(ark_config::GameUserSettings::fast_decay_unsnapped_core_structures) { window.set_b_fast_decay_unsnapped_core_structures(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::override_structure_platform_prevention) { window.set_b_override_structure_platform_prevention(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::prevent_offline_pvp) { window.set_b_prevent_offline_pvp(v); }
+    if let Some(v) = u(ark_config::GameUserSettings::prevent_offline_pvp_interval) { window.set_f_prevent_offline_pvp_interval(fmt_float_for_form(v)); }
+    if let Some(v) = ub(ark_config::GameUserSettings::pvp_dino_decay) { window.set_b_pvp_dino_decay(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::pvp_structure_decay) { window.set_b_pvp_structure_decay(v); }
+    if let Some(v) = u(ark_config::GameUserSettings::pve_dino_decay_period_multiplier) { window.set_f_pve_dino_decay_period_multiplier(fmt_float_for_form(v)); }
+    if let Some(v) = ub(ark_config::GameUserSettings::only_auto_destroy_core_structures) { window.set_b_only_auto_destroy_core_structures(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::auto_destroy_decayed_dinos) { window.set_b_auto_destroy_decayed_dinos(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::tribe_log_destroyed_enemy_structures) { window.set_b_tribe_log_destroyed_enemy_structures(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::pve_allow_structures_at_supply_drops) { window.set_b_pve_allow_structures_at_supply_drops(v); }
+    if let Some(v) = u(ark_config::GameUserSettings::oxygen_swim_speed_stat_multiplier) { window.set_f_oxygen_swim_speed_stat_multiplier(fmt_float_for_form(v)); }
+    if let Some(v) = u(ark_config::GameUserSettings::tribe_name_change_cooldown) { window.set_f_tribe_name_change_cooldown(fmt_float_for_form(v)); }
+    if let Some(v) = u(ark_config::GameUserSettings::platform_saddle_build_area_bounds_multiplier) { window.set_f_platform_saddle_build_area_bounds_multiplier(fmt_float_for_form(v)); }
+    if let Some(v) = u(ark_config::GameUserSettings::raid_dino_character_food_drain_multiplier) { window.set_f_raid_dino_character_food_drain_multiplier(fmt_float_for_form(v)); }
+    if let Some(v) = u(ark_config::GameUserSettings::item_stack_size_multiplier) { window.set_f_item_stack_size_multiplier(fmt_float_for_form(v)); }
+    if let Some(v) = u(ark_config::GameUserSettings::start_time_hour) { window.set_f_start_time_hour(fmt_float_for_form(v)); }
+    if let Some(v) = ui_(ark_config::GameUserSettings::rcon_server_game_log_buffer) { window.set_f_rcon_server_game_log_buffer(fmt_int_for_form(v)); }
+    if let Some(v) = ub(ark_config::GameUserSettings::allow_raid_dino_feeding) { window.set_b_allow_raid_dino_feeding(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::enable_extra_structure_prevention_volumes) { window.set_b_enable_extra_structure_prevention_volumes(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::prevent_spawn_animations) { window.set_b_prevent_spawn_animations(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::prevent_diseases) { window.set_b_prevent_diseases(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::non_permanent_diseases) { window.set_b_non_permanent_diseases(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::use_optimized_harvesting_health) { window.set_b_use_optimized_harvesting_health(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::allow_multiple_attached_c4) { window.set_b_allow_multiple_attached_c4(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::allow_flying_stamina_recovery) { window.set_b_allow_flying_stamina_recovery(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::allow_crate_spawns_on_top_of_structures) { window.set_b_allow_crate_spawns_on_top_of_structures(v); }
     Ok(())
 }
 
