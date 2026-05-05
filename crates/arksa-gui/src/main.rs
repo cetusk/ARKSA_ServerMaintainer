@@ -64,9 +64,28 @@ type SelectedIndex = Arc<Mutex<usize>>;
 type LogBuffer = Arc<Mutex<String>>;
 
 fn main() -> Result<()> {
+    // Route the `log` crate (used by Slint's text layout / ICU4X) through
+    // `tracing` so EnvFilter can mute the noisy ones. Default filter
+    // silences:
+    //   - icu_segmenter / icu_*  : "ICU4X data error: No segmentation
+    //     model for language: ja" — fired on every Japanese line break
+    //     because the bundled ICU4X data ships only Western locales.
+    //     Wrapping still works, just falls back to char-wrap, so we don't
+    //     need the warning.
+    //   - i_slint_core / renderer-software : downgrade to error so layout
+    //     warnings don't drown out useful output.
+    let _ = tracing_log::LogTracer::init();
     tracing_subscriber::fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                EnvFilter::new(
+                    "info,\
+                     icu_segmenter=off,\
+                     icu_provider=off,\
+                     i_slint_core=error,\
+                     i_slint_renderer_software=error",
+                )
+            }),
         )
         .init();
 
