@@ -74,7 +74,11 @@ fn main() -> Result<()> {
     //     need the warning.
     //   - i_slint_core / renderer-software : downgrade to error so layout
     //     warnings don't drown out useful output.
-    let _ = tracing_log::LogTracer::init();
+    //
+    // NOTE: the `log` → `tracing` bridge is installed *by tracing-subscriber
+    // itself* via its default `tracing-log` feature, so we must NOT also
+    // call `LogTracer::init()` here. Doing both panics with
+    // `SetLoggerError` because only one global `log` logger is allowed.
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| {

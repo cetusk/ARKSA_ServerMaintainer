@@ -22,7 +22,6 @@ tokio = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-tracing-log = { workspace = true }
 
 # Native folder/file picker, used by the Browse… and Import… buttons. Only
 # pulled in on Windows so the rest of the workspace can still be checked on
