@@ -20,6 +20,10 @@ use crate::ini_doc::IniDoc;
 /// `[ServerSettings]` section in `GameUserSettings.ini`.
 pub const SECTION_SERVER_SETTINGS: &str = "ServerSettings";
 
+/// `[MessageOfTheDay]` section in `GameUserSettings.ini` — holds the
+/// MOTD text + display duration shown to joining players.
+pub const SECTION_MESSAGE_OF_THE_DAY: &str = "MessageOfTheDay";
+
 /// Resolve the canonical `GameUserSettings.ini` path beneath an install root,
 /// e.g. `D:\ARK\ARKSA_Server\ShooterGame\Saved\Config\WindowsServer\GameUserSettings.ini`.
 pub fn game_user_settings_path(install_root: &Path) -> PathBuf {
@@ -609,6 +613,87 @@ impl GameUserSettings {
         set_allow_crate_spawns_on_top_of_structures,
         "AllowCrateSpawnsOnTopOfStructures"
     );
+
+    // ── Phase 8M: breeding/loot keys migrated from Game.ini → GUS ─────
+    // These were modelled in `game_config` until 8M, but real-world
+    // configs (and ASA's own writer) put them in `[ServerSettings]` of
+    // GameUserSettings.ini. Keeping them in Game.ini meant Import lost
+    // the user's existing values (and Save wrote duplicates to a file
+    // ARK ignores).
+    float_field!(
+        mating_interval_multiplier,
+        set_mating_interval_multiplier,
+        "MatingIntervalMultiplier"
+    );
+    float_field!(
+        egg_hatch_speed_multiplier,
+        set_egg_hatch_speed_multiplier,
+        "EggHatchSpeedMultiplier"
+    );
+    float_field!(
+        baby_mature_speed_multiplier,
+        set_baby_mature_speed_multiplier,
+        "BabyMatureSpeedMultiplier"
+    );
+    float_field!(
+        baby_food_consumption_speed_multiplier,
+        set_baby_food_consumption_speed_multiplier,
+        "BabyFoodConsumptionSpeedMultiplier"
+    );
+    float_field!(
+        baby_imprint_amount_multiplier,
+        set_baby_imprint_amount_multiplier,
+        "BabyImprintAmountMultiplier"
+    );
+    float_field!(
+        baby_imprinting_stat_scale_multiplier,
+        set_baby_imprinting_stat_scale_multiplier,
+        "BabyImprintingStatScaleMultiplier"
+    );
+    float_field!(
+        baby_cuddle_interval_multiplier,
+        set_baby_cuddle_interval_multiplier,
+        "BabyCuddleIntervalMultiplier"
+    );
+    float_field!(
+        baby_cuddle_grace_period_multiplier,
+        set_baby_cuddle_grace_period_multiplier,
+        "BabyCuddleGracePeriodMultiplier"
+    );
+    float_field!(
+        baby_cuddle_lose_imprint_quality_speed_multiplier,
+        set_baby_cuddle_lose_imprint_quality_speed_multiplier,
+        "BabyCuddleLoseImprintQualitySpeedMultiplier"
+    );
+    float_field!(
+        supply_crate_loot_quality_multiplier,
+        set_supply_crate_loot_quality_multiplier,
+        "SupplyCrateLootQualityMultiplier"
+    );
+    float_field!(
+        fishing_loot_quality_multiplier,
+        set_fishing_loot_quality_multiplier,
+        "FishingLootQualityMultiplier"
+    );
+    float_field!(
+        crop_decay_speed_multiplier,
+        set_crop_decay_speed_multiplier,
+        "CropDecaySpeedMultiplier"
+    );
+
+    // ── Phase 8P: MOTD ([MessageOfTheDay] section, not [ServerSettings]) ─
+    pub fn motd_message(&self) -> Option<String> {
+        self.doc.get_string(SECTION_MESSAGE_OF_THE_DAY, "Message")
+    }
+    pub fn set_motd_message(&mut self, v: &str) {
+        self.doc.set_string(SECTION_MESSAGE_OF_THE_DAY, "Message", v);
+    }
+    pub fn motd_duration(&self) -> Option<i64> {
+        self.doc.get_i64(SECTION_MESSAGE_OF_THE_DAY, "Duration")
+    }
+    pub fn set_motd_duration(&mut self, v: i64) {
+        self.doc.set_i64(SECTION_MESSAGE_OF_THE_DAY, "Duration", v);
+    }
 }
 
 /// Apply the RCON settings from a `LaunchArgs`-style triple to the file at

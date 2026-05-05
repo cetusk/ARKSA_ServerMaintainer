@@ -940,6 +940,11 @@ export component WorldSettingsWindow inherits Window {
     in-out property <bool> b_allow_flying_stamina_recovery: false;
     in-out property <bool> b_allow_crate_spawns_on_top_of_structures: false;
 
+    // Phase 8P — MOTD (separate [MessageOfTheDay] section in
+    // GameUserSettings.ini, not [ServerSettings])
+    in-out property <string> f_motd_message: "";
+    in-out property <string> f_motd_duration: "20";
+
     // Phase 8k — Launch flags (saved into Profile MM_Command_Val)
     in-out property <string> f_launch_flags: "";
     in property <string> f_launch_flags_reference: "";
@@ -2248,7 +2253,34 @@ export component WorldSettingsWindow inherits Window {
                 ScrollView {
                     VerticalBox {
                         padding: 8px;
-                        spacing: 4px;
+                        spacing: 6px;
+                        GroupBox {
+                            title: "MessageOfTheDay (separate INI section)";
+                            VerticalBox {
+                                padding: 4px;
+                                spacing: 4px;
+                                Text {
+                                    text: root.lang-ja
+                                        ? "サーバー参加時にプレイヤーに表示されるメッセージ。改行可。"
+                                        : "Message shown to players when they join. Multiline supported.";
+                                    color: #aaa;
+                                    font-size: 11px;
+                                    wrap: word-wrap;
+                                }
+                                TextEdit {
+                                    text <=> root.f_motd_message;
+                                    wrap: word-wrap;
+                                    min-height: 80px;
+                                }
+                                WorldFloatRow {
+                                    label: "Duration (sec, int)";
+                                    description: root.lang-ja
+                                        ? "MOTD を画面に表示する秒数。"
+                                        : "How many seconds the MOTD stays on screen.";
+                                    value <=> root.f_motd_duration;
+                                }
+                            }
+                        }
                         WorldBoolRow {
                             label: "globalVoiceChat";
                             description: root.lang-ja

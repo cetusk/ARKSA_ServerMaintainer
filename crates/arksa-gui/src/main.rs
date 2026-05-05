@@ -1527,9 +1527,9 @@ fn populate_world_settings_window(
     window.set_f_resources_respawn_period_multiplier(u(ark_config::GameUserSettings::resources_respawn_period_multiplier, 1.0));
     window.set_f_taming_speed_multiplier(u(ark_config::GameUserSettings::taming_speed_multiplier, 1.0));
     // Breeding (these stay in Game.ini)
-    window.set_f_mating_interval_multiplier(g(game_config::GameSettings::mating_interval_multiplier, 1.0));
-    window.set_f_egg_hatch_speed_multiplier(g(game_config::GameSettings::egg_hatch_speed_multiplier, 1.0));
-    window.set_f_baby_mature_speed_multiplier(g(game_config::GameSettings::baby_mature_speed_multiplier, 1.0));
+    window.set_f_mating_interval_multiplier(u(ark_config::GameUserSettings::mating_interval_multiplier, 1.0));
+    window.set_f_egg_hatch_speed_multiplier(u(ark_config::GameUserSettings::egg_hatch_speed_multiplier, 1.0));
+    window.set_f_baby_mature_speed_multiplier(u(ark_config::GameUserSettings::baby_mature_speed_multiplier, 1.0));
 
     // Day cycle (GameUserSettings.ini)
     window.set_f_day_cycle_speed_scale(u(ark_config::GameUserSettings::day_cycle_speed_scale, 1.0));
@@ -1583,20 +1583,20 @@ fn populate_world_settings_window(
     window.set_f_mating_speed_multiplier(g(game_config::GameSettings::mating_speed_multiplier, 1.0));
     window.set_f_lay_egg_interval_multiplier(g(game_config::GameSettings::lay_egg_interval_multiplier, 1.0));
     window.set_f_passive_tame_interval_multiplier(g(game_config::GameSettings::passive_tame_interval_multiplier, 1.0));
-    window.set_f_baby_food_consumption_speed_multiplier(g(game_config::GameSettings::baby_food_consumption_speed_multiplier, 1.0));
-    window.set_f_baby_imprint_amount_multiplier(g(game_config::GameSettings::baby_imprint_amount_multiplier, 1.0));
-    window.set_f_baby_imprinting_stat_scale_multiplier(g(game_config::GameSettings::baby_imprinting_stat_scale_multiplier, 1.0));
-    window.set_f_baby_cuddle_interval_multiplier(g(game_config::GameSettings::baby_cuddle_interval_multiplier, 1.0));
-    window.set_f_baby_cuddle_grace_period_multiplier(g(game_config::GameSettings::baby_cuddle_grace_period_multiplier, 1.0));
-    window.set_f_baby_cuddle_lose_imprint_quality_speed_multiplier(g(game_config::GameSettings::baby_cuddle_lose_imprint_quality_speed_multiplier, 1.0));
+    window.set_f_baby_food_consumption_speed_multiplier(u(ark_config::GameUserSettings::baby_food_consumption_speed_multiplier, 1.0));
+    window.set_f_baby_imprint_amount_multiplier(u(ark_config::GameUserSettings::baby_imprint_amount_multiplier, 1.0));
+    window.set_f_baby_imprinting_stat_scale_multiplier(u(ark_config::GameUserSettings::baby_imprinting_stat_scale_multiplier, 1.0));
+    window.set_f_baby_cuddle_interval_multiplier(u(ark_config::GameUserSettings::baby_cuddle_interval_multiplier, 1.0));
+    window.set_f_baby_cuddle_grace_period_multiplier(u(ark_config::GameUserSettings::baby_cuddle_grace_period_multiplier, 1.0));
+    window.set_f_baby_cuddle_lose_imprint_quality_speed_multiplier(u(ark_config::GameUserSettings::baby_cuddle_lose_imprint_quality_speed_multiplier, 1.0));
     window.set_b_disable_dino_breeding(gb(game_config::GameSettings::disable_dino_breeding, false));
     window.set_b_disable_dino_taming(gb(game_config::GameSettings::disable_dino_taming, false));
 
     // Phase 8d — Loot / Spoilage (Game.ini)
-    window.set_f_supply_crate_loot_quality_multiplier(g(game_config::GameSettings::supply_crate_loot_quality_multiplier, 1.0));
-    window.set_f_fishing_loot_quality_multiplier(g(game_config::GameSettings::fishing_loot_quality_multiplier, 1.0));
+    window.set_f_supply_crate_loot_quality_multiplier(u(ark_config::GameUserSettings::supply_crate_loot_quality_multiplier, 1.0));
+    window.set_f_fishing_loot_quality_multiplier(u(ark_config::GameUserSettings::fishing_loot_quality_multiplier, 1.0));
     window.set_f_crop_growth_speed_multiplier(g(game_config::GameSettings::crop_growth_speed_multiplier, 1.0));
-    window.set_f_crop_decay_speed_multiplier(g(game_config::GameSettings::crop_decay_speed_multiplier, 1.0));
+    window.set_f_crop_decay_speed_multiplier(u(ark_config::GameUserSettings::crop_decay_speed_multiplier, 1.0));
     window.set_b_disable_loot_crates(gb(game_config::GameSettings::disable_loot_crates, false));
     let gi = |get: fn(&game_config::GameSettings) -> Option<i64>, default: i64| -> SharedString {
         let v = game.as_ref().and_then(get).unwrap_or(default);
@@ -1813,6 +1813,12 @@ fn populate_world_settings_window(
     window.set_b_allow_multiple_attached_c4(ub(ark_config::GameUserSettings::allow_multiple_attached_c4, false));
     window.set_b_allow_flying_stamina_recovery(ub(ark_config::GameUserSettings::allow_flying_stamina_recovery, false));
     window.set_b_allow_crate_spawns_on_top_of_structures(ub(ark_config::GameUserSettings::allow_crate_spawns_on_top_of_structures, false));
+
+    // Phase 8P — MOTD
+    let motd_msg = gus.as_ref().and_then(|g| g.motd_message()).unwrap_or_default();
+    window.set_f_motd_message(motd_msg.as_str().into());
+    let motd_dur = gus.as_ref().and_then(|g| g.motd_duration()).unwrap_or(20);
+    window.set_f_motd_duration(fmt_int_for_form(motd_dur));
 
     // Phase 8k — Launch flags (Profile MM_Command_Val)
     let flags_text = profile_path
@@ -2042,6 +2048,10 @@ fn reset_world_settings_window(window: &WorldSettingsWindow) {
     window.set_b_allow_flying_stamina_recovery(false);
     window.set_b_allow_crate_spawns_on_top_of_structures(false);
 
+    // Phase 8P — MOTD
+    window.set_f_motd_message(SharedString::default());
+    window.set_f_motd_duration(SharedString::from("20"));
+
     // Phase 8k — Launch flags (default to common starting set)
     window.set_f_launch_flags(SharedString::from("-log\n-NoBattlEye"));
     window.set_f_launch_flags_reference(launch_args::COMMON_LAUNCH_FLAGS.join("  ").into());
@@ -2270,6 +2280,10 @@ struct WorldFormValues {
     allow_multiple_attached_c4: bool,
     allow_flying_stamina_recovery: bool,
     allow_crate_spawns_on_top_of_structures: bool,
+
+    // Phase 8P — MOTD ([MessageOfTheDay] section in GameUserSettings.ini)
+    motd_message: String,
+    motd_duration: i64,
 
     // Phase 8k — Launch flags (saved into Profile MM_Command_Val)
     launch_flags: String,
@@ -2579,6 +2593,8 @@ fn collect_world_form(window: &WorldSettingsWindow) -> Result<WorldFormValues, S
         allow_multiple_attached_c4: window.get_b_allow_multiple_attached_c4(),
         allow_flying_stamina_recovery: window.get_b_allow_flying_stamina_recovery(),
         allow_crate_spawns_on_top_of_structures: window.get_b_allow_crate_spawns_on_top_of_structures(),
+        motd_message: window.get_f_motd_message().as_str().to_string(),
+        motd_duration: parse_form_int(window.get_f_motd_duration(), "MessageOfTheDay/Duration")?,
         launch_flags: window.get_f_launch_flags().as_str().to_string(),
     })
 }
@@ -2602,9 +2618,9 @@ fn write_world_form(
     )?;
 
     // Game.ini-only fields
-    game.set_mating_interval_multiplier(v.mating_interval_multiplier);
-    game.set_egg_hatch_speed_multiplier(v.egg_hatch_speed_multiplier);
-    game.set_baby_mature_speed_multiplier(v.baby_mature_speed_multiplier);
+    gus.set_mating_interval_multiplier(v.mating_interval_multiplier);
+    gus.set_egg_hatch_speed_multiplier(v.egg_hatch_speed_multiplier);
+    gus.set_baby_mature_speed_multiplier(v.baby_mature_speed_multiplier);
     game.set_player_harvesting_damage_multiplier(v.player_harvesting);
     game.set_wild_dino_food_drain_multiplier(v.wild_food);
     game.set_wild_dino_torpor_drain_multiplier(v.wild_torpor);
@@ -2667,20 +2683,20 @@ fn write_world_form(
     game.set_mating_speed_multiplier(v.mating_speed_multiplier);
     game.set_lay_egg_interval_multiplier(v.lay_egg_interval_multiplier);
     game.set_passive_tame_interval_multiplier(v.passive_tame_interval_multiplier);
-    game.set_baby_food_consumption_speed_multiplier(v.baby_food_consumption_speed_multiplier);
-    game.set_baby_imprint_amount_multiplier(v.baby_imprint_amount_multiplier);
-    game.set_baby_imprinting_stat_scale_multiplier(v.baby_imprinting_stat_scale_multiplier);
-    game.set_baby_cuddle_interval_multiplier(v.baby_cuddle_interval_multiplier);
-    game.set_baby_cuddle_grace_period_multiplier(v.baby_cuddle_grace_period_multiplier);
-    game.set_baby_cuddle_lose_imprint_quality_speed_multiplier(v.baby_cuddle_lose_imprint_quality_speed_multiplier);
+    gus.set_baby_food_consumption_speed_multiplier(v.baby_food_consumption_speed_multiplier);
+    gus.set_baby_imprint_amount_multiplier(v.baby_imprint_amount_multiplier);
+    gus.set_baby_imprinting_stat_scale_multiplier(v.baby_imprinting_stat_scale_multiplier);
+    gus.set_baby_cuddle_interval_multiplier(v.baby_cuddle_interval_multiplier);
+    gus.set_baby_cuddle_grace_period_multiplier(v.baby_cuddle_grace_period_multiplier);
+    gus.set_baby_cuddle_lose_imprint_quality_speed_multiplier(v.baby_cuddle_lose_imprint_quality_speed_multiplier);
     game.set_disable_dino_breeding(v.disable_dino_breeding);
     game.set_disable_dino_taming(v.disable_dino_taming);
 
     // Phase 8d — Loot / Spoilage → Game.ini
-    game.set_supply_crate_loot_quality_multiplier(v.supply_crate_loot_quality_multiplier);
-    game.set_fishing_loot_quality_multiplier(v.fishing_loot_quality_multiplier);
+    gus.set_supply_crate_loot_quality_multiplier(v.supply_crate_loot_quality_multiplier);
+    gus.set_fishing_loot_quality_multiplier(v.fishing_loot_quality_multiplier);
     game.set_crop_growth_speed_multiplier(v.crop_growth_speed_multiplier);
-    game.set_crop_decay_speed_multiplier(v.crop_decay_speed_multiplier);
+    gus.set_crop_decay_speed_multiplier(v.crop_decay_speed_multiplier);
     game.set_disable_loot_crates(v.disable_loot_crates);
     game.set_limit_non_player_dropped_items_count(v.limit_non_player_dropped_items_count);
     game.set_limit_non_player_dropped_items_range(v.limit_non_player_dropped_items_range);
@@ -2819,6 +2835,10 @@ fn write_world_form(
     gus.set_allow_flying_stamina_recovery(v.allow_flying_stamina_recovery);
     gus.set_allow_crate_spawns_on_top_of_structures(v.allow_crate_spawns_on_top_of_structures);
 
+    // Phase 8P — MOTD
+    gus.set_motd_message(&v.motd_message);
+    gus.set_motd_duration(v.motd_duration);
+
     game.save()?;
     gus.save()?;
 
@@ -2870,13 +2890,13 @@ fn import_world_settings(window: &WorldSettingsWindow, source_path: &Path) -> Re
         window.set_f_taming_speed_multiplier(fmt_float_for_form(v));
     }
     // Breeding → Game.ini
-    if let Some(v) = g(game_config::GameSettings::mating_interval_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::mating_interval_multiplier) {
         window.set_f_mating_interval_multiplier(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::egg_hatch_speed_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::egg_hatch_speed_multiplier) {
         window.set_f_egg_hatch_speed_multiplier(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::baby_mature_speed_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::baby_mature_speed_multiplier) {
         window.set_f_baby_mature_speed_multiplier(fmt_float_for_form(v));
     }
     // Day cycle → GUS
@@ -2999,22 +3019,22 @@ fn import_world_settings(window: &WorldSettingsWindow, source_path: &Path) -> Re
     if let Some(v) = g(game_config::GameSettings::passive_tame_interval_multiplier) {
         window.set_f_passive_tame_interval_multiplier(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::baby_food_consumption_speed_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::baby_food_consumption_speed_multiplier) {
         window.set_f_baby_food_consumption_speed_multiplier(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::baby_imprint_amount_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::baby_imprint_amount_multiplier) {
         window.set_f_baby_imprint_amount_multiplier(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::baby_imprinting_stat_scale_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::baby_imprinting_stat_scale_multiplier) {
         window.set_f_baby_imprinting_stat_scale_multiplier(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::baby_cuddle_interval_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::baby_cuddle_interval_multiplier) {
         window.set_f_baby_cuddle_interval_multiplier(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::baby_cuddle_grace_period_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::baby_cuddle_grace_period_multiplier) {
         window.set_f_baby_cuddle_grace_period_multiplier(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::baby_cuddle_lose_imprint_quality_speed_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::baby_cuddle_lose_imprint_quality_speed_multiplier) {
         window.set_f_baby_cuddle_lose_imprint_quality_speed_multiplier(fmt_float_for_form(v));
     }
     if let Some(v) = gb(game_config::GameSettings::disable_dino_breeding) {
@@ -3025,16 +3045,16 @@ fn import_world_settings(window: &WorldSettingsWindow, source_path: &Path) -> Re
     }
     // Phase 8d — Loot / Spoilage
     let gi = |get: fn(&game_config::GameSettings) -> Option<i64>| get(&game);
-    if let Some(v) = g(game_config::GameSettings::supply_crate_loot_quality_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::supply_crate_loot_quality_multiplier) {
         window.set_f_supply_crate_loot_quality_multiplier(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::fishing_loot_quality_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::fishing_loot_quality_multiplier) {
         window.set_f_fishing_loot_quality_multiplier(fmt_float_for_form(v));
     }
     if let Some(v) = g(game_config::GameSettings::crop_growth_speed_multiplier) {
         window.set_f_crop_growth_speed_multiplier(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::crop_decay_speed_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::crop_decay_speed_multiplier) {
         window.set_f_crop_decay_speed_multiplier(fmt_float_for_form(v));
     }
     if let Some(v) = gb(game_config::GameSettings::disable_loot_crates) {
@@ -3298,6 +3318,9 @@ fn import_world_settings(window: &WorldSettingsWindow, source_path: &Path) -> Re
     if let Some(v) = ub(ark_config::GameUserSettings::allow_multiple_attached_c4) { window.set_b_allow_multiple_attached_c4(v); }
     if let Some(v) = ub(ark_config::GameUserSettings::allow_flying_stamina_recovery) { window.set_b_allow_flying_stamina_recovery(v); }
     if let Some(v) = ub(ark_config::GameUserSettings::allow_crate_spawns_on_top_of_structures) { window.set_b_allow_crate_spawns_on_top_of_structures(v); }
+    // Phase 8P — MOTD
+    if let Some(v) = gus.motd_message() { window.set_f_motd_message(v.as_str().into()); }
+    if let Some(v) = gus.motd_duration() { window.set_f_motd_duration(fmt_int_for_form(v)); }
     Ok(())
 }
 

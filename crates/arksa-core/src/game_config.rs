@@ -131,22 +131,10 @@ impl GameSettings {
         "WildDinoTorporDrainMultiplier"
     );
 
-    // ── Breeding ─────────────────────────────────────────────────────
-    float_field!(
-        mating_interval_multiplier,
-        set_mating_interval_multiplier,
-        "MatingIntervalMultiplier"
-    );
-    float_field!(
-        egg_hatch_speed_multiplier,
-        set_egg_hatch_speed_multiplier,
-        "EggHatchSpeedMultiplier"
-    );
-    float_field!(
-        baby_mature_speed_multiplier,
-        set_baby_mature_speed_multiplier,
-        "BabyMatureSpeedMultiplier"
-    );
+    // ── Breeding (Game.ini-only ones; the rest were moved to GUS in 8M) ─
+    // The keys we kept here are not present in user's known-good
+    // GameUserSettings.ini, and ASA documentation lists them under the
+    // Game.ini [/Script/ShooterGame.ShooterGameMode] section.
     float_field!(
         mating_speed_multiplier,
         set_mating_speed_multiplier,
@@ -161,36 +149,6 @@ impl GameSettings {
         passive_tame_interval_multiplier,
         set_passive_tame_interval_multiplier,
         "PassiveTameIntervalMultiplier"
-    );
-    float_field!(
-        baby_food_consumption_speed_multiplier,
-        set_baby_food_consumption_speed_multiplier,
-        "BabyFoodConsumptionSpeedMultiplier"
-    );
-    float_field!(
-        baby_imprint_amount_multiplier,
-        set_baby_imprint_amount_multiplier,
-        "BabyImprintAmountMultiplier"
-    );
-    float_field!(
-        baby_imprinting_stat_scale_multiplier,
-        set_baby_imprinting_stat_scale_multiplier,
-        "BabyImprintingStatScaleMultiplier"
-    );
-    float_field!(
-        baby_cuddle_interval_multiplier,
-        set_baby_cuddle_interval_multiplier,
-        "BabyCuddleIntervalMultiplier"
-    );
-    float_field!(
-        baby_cuddle_grace_period_multiplier,
-        set_baby_cuddle_grace_period_multiplier,
-        "BabyCuddleGracePeriodMultiplier"
-    );
-    float_field!(
-        baby_cuddle_lose_imprint_quality_speed_multiplier,
-        set_baby_cuddle_lose_imprint_quality_speed_multiplier,
-        "BabyCuddleLoseImprintQualitySpeedMultiplier"
     );
     bool_field!(
         disable_dino_breeding,
@@ -222,22 +180,8 @@ impl GameSettings {
         "AllowAnyoneBabyImprintCuddle"
     );
 
-    // ── Loot / crops (Phase 8d) ──────────────────────────────────────
-    float_field!(
-        supply_crate_loot_quality_multiplier,
-        set_supply_crate_loot_quality_multiplier,
-        "SupplyCrateLootQualityMultiplier"
-    );
-    float_field!(
-        fishing_loot_quality_multiplier,
-        set_fishing_loot_quality_multiplier,
-        "FishingLootQualityMultiplier"
-    );
-    float_field!(
-        crop_decay_speed_multiplier,
-        set_crop_decay_speed_multiplier,
-        "CropDecaySpeedMultiplier"
-    );
+    // ── Loot / crops (Game.ini-only; SupplyCrate / Fishing / CropDecay
+    //    were moved to GUS in 8M to match real-world configs) ─────────
     float_field!(
         crop_growth_speed_multiplier,
         set_crop_growth_speed_multiplier,
@@ -472,13 +416,13 @@ mod tests {
         let p = temp("missing");
         let _ = std::fs::remove_file(&p);
         let mut g = GameSettings::load_or_empty(&p).unwrap();
-        g.set_baby_mature_speed_multiplier(10.0);
+        g.set_crop_growth_speed_multiplier(10.0);
         g.set_disable_imprint_dino_buff(true);
         g.save().unwrap();
 
         let raw = std::fs::read_to_string(&p).unwrap();
         assert!(raw.contains("[/Script/ShooterGame.ShooterGameMode]"));
-        assert!(raw.contains("BabyMatureSpeedMultiplier=10.0"));
+        assert!(raw.contains("CropGrowthSpeedMultiplier=10.0"));
         assert!(raw.contains("DisableImprintDinoBuff=True"));
         let _ = std::fs::remove_file(p);
     }
@@ -490,18 +434,18 @@ mod tests {
             &p,
             "[/Script/ShooterGame.ShooterGameMode]\r\n\
              SomeOtherKey=keepme\r\n\
-             BabyMatureSpeedMultiplier=1.0\r\n\
+             CropGrowthSpeedMultiplier=1.0\r\n\
              [Other]\r\n\
              K=v\r\n",
         )
         .unwrap();
 
         let mut g = GameSettings::load_or_empty(&p).unwrap();
-        g.set_baby_mature_speed_multiplier(3.0);
+        g.set_crop_growth_speed_multiplier(3.0);
         g.save().unwrap();
 
         let r = GameSettings::load_or_empty(&p).unwrap();
-        assert_eq!(r.baby_mature_speed_multiplier(), Some(3.0));
+        assert_eq!(r.crop_growth_speed_multiplier(), Some(3.0));
         assert_eq!(
             r.doc().get_string(SECTION_GAME_MODE, "SomeOtherKey").as_deref(),
             Some("keepme")
@@ -515,11 +459,11 @@ mod tests {
         let p = temp("sixdigit");
         std::fs::write(
             &p,
-            "[/Script/ShooterGame.ShooterGameMode]\r\nBabyMatureSpeedMultiplier=1.500000\r\n",
+            "[/Script/ShooterGame.ShooterGameMode]\r\nCropGrowthSpeedMultiplier=1.500000\r\n",
         )
         .unwrap();
         let g = GameSettings::load_or_empty(&p).unwrap();
-        assert_eq!(g.baby_mature_speed_multiplier(), Some(1.5));
+        assert_eq!(g.crop_growth_speed_multiplier(), Some(1.5));
         let _ = std::fs::remove_file(p);
     }
 
