@@ -420,6 +420,13 @@ impl GameSettings {
         set_override_max_experience_points_dino,
         "OverrideMaxExperiencePointsDino"
     );
+
+    // ── Tame deletion safety (Phase 8j) ──────────────────────────────
+    int_field!(
+        destroy_tames_over_level_clamp,
+        set_destroy_tames_over_level_clamp,
+        "DestroyTamesOverLevelClamp"
+    );
 }
 
 /// Stat-index labels matching ARK's `PerLevelStatsMultiplier_*[i]` ordering.

@@ -444,6 +444,50 @@ impl GameUserSettings {
         set_max_number_of_players_in_tribe,
         "MaxNumberOfPlayersInTribe"
     );
+
+    // ── Stat clamps / Blueprint caps (Phase 8j) ──────────────────────
+    int_field!(
+        max_blueprint_dino_level,
+        set_max_blueprint_dino_level,
+        "MaxBlueprintDinoLevel"
+    );
+    int_field!(
+        max_blueprint_dino_quality,
+        set_max_blueprint_dino_quality,
+        "MaxBlueprintDinoQuality"
+    );
+    int_field!(
+        max_blueprint_item_quality,
+        set_max_blueprint_item_quality,
+        "MaxBlueprintItemQuality"
+    );
+    int_field!(
+        max_blueprint_scout_quality,
+        set_max_blueprint_scout_quality,
+        "MaxBlueprintScoutQuality"
+    );
+    int_field!(
+        max_hexagons_per_character,
+        set_max_hexagons_per_character,
+        "MaxHexagonsPerCharacter"
+    );
+    bool_field!(
+        clamp_item_spoiling_times,
+        set_clamp_item_spoiling_times,
+        "ClampItemSpoilingTimes"
+    );
+    bool_field!(clamp_item_stats, set_clamp_item_stats, "ClampItemStats");
+    bool_field!(
+        clamp_resource_harvest_damage,
+        set_clamp_resource_harvest_damage,
+        "ClampResourceHarvestDamage"
+    );
+    int_field!(implant_suicide_cd, set_implant_suicide_cd, "ImplantSuicideCD");
+    float_field!(
+        server_auto_force_respawn_wild_dinos_interval,
+        set_server_auto_force_respawn_wild_dinos_interval,
+        "ServerAutoForceRespawnWildDinosInterval"
+    );
 }
 
 /// Apply the RCON settings from a `LaunchArgs`-style triple to the file at

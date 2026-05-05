@@ -577,6 +577,19 @@ export component WorldSettingsWindow inherits Window {
     in-out property <bool> b_prevent_tribe_alliances: false;
     in-out property <string> f_max_number_of_players_in_tribe: "0";
 
+    // Phase 8j — Stat clamps / Blueprint caps
+    in-out property <string> f_max_blueprint_dino_level: "0";
+    in-out property <string> f_max_blueprint_dino_quality: "0";
+    in-out property <string> f_max_blueprint_item_quality: "0";
+    in-out property <string> f_max_blueprint_scout_quality: "0";
+    in-out property <string> f_max_hexagons_per_character: "2000000000";
+    in-out property <bool> b_clamp_item_spoiling_times: false;
+    in-out property <bool> b_clamp_item_stats: false;
+    in-out property <bool> b_clamp_resource_harvest_damage: false;
+    in-out property <string> f_implant_suicide_cd: "28800";
+    in-out property <string> f_server_auto_force_respawn_wild_dinos_interval: "0.0";
+    in-out property <string> f_destroy_tames_over_level_clamp: "0";
+
     callback import-clicked();
     callback reset-clicked();
     callback save-clicked();
@@ -1052,6 +1065,27 @@ export component WorldSettingsWindow inherits Window {
                                 WorldFloatRow { label: "MaxNumberOfPlayersInTribe (int)";         value <=> root.f_max_number_of_players_in_tribe; }
                             }
                         }
+                    }
+                }
+            }
+
+            Tab {
+                title: root.labels.world_tab_clamps;
+                ScrollView {
+                    VerticalBox {
+                        padding: 8px;
+                        spacing: 4px;
+                        WorldFloatRow { label: "MaxBlueprintDinoLevel (int, 0=disabled)";       value <=> root.f_max_blueprint_dino_level; }
+                        WorldFloatRow { label: "MaxBlueprintDinoQuality (int, 0=disabled)";     value <=> root.f_max_blueprint_dino_quality; }
+                        WorldFloatRow { label: "MaxBlueprintItemQuality (int, 0=disabled)";     value <=> root.f_max_blueprint_item_quality; }
+                        WorldFloatRow { label: "MaxBlueprintScoutQuality (int, 0=disabled)";    value <=> root.f_max_blueprint_scout_quality; }
+                        WorldFloatRow { label: "MaxHexagonsPerCharacter (int)";                 value <=> root.f_max_hexagons_per_character; }
+                        WorldBoolRow  { label: "ClampItemSpoilingTimes";                        value <=> root.b_clamp_item_spoiling_times; }
+                        WorldBoolRow  { label: "ClampItemStats";                                value <=> root.b_clamp_item_stats; }
+                        WorldBoolRow  { label: "ClampResourceHarvestDamage";                    value <=> root.b_clamp_resource_harvest_damage; }
+                        WorldFloatRow { label: "ImplantSuicideCD (sec)";                        value <=> root.f_implant_suicide_cd; }
+                        WorldFloatRow { label: "ServerAutoForceRespawnWildDinosInterval";       value <=> root.f_server_auto_force_respawn_wild_dinos_interval; }
+                        WorldFloatRow { label: "DestroyTamesOverLevelClamp (Game.ini, int)";    value <=> root.f_destroy_tames_over_level_clamp; }
                     }
                 }
             }

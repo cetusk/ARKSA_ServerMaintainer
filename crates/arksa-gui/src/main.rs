@@ -1620,6 +1620,19 @@ fn populate_world_settings_window(window: &WorldSettingsWindow, install_root: &P
     window.set_b_cross_ark_allow_foreign_dino_downloads(ub(ark_config::GameUserSettings::cross_ark_allow_foreign_dino_downloads, false));
     window.set_b_prevent_tribe_alliances(ub(ark_config::GameUserSettings::prevent_tribe_alliances, false));
     window.set_f_max_number_of_players_in_tribe(ui_2(ark_config::GameUserSettings::max_number_of_players_in_tribe, 0));
+
+    // Phase 8j — Stat clamps / Blueprint caps
+    window.set_f_max_blueprint_dino_level(ui_2(ark_config::GameUserSettings::max_blueprint_dino_level, 0));
+    window.set_f_max_blueprint_dino_quality(ui_2(ark_config::GameUserSettings::max_blueprint_dino_quality, 0));
+    window.set_f_max_blueprint_item_quality(ui_2(ark_config::GameUserSettings::max_blueprint_item_quality, 0));
+    window.set_f_max_blueprint_scout_quality(ui_2(ark_config::GameUserSettings::max_blueprint_scout_quality, 0));
+    window.set_f_max_hexagons_per_character(ui_2(ark_config::GameUserSettings::max_hexagons_per_character, 2_000_000_000));
+    window.set_b_clamp_item_spoiling_times(ub(ark_config::GameUserSettings::clamp_item_spoiling_times, false));
+    window.set_b_clamp_item_stats(ub(ark_config::GameUserSettings::clamp_item_stats, false));
+    window.set_b_clamp_resource_harvest_damage(ub(ark_config::GameUserSettings::clamp_resource_harvest_damage, false));
+    window.set_f_implant_suicide_cd(ui_2(ark_config::GameUserSettings::implant_suicide_cd, 28800));
+    window.set_f_server_auto_force_respawn_wild_dinos_interval(u(ark_config::GameUserSettings::server_auto_force_respawn_wild_dinos_interval, 0.0));
+    window.set_f_destroy_tames_over_level_clamp(gi2(game_config::GameSettings::destroy_tames_over_level_clamp, 0));
 }
 
 /// Reset every form field to ARK's vanilla defaults (mostly 1.0, plus the
@@ -1793,6 +1806,20 @@ fn reset_world_settings_window(window: &WorldSettingsWindow) {
     window.set_b_cross_ark_allow_foreign_dino_downloads(false);
     window.set_b_prevent_tribe_alliances(false);
     window.set_f_max_number_of_players_in_tribe(SharedString::from("0"));
+
+    // Phase 8j — Stat clamps / Blueprint caps
+    let zero = SharedString::from("0");
+    window.set_f_max_blueprint_dino_level(zero.clone());
+    window.set_f_max_blueprint_dino_quality(zero.clone());
+    window.set_f_max_blueprint_item_quality(zero.clone());
+    window.set_f_max_blueprint_scout_quality(zero.clone());
+    window.set_f_max_hexagons_per_character(SharedString::from("2000000000"));
+    window.set_b_clamp_item_spoiling_times(false);
+    window.set_b_clamp_item_stats(false);
+    window.set_b_clamp_resource_harvest_damage(false);
+    window.set_f_implant_suicide_cd(SharedString::from("28800"));
+    window.set_f_server_auto_force_respawn_wild_dinos_interval(SharedString::from("0.0"));
+    window.set_f_destroy_tames_over_level_clamp(zero);
 }
 
 /// Read all form fields, parse floats, return per-file struct values or a
@@ -1976,6 +2003,19 @@ struct WorldFormValues {
     cross_ark_allow_foreign_dino_downloads: bool,
     prevent_tribe_alliances: bool,
     max_number_of_players_in_tribe: i64,
+
+    // Phase 8j — Stat clamps / Blueprint caps
+    max_blueprint_dino_level: i64,
+    max_blueprint_dino_quality: i64,
+    max_blueprint_item_quality: i64,
+    max_blueprint_scout_quality: i64,
+    max_hexagons_per_character: i64,
+    clamp_item_spoiling_times: bool,
+    clamp_item_stats: bool,
+    clamp_resource_harvest_damage: bool,
+    implant_suicide_cd: i64,
+    server_auto_force_respawn_wild_dinos_interval: f64,
+    destroy_tames_over_level_clamp: i64,
 }
 
 fn parse_form_float(value: SharedString, label: &str) -> Result<f64, String> {
@@ -2244,6 +2284,17 @@ fn collect_world_form(window: &WorldSettingsWindow) -> Result<WorldFormValues, S
         cross_ark_allow_foreign_dino_downloads: window.get_b_cross_ark_allow_foreign_dino_downloads(),
         prevent_tribe_alliances: window.get_b_prevent_tribe_alliances(),
         max_number_of_players_in_tribe: parse_form_int(window.get_f_max_number_of_players_in_tribe(), "MaxNumberOfPlayersInTribe")?,
+        max_blueprint_dino_level: parse_form_int(window.get_f_max_blueprint_dino_level(), "MaxBlueprintDinoLevel")?,
+        max_blueprint_dino_quality: parse_form_int(window.get_f_max_blueprint_dino_quality(), "MaxBlueprintDinoQuality")?,
+        max_blueprint_item_quality: parse_form_int(window.get_f_max_blueprint_item_quality(), "MaxBlueprintItemQuality")?,
+        max_blueprint_scout_quality: parse_form_int(window.get_f_max_blueprint_scout_quality(), "MaxBlueprintScoutQuality")?,
+        max_hexagons_per_character: parse_form_int(window.get_f_max_hexagons_per_character(), "MaxHexagonsPerCharacter")?,
+        clamp_item_spoiling_times: window.get_b_clamp_item_spoiling_times(),
+        clamp_item_stats: window.get_b_clamp_item_stats(),
+        clamp_resource_harvest_damage: window.get_b_clamp_resource_harvest_damage(),
+        implant_suicide_cd: parse_form_int(window.get_f_implant_suicide_cd(), "ImplantSuicideCD")?,
+        server_auto_force_respawn_wild_dinos_interval: parse_form_float(window.get_f_server_auto_force_respawn_wild_dinos_interval(), "ServerAutoForceRespawnWildDinosInterval")?,
+        destroy_tames_over_level_clamp: parse_form_int(window.get_f_destroy_tames_over_level_clamp(), "DestroyTamesOverLevelClamp")?,
     })
 }
 
@@ -2433,6 +2484,19 @@ fn write_world_form(install_root: &Path, v: &WorldFormValues) -> Result<()> {
     gus.set_cross_ark_allow_foreign_dino_downloads(v.cross_ark_allow_foreign_dino_downloads);
     gus.set_prevent_tribe_alliances(v.prevent_tribe_alliances);
     gus.set_max_number_of_players_in_tribe(v.max_number_of_players_in_tribe);
+
+    // Phase 8j — Stat clamps / Blueprint caps
+    gus.set_max_blueprint_dino_level(v.max_blueprint_dino_level);
+    gus.set_max_blueprint_dino_quality(v.max_blueprint_dino_quality);
+    gus.set_max_blueprint_item_quality(v.max_blueprint_item_quality);
+    gus.set_max_blueprint_scout_quality(v.max_blueprint_scout_quality);
+    gus.set_max_hexagons_per_character(v.max_hexagons_per_character);
+    gus.set_clamp_item_spoiling_times(v.clamp_item_spoiling_times);
+    gus.set_clamp_item_stats(v.clamp_item_stats);
+    gus.set_clamp_resource_harvest_damage(v.clamp_resource_harvest_damage);
+    gus.set_implant_suicide_cd(v.implant_suicide_cd);
+    gus.set_server_auto_force_respawn_wild_dinos_interval(v.server_auto_force_respawn_wild_dinos_interval);
+    game.set_destroy_tames_over_level_clamp(v.destroy_tames_over_level_clamp);
 
     game.save()?;
     gus.save()?;
@@ -2859,6 +2923,18 @@ fn import_world_settings(window: &WorldSettingsWindow, source_path: &Path) -> Re
     if let Some(v) = ub(ark_config::GameUserSettings::cross_ark_allow_foreign_dino_downloads) { window.set_b_cross_ark_allow_foreign_dino_downloads(v); }
     if let Some(v) = ub(ark_config::GameUserSettings::prevent_tribe_alliances) { window.set_b_prevent_tribe_alliances(v); }
     if let Some(v) = ui_(ark_config::GameUserSettings::max_number_of_players_in_tribe) { window.set_f_max_number_of_players_in_tribe(fmt_int_for_form(v)); }
+    // Phase 8j — Stat clamps / Blueprint caps
+    if let Some(v) = ui_(ark_config::GameUserSettings::max_blueprint_dino_level) { window.set_f_max_blueprint_dino_level(fmt_int_for_form(v)); }
+    if let Some(v) = ui_(ark_config::GameUserSettings::max_blueprint_dino_quality) { window.set_f_max_blueprint_dino_quality(fmt_int_for_form(v)); }
+    if let Some(v) = ui_(ark_config::GameUserSettings::max_blueprint_item_quality) { window.set_f_max_blueprint_item_quality(fmt_int_for_form(v)); }
+    if let Some(v) = ui_(ark_config::GameUserSettings::max_blueprint_scout_quality) { window.set_f_max_blueprint_scout_quality(fmt_int_for_form(v)); }
+    if let Some(v) = ui_(ark_config::GameUserSettings::max_hexagons_per_character) { window.set_f_max_hexagons_per_character(fmt_int_for_form(v)); }
+    if let Some(v) = ub(ark_config::GameUserSettings::clamp_item_spoiling_times) { window.set_b_clamp_item_spoiling_times(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::clamp_item_stats) { window.set_b_clamp_item_stats(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::clamp_resource_harvest_damage) { window.set_b_clamp_resource_harvest_damage(v); }
+    if let Some(v) = ui_(ark_config::GameUserSettings::implant_suicide_cd) { window.set_f_implant_suicide_cd(fmt_int_for_form(v)); }
+    if let Some(v) = u(ark_config::GameUserSettings::server_auto_force_respawn_wild_dinos_interval) { window.set_f_server_auto_force_respawn_wild_dinos_interval(fmt_float_for_form(v)); }
+    if let Some(v) = gi(game_config::GameSettings::destroy_tames_over_level_clamp) { window.set_f_destroy_tames_over_level_clamp(fmt_int_for_form(v)); }
     Ok(())
 }
 
