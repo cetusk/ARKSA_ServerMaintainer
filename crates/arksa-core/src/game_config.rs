@@ -345,6 +345,49 @@ impl GameSettings {
     pub fn set_player_base_stat_multipliers(&mut self, idx: u8, v: f64) {
         self.doc.set_f64(SECTION_GAME_MODE, &format!("PlayerBaseStatMultipliers[{idx}]"), v);
     }
+
+    // ── Combat (Phase 8f) ────────────────────────────────────────────
+    float_field!(
+        dino_harvesting_damage_multiplier,
+        set_dino_harvesting_damage_multiplier,
+        "DinoHarvestingDamageMultiplier"
+    );
+    float_field!(
+        dino_turret_damage_multiplier,
+        set_dino_turret_damage_multiplier,
+        "DinoTurretDamageMultiplier"
+    );
+    bool_field!(allow_speed_leveling, set_allow_speed_leveling, "bAllowSpeedLeveling");
+    bool_field!(
+        allow_flyer_speed_leveling,
+        set_allow_flyer_speed_leveling,
+        "bAllowFlyerSpeedLeveling"
+    );
+    bool_field!(disable_friendly_fire, set_disable_friendly_fire, "bDisableFriendlyFire");
+    bool_field!(
+        pve_disable_friendly_fire,
+        set_pve_disable_friendly_fire,
+        "bPvEDisableFriendlyFire"
+    );
+    bool_field!(
+        allow_unlimited_respecs,
+        set_allow_unlimited_respecs,
+        "bAllowUnlimitedRespecs"
+    );
+
+    // ── Turret limits (Phase 8f) ─────────────────────────────────────
+    bool_field!(
+        hard_limit_turrets_in_range,
+        set_hard_limit_turrets_in_range,
+        "bHardLimitTurretsInRange"
+    );
+    bool_field!(
+        limit_turrets_in_range,
+        set_limit_turrets_in_range,
+        "bLimitTurretsInRange"
+    );
+    int_field!(limit_turrets_num, set_limit_turrets_num, "LimitTurretsNum");
+    float_field!(limit_turrets_range, set_limit_turrets_range, "LimitTurretsRange");
 }
 
 /// Stat-index labels matching ARK's `PerLevelStatsMultiplier_*[i]` ordering.

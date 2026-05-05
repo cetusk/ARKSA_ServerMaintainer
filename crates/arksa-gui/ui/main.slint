@@ -503,6 +503,30 @@ export component WorldSettingsWindow inherits Window {
     in-out property <string> f_pls_base_10: "1.0";
     in-out property <string> f_pls_base_11: "1.0";
 
+    // Phase 8f — Combat / Structures
+    in-out property <string> f_dino_harvesting_damage_multiplier: "3.2";
+    in-out property <string> f_dino_turret_damage_multiplier: "1.0";
+    in-out property <bool> b_allow_speed_leveling: true;
+    in-out property <bool> b_allow_flyer_speed_leveling: false;
+    in-out property <bool> b_disable_friendly_fire: false;
+    in-out property <bool> b_pve_disable_friendly_fire: false;
+    in-out property <bool> b_allow_unlimited_respecs: false;
+    in-out property <bool> b_hard_limit_turrets_in_range: false;
+    in-out property <bool> b_limit_turrets_in_range: true;
+    in-out property <string> f_limit_turrets_num: "100";
+    in-out property <string> f_limit_turrets_range: "10000";
+    in-out property <string> f_structure_prevent_resource_radius_multiplier: "1.0";
+    in-out property <string> f_per_platform_max_structures_multiplier: "1.0";
+    in-out property <bool> b_always_allow_structure_pickup: false;
+    in-out property <string> f_structure_pickup_time_after_placement: "30.0";
+    in-out property <string> f_structure_pickup_hold_duration: "0.5";
+    in-out property <string> f_max_platform_saddle_structure_limit: "75";
+    in-out property <bool> b_enable_cryopod_nerf: false;
+    in-out property <string> f_cryopod_nerf_damage_mult: "0.01";
+    in-out property <string> f_cryopod_nerf_duration: "0.0";
+    in-out property <bool> b_allow_cryo_fridge_on_saddle: false;
+    in-out property <bool> b_disable_cryopod_fridge_requirement: false;
+
     callback import-clicked();
     callback reset-clicked();
     callback save-clicked();
@@ -821,6 +845,66 @@ export component WorldSettingsWindow inherits Window {
                                 WorldFloatRow { label: "[9] Speed";            value <=> root.f_pls_base_9; }
                                 WorldFloatRow { label: "[10] Fortitude";       value <=> root.f_pls_base_10; }
                                 WorldFloatRow { label: "[11] CraftingSpeed";   value <=> root.f_pls_base_11; }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Tab {
+                title: root.labels.world_tab_combat;
+                ScrollView {
+                    VerticalBox {
+                        padding: 8px;
+                        spacing: 6px;
+                        GroupBox {
+                            title: "Combat (Game.ini)";
+                            VerticalBox {
+                                padding: 4px;
+                                spacing: 2px;
+                                WorldFloatRow { label: "DinoHarvestingDamageMultiplier";        value <=> root.f_dino_harvesting_damage_multiplier; }
+                                WorldFloatRow { label: "DinoTurretDamageMultiplier";            value <=> root.f_dino_turret_damage_multiplier; }
+                                WorldBoolRow  { label: "bAllowSpeedLeveling";                   value <=> root.b_allow_speed_leveling; }
+                                WorldBoolRow  { label: "bAllowFlyerSpeedLeveling";              value <=> root.b_allow_flyer_speed_leveling; }
+                                WorldBoolRow  { label: "bDisableFriendlyFire";                  value <=> root.b_disable_friendly_fire; }
+                                WorldBoolRow  { label: "bPvEDisableFriendlyFire";               value <=> root.b_pve_disable_friendly_fire; }
+                                WorldBoolRow  { label: "bAllowUnlimitedRespecs";                value <=> root.b_allow_unlimited_respecs; }
+                            }
+                        }
+                        GroupBox {
+                            title: "Turret limits (Game.ini)";
+                            VerticalBox {
+                                padding: 4px;
+                                spacing: 2px;
+                                WorldBoolRow  { label: "bHardLimitTurretsInRange";              value <=> root.b_hard_limit_turrets_in_range; }
+                                WorldBoolRow  { label: "bLimitTurretsInRange";                  value <=> root.b_limit_turrets_in_range; }
+                                WorldFloatRow { label: "LimitTurretsNum (int)";                 value <=> root.f_limit_turrets_num; }
+                                WorldFloatRow { label: "LimitTurretsRange";                     value <=> root.f_limit_turrets_range; }
+                            }
+                        }
+                        GroupBox {
+                            title: "Structures (GameUserSettings.ini)";
+                            VerticalBox {
+                                padding: 4px;
+                                spacing: 2px;
+                                WorldFloatRow { label: "StructurePreventResourceRadiusMultiplier"; value <=> root.f_structure_prevent_resource_radius_multiplier; }
+                                WorldFloatRow { label: "PerPlatformMaxStructuresMultiplier";    value <=> root.f_per_platform_max_structures_multiplier; }
+                                WorldBoolRow  { label: "AlwaysAllowStructurePickup";            value <=> root.b_always_allow_structure_pickup; }
+                                WorldFloatRow { label: "StructurePickupTimeAfterPlacement";     value <=> root.f_structure_pickup_time_after_placement; }
+                                WorldFloatRow { label: "StructurePickupHoldDuration";           value <=> root.f_structure_pickup_hold_duration; }
+                                WorldFloatRow { label: "MaxPlatformSaddleStructureLimit (int)"; value <=> root.f_max_platform_saddle_structure_limit; }
+                            }
+                        }
+                        GroupBox {
+                            title: "Cryopod nerf block (GameUserSettings.ini)";
+                            VerticalBox {
+                                padding: 4px;
+                                spacing: 2px;
+                                WorldBoolRow  { label: "EnableCryopodNerf";                     value <=> root.b_enable_cryopod_nerf; }
+                                WorldFloatRow { label: "CryopodNerfDamageMult";                 value <=> root.f_cryopod_nerf_damage_mult; }
+                                WorldFloatRow { label: "CryopodNerfDuration";                   value <=> root.f_cryopod_nerf_duration; }
+                                WorldBoolRow  { label: "AllowCryoFridgeOnSaddle";               value <=> root.b_allow_cryo_fridge_on_saddle; }
+                                WorldBoolRow  { label: "DisableCryopodFridgeRequirement";       value <=> root.b_disable_cryopod_fridge_requirement; }
                             }
                         }
                     }

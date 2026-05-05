@@ -295,6 +295,61 @@ impl GameUserSettings {
         set_the_max_structures_in_range,
         "TheMaxStructuresInRange"
     );
+
+    // ── Structures (Phase 8f) ────────────────────────────────────────
+    float_field!(
+        structure_prevent_resource_radius_multiplier,
+        set_structure_prevent_resource_radius_multiplier,
+        "StructurePreventResourceRadiusMultiplier"
+    );
+    float_field!(
+        per_platform_max_structures_multiplier,
+        set_per_platform_max_structures_multiplier,
+        "PerPlatformMaxStructuresMultiplier"
+    );
+    bool_field!(
+        always_allow_structure_pickup,
+        set_always_allow_structure_pickup,
+        "AlwaysAllowStructurePickup"
+    );
+    float_field!(
+        structure_pickup_time_after_placement,
+        set_structure_pickup_time_after_placement,
+        "StructurePickupTimeAfterPlacement"
+    );
+    float_field!(
+        structure_pickup_hold_duration,
+        set_structure_pickup_hold_duration,
+        "StructurePickupHoldDuration"
+    );
+    int_field!(
+        max_platform_saddle_structure_limit,
+        set_max_platform_saddle_structure_limit,
+        "MaxPlatformSaddleStructureLimit"
+    );
+
+    // ── Cryopod nerf block (Phase 8f) ────────────────────────────────
+    bool_field!(enable_cryopod_nerf, set_enable_cryopod_nerf, "EnableCryopodNerf");
+    float_field!(
+        cryopod_nerf_damage_mult,
+        set_cryopod_nerf_damage_mult,
+        "CryopodNerfDamageMult"
+    );
+    float_field!(
+        cryopod_nerf_duration,
+        set_cryopod_nerf_duration,
+        "CryopodNerfDuration"
+    );
+    bool_field!(
+        allow_cryo_fridge_on_saddle,
+        set_allow_cryo_fridge_on_saddle,
+        "AllowCryoFridgeOnSaddle"
+    );
+    bool_field!(
+        disable_cryopod_fridge_requirement,
+        set_disable_cryopod_fridge_requirement,
+        "DisableCryopodFridgeRequirement"
+    );
 }
 
 /// Apply the RCON settings from a `LaunchArgs`-style triple to the file at

@@ -1535,6 +1535,38 @@ fn populate_world_settings_window(window: &WorldSettingsWindow, install_root: &P
     window.set_f_pls_base_9(fmt_float_for_form(game.as_ref().and_then(|g| g.player_base_stat_multipliers(9)).unwrap_or(1.0)));
     window.set_f_pls_base_10(fmt_float_for_form(game.as_ref().and_then(|g| g.player_base_stat_multipliers(10)).unwrap_or(1.0)));
     window.set_f_pls_base_11(fmt_float_for_form(game.as_ref().and_then(|g| g.player_base_stat_multipliers(11)).unwrap_or(1.0)));
+
+    // Phase 8f — Combat / Structures
+    window.set_f_dino_harvesting_damage_multiplier(g(game_config::GameSettings::dino_harvesting_damage_multiplier, 3.2));
+    window.set_f_dino_turret_damage_multiplier(g(game_config::GameSettings::dino_turret_damage_multiplier, 1.0));
+    window.set_b_allow_speed_leveling(gb(game_config::GameSettings::allow_speed_leveling, true));
+    window.set_b_allow_flyer_speed_leveling(gb(game_config::GameSettings::allow_flyer_speed_leveling, false));
+    window.set_b_disable_friendly_fire(gb(game_config::GameSettings::disable_friendly_fire, false));
+    window.set_b_pve_disable_friendly_fire(gb(game_config::GameSettings::pve_disable_friendly_fire, false));
+    window.set_b_allow_unlimited_respecs(gb(game_config::GameSettings::allow_unlimited_respecs, false));
+    window.set_b_hard_limit_turrets_in_range(gb(game_config::GameSettings::hard_limit_turrets_in_range, false));
+    window.set_b_limit_turrets_in_range(gb(game_config::GameSettings::limit_turrets_in_range, true));
+    let gi2 = |get: fn(&game_config::GameSettings) -> Option<i64>, default: i64| -> SharedString {
+        let v = game.as_ref().and_then(get).unwrap_or(default);
+        fmt_int_for_form(v)
+    };
+    window.set_f_limit_turrets_num(gi2(game_config::GameSettings::limit_turrets_num, 100));
+    window.set_f_limit_turrets_range(g(game_config::GameSettings::limit_turrets_range, 10000.0));
+    window.set_f_structure_prevent_resource_radius_multiplier(u(ark_config::GameUserSettings::structure_prevent_resource_radius_multiplier, 1.0));
+    window.set_f_per_platform_max_structures_multiplier(u(ark_config::GameUserSettings::per_platform_max_structures_multiplier, 1.0));
+    window.set_b_always_allow_structure_pickup(ub(ark_config::GameUserSettings::always_allow_structure_pickup, false));
+    window.set_f_structure_pickup_time_after_placement(u(ark_config::GameUserSettings::structure_pickup_time_after_placement, 30.0));
+    window.set_f_structure_pickup_hold_duration(u(ark_config::GameUserSettings::structure_pickup_hold_duration, 0.5));
+    let ui_2 = |get: fn(&ark_config::GameUserSettings) -> Option<i64>, default: i64| -> SharedString {
+        let v = gus.as_ref().and_then(get).unwrap_or(default);
+        fmt_int_for_form(v)
+    };
+    window.set_f_max_platform_saddle_structure_limit(ui_2(ark_config::GameUserSettings::max_platform_saddle_structure_limit, 75));
+    window.set_b_enable_cryopod_nerf(ub(ark_config::GameUserSettings::enable_cryopod_nerf, false));
+    window.set_f_cryopod_nerf_damage_mult(u(ark_config::GameUserSettings::cryopod_nerf_damage_mult, 0.01));
+    window.set_f_cryopod_nerf_duration(u(ark_config::GameUserSettings::cryopod_nerf_duration, 0.0));
+    window.set_b_allow_cryo_fridge_on_saddle(ub(ark_config::GameUserSettings::allow_cryo_fridge_on_saddle, false));
+    window.set_b_disable_cryopod_fridge_requirement(ub(ark_config::GameUserSettings::disable_cryopod_fridge_requirement, false));
 }
 
 /// Reset every form field to ARK's vanilla defaults (mostly 1.0, plus the
@@ -1632,6 +1664,30 @@ fn reset_world_settings_window(window: &WorldSettingsWindow) {
     window.set_f_pls_tamed_affinity_0(one_s.clone()); window.set_f_pls_tamed_affinity_1(one_s.clone()); window.set_f_pls_tamed_affinity_2(one_s.clone()); window.set_f_pls_tamed_affinity_3(one_s.clone()); window.set_f_pls_tamed_affinity_4(one_s.clone()); window.set_f_pls_tamed_affinity_5(one_s.clone()); window.set_f_pls_tamed_affinity_6(one_s.clone()); window.set_f_pls_tamed_affinity_7(one_s.clone()); window.set_f_pls_tamed_affinity_8(one_s.clone()); window.set_f_pls_tamed_affinity_9(one_s.clone()); window.set_f_pls_tamed_affinity_10(one_s.clone()); window.set_f_pls_tamed_affinity_11(one_s.clone());
     window.set_f_pls_wild_0(one_s.clone()); window.set_f_pls_wild_1(one_s.clone()); window.set_f_pls_wild_2(one_s.clone()); window.set_f_pls_wild_3(one_s.clone()); window.set_f_pls_wild_4(one_s.clone()); window.set_f_pls_wild_5(one_s.clone()); window.set_f_pls_wild_6(one_s.clone()); window.set_f_pls_wild_7(one_s.clone()); window.set_f_pls_wild_8(one_s.clone()); window.set_f_pls_wild_9(one_s.clone()); window.set_f_pls_wild_10(one_s.clone()); window.set_f_pls_wild_11(one_s.clone());
     window.set_f_pls_base_0(one_s.clone()); window.set_f_pls_base_1(one_s.clone()); window.set_f_pls_base_2(one_s.clone()); window.set_f_pls_base_3(one_s.clone()); window.set_f_pls_base_4(one_s.clone()); window.set_f_pls_base_5(one_s.clone()); window.set_f_pls_base_6(one_s.clone()); window.set_f_pls_base_7(one_s.clone()); window.set_f_pls_base_8(one_s.clone()); window.set_f_pls_base_9(one_s.clone()); window.set_f_pls_base_10(one_s.clone()); window.set_f_pls_base_11(one_s);
+
+    // Phase 8f — Combat / Structures
+    window.set_f_dino_harvesting_damage_multiplier(SharedString::from("3.2"));
+    window.set_f_dino_turret_damage_multiplier(SharedString::from("1.0"));
+    window.set_b_allow_speed_leveling(true);
+    window.set_b_allow_flyer_speed_leveling(false);
+    window.set_b_disable_friendly_fire(false);
+    window.set_b_pve_disable_friendly_fire(false);
+    window.set_b_allow_unlimited_respecs(false);
+    window.set_b_hard_limit_turrets_in_range(false);
+    window.set_b_limit_turrets_in_range(true);
+    window.set_f_limit_turrets_num(SharedString::from("100"));
+    window.set_f_limit_turrets_range(SharedString::from("10000"));
+    window.set_f_structure_prevent_resource_radius_multiplier(SharedString::from("1.0"));
+    window.set_f_per_platform_max_structures_multiplier(SharedString::from("1.0"));
+    window.set_b_always_allow_structure_pickup(false);
+    window.set_f_structure_pickup_time_after_placement(SharedString::from("30.0"));
+    window.set_f_structure_pickup_hold_duration(SharedString::from("0.5"));
+    window.set_f_max_platform_saddle_structure_limit(SharedString::from("75"));
+    window.set_b_enable_cryopod_nerf(false);
+    window.set_f_cryopod_nerf_damage_mult(SharedString::from("0.01"));
+    window.set_f_cryopod_nerf_duration(SharedString::from("0.0"));
+    window.set_b_allow_cryo_fridge_on_saddle(false);
+    window.set_b_disable_cryopod_fridge_requirement(false);
 }
 
 /// Read all form fields, parse floats, return per-file struct values or a
@@ -1741,6 +1797,30 @@ struct WorldFormValues {
     pls_tamed_affinity: [f64; 12],
     pls_wild: [f64; 12],
     pls_base: [f64; 12],
+
+    // Phase 8f — Combat / Structures
+    dino_harvesting_damage_multiplier: f64,
+    dino_turret_damage_multiplier: f64,
+    allow_speed_leveling: bool,
+    allow_flyer_speed_leveling: bool,
+    disable_friendly_fire: bool,
+    pve_disable_friendly_fire: bool,
+    allow_unlimited_respecs: bool,
+    hard_limit_turrets_in_range: bool,
+    limit_turrets_in_range: bool,
+    limit_turrets_num: i64,
+    limit_turrets_range: f64,
+    structure_prevent_resource_radius_multiplier: f64,
+    per_platform_max_structures_multiplier: f64,
+    always_allow_structure_pickup: bool,
+    structure_pickup_time_after_placement: f64,
+    structure_pickup_hold_duration: f64,
+    max_platform_saddle_structure_limit: i64,
+    enable_cryopod_nerf: bool,
+    cryopod_nerf_damage_mult: f64,
+    cryopod_nerf_duration: f64,
+    allow_cryo_fridge_on_saddle: bool,
+    disable_cryopod_fridge_requirement: bool,
 }
 
 fn parse_form_float(value: SharedString, label: &str) -> Result<f64, String> {
@@ -1943,6 +2023,28 @@ fn collect_world_form(window: &WorldSettingsWindow) -> Result<WorldFormValues, S
             parse_form_float(window.get_f_pls_base_10(), "PlayerBaseStatMultipliers[10]")?,
             parse_form_float(window.get_f_pls_base_11(), "PlayerBaseStatMultipliers[11]")?,
         ],
+        dino_harvesting_damage_multiplier: parse_form_float(window.get_f_dino_harvesting_damage_multiplier(), "DinoHarvestingDamageMultiplier")?,
+        dino_turret_damage_multiplier: parse_form_float(window.get_f_dino_turret_damage_multiplier(), "DinoTurretDamageMultiplier")?,
+        allow_speed_leveling: window.get_b_allow_speed_leveling(),
+        allow_flyer_speed_leveling: window.get_b_allow_flyer_speed_leveling(),
+        disable_friendly_fire: window.get_b_disable_friendly_fire(),
+        pve_disable_friendly_fire: window.get_b_pve_disable_friendly_fire(),
+        allow_unlimited_respecs: window.get_b_allow_unlimited_respecs(),
+        hard_limit_turrets_in_range: window.get_b_hard_limit_turrets_in_range(),
+        limit_turrets_in_range: window.get_b_limit_turrets_in_range(),
+        limit_turrets_num: parse_form_int(window.get_f_limit_turrets_num(), "LimitTurretsNum")?,
+        limit_turrets_range: parse_form_float(window.get_f_limit_turrets_range(), "LimitTurretsRange")?,
+        structure_prevent_resource_radius_multiplier: parse_form_float(window.get_f_structure_prevent_resource_radius_multiplier(), "StructurePreventResourceRadiusMultiplier")?,
+        per_platform_max_structures_multiplier: parse_form_float(window.get_f_per_platform_max_structures_multiplier(), "PerPlatformMaxStructuresMultiplier")?,
+        always_allow_structure_pickup: window.get_b_always_allow_structure_pickup(),
+        structure_pickup_time_after_placement: parse_form_float(window.get_f_structure_pickup_time_after_placement(), "StructurePickupTimeAfterPlacement")?,
+        structure_pickup_hold_duration: parse_form_float(window.get_f_structure_pickup_hold_duration(), "StructurePickupHoldDuration")?,
+        max_platform_saddle_structure_limit: parse_form_int(window.get_f_max_platform_saddle_structure_limit(), "MaxPlatformSaddleStructureLimit")?,
+        enable_cryopod_nerf: window.get_b_enable_cryopod_nerf(),
+        cryopod_nerf_damage_mult: parse_form_float(window.get_f_cryopod_nerf_damage_mult(), "CryopodNerfDamageMult")?,
+        cryopod_nerf_duration: parse_form_float(window.get_f_cryopod_nerf_duration(), "CryopodNerfDuration")?,
+        allow_cryo_fridge_on_saddle: window.get_b_allow_cryo_fridge_on_saddle(),
+        disable_cryopod_fridge_requirement: window.get_b_disable_cryopod_fridge_requirement(),
     })
 }
 
@@ -2058,6 +2160,30 @@ fn write_world_form(install_root: &Path, v: &WorldFormValues) -> Result<()> {
         game.set_per_level_stats_multiplier_dino_wild(i as u8, v.pls_wild[i]);
         game.set_player_base_stat_multipliers(i as u8, v.pls_base[i]);
     }
+
+    // Phase 8f — Combat / Structures
+    game.set_dino_harvesting_damage_multiplier(v.dino_harvesting_damage_multiplier);
+    game.set_dino_turret_damage_multiplier(v.dino_turret_damage_multiplier);
+    game.set_allow_speed_leveling(v.allow_speed_leveling);
+    game.set_allow_flyer_speed_leveling(v.allow_flyer_speed_leveling);
+    game.set_disable_friendly_fire(v.disable_friendly_fire);
+    game.set_pve_disable_friendly_fire(v.pve_disable_friendly_fire);
+    game.set_allow_unlimited_respecs(v.allow_unlimited_respecs);
+    game.set_hard_limit_turrets_in_range(v.hard_limit_turrets_in_range);
+    game.set_limit_turrets_in_range(v.limit_turrets_in_range);
+    game.set_limit_turrets_num(v.limit_turrets_num);
+    game.set_limit_turrets_range(v.limit_turrets_range);
+    gus.set_structure_prevent_resource_radius_multiplier(v.structure_prevent_resource_radius_multiplier);
+    gus.set_per_platform_max_structures_multiplier(v.per_platform_max_structures_multiplier);
+    gus.set_always_allow_structure_pickup(v.always_allow_structure_pickup);
+    gus.set_structure_pickup_time_after_placement(v.structure_pickup_time_after_placement);
+    gus.set_structure_pickup_hold_duration(v.structure_pickup_hold_duration);
+    gus.set_max_platform_saddle_structure_limit(v.max_platform_saddle_structure_limit);
+    gus.set_enable_cryopod_nerf(v.enable_cryopod_nerf);
+    gus.set_cryopod_nerf_damage_mult(v.cryopod_nerf_damage_mult);
+    gus.set_cryopod_nerf_duration(v.cryopod_nerf_duration);
+    gus.set_allow_cryo_fridge_on_saddle(v.allow_cryo_fridge_on_saddle);
+    gus.set_disable_cryopod_fridge_requirement(v.disable_cryopod_fridge_requirement);
 
     game.save()?;
     gus.save()?;
@@ -2369,6 +2495,73 @@ fn import_world_settings(window: &WorldSettingsWindow, source_path: &Path) -> Re
     if let Some(x) = game.player_base_stat_multipliers(9) { window.set_f_pls_base_9(fmt_float_for_form(x)); }
     if let Some(x) = game.player_base_stat_multipliers(10) { window.set_f_pls_base_10(fmt_float_for_form(x)); }
     if let Some(x) = game.player_base_stat_multipliers(11) { window.set_f_pls_base_11(fmt_float_for_form(x)); }
+    // Phase 8f — Combat / Structures
+    if let Some(v) = g(game_config::GameSettings::dino_harvesting_damage_multiplier) {
+        window.set_f_dino_harvesting_damage_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::dino_turret_damage_multiplier) {
+        window.set_f_dino_turret_damage_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = gb(game_config::GameSettings::allow_speed_leveling) {
+        window.set_b_allow_speed_leveling(v);
+    }
+    if let Some(v) = gb(game_config::GameSettings::allow_flyer_speed_leveling) {
+        window.set_b_allow_flyer_speed_leveling(v);
+    }
+    if let Some(v) = gb(game_config::GameSettings::disable_friendly_fire) {
+        window.set_b_disable_friendly_fire(v);
+    }
+    if let Some(v) = gb(game_config::GameSettings::pve_disable_friendly_fire) {
+        window.set_b_pve_disable_friendly_fire(v);
+    }
+    if let Some(v) = gb(game_config::GameSettings::allow_unlimited_respecs) {
+        window.set_b_allow_unlimited_respecs(v);
+    }
+    if let Some(v) = gb(game_config::GameSettings::hard_limit_turrets_in_range) {
+        window.set_b_hard_limit_turrets_in_range(v);
+    }
+    if let Some(v) = gb(game_config::GameSettings::limit_turrets_in_range) {
+        window.set_b_limit_turrets_in_range(v);
+    }
+    if let Some(v) = gi(game_config::GameSettings::limit_turrets_num) {
+        window.set_f_limit_turrets_num(fmt_int_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::limit_turrets_range) {
+        window.set_f_limit_turrets_range(fmt_float_for_form(v));
+    }
+    if let Some(v) = u(ark_config::GameUserSettings::structure_prevent_resource_radius_multiplier) {
+        window.set_f_structure_prevent_resource_radius_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = u(ark_config::GameUserSettings::per_platform_max_structures_multiplier) {
+        window.set_f_per_platform_max_structures_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = ub(ark_config::GameUserSettings::always_allow_structure_pickup) {
+        window.set_b_always_allow_structure_pickup(v);
+    }
+    if let Some(v) = u(ark_config::GameUserSettings::structure_pickup_time_after_placement) {
+        window.set_f_structure_pickup_time_after_placement(fmt_float_for_form(v));
+    }
+    if let Some(v) = u(ark_config::GameUserSettings::structure_pickup_hold_duration) {
+        window.set_f_structure_pickup_hold_duration(fmt_float_for_form(v));
+    }
+    if let Some(v) = ui_(ark_config::GameUserSettings::max_platform_saddle_structure_limit) {
+        window.set_f_max_platform_saddle_structure_limit(fmt_int_for_form(v));
+    }
+    if let Some(v) = ub(ark_config::GameUserSettings::enable_cryopod_nerf) {
+        window.set_b_enable_cryopod_nerf(v);
+    }
+    if let Some(v) = u(ark_config::GameUserSettings::cryopod_nerf_damage_mult) {
+        window.set_f_cryopod_nerf_damage_mult(fmt_float_for_form(v));
+    }
+    if let Some(v) = u(ark_config::GameUserSettings::cryopod_nerf_duration) {
+        window.set_f_cryopod_nerf_duration(fmt_float_for_form(v));
+    }
+    if let Some(v) = ub(ark_config::GameUserSettings::allow_cryo_fridge_on_saddle) {
+        window.set_b_allow_cryo_fridge_on_saddle(v);
+    }
+    if let Some(v) = ub(ark_config::GameUserSettings::disable_cryopod_fridge_requirement) {
+        window.set_b_disable_cryopod_fridge_requirement(v);
+    }
     Ok(())
 }
 
