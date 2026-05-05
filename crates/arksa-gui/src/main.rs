@@ -141,6 +141,8 @@ fn main() -> Result<()> {
     // World settings dialog (Game.ini + GameUserSettings.ini editor).
     let world_window = WorldSettingsWindow::new()?;
     world_window.set_labels(labels.to_ui());
+    // Drive bilingual descriptions on each row from the resolved language.
+    world_window.set_lang_ja(Labels::resolve_is_japanese(language_setting));
     wire_world_settings_callbacks(
         &world_window,
         ctx.clone(),
@@ -1037,18 +1039,25 @@ impl Labels {
     }
 
     fn for_language(setting: i64) -> Self {
+        if Self::resolve_is_japanese(setting) {
+            Self::japanese()
+        } else {
+            Self::english()
+        }
+    }
+
+    /// Resolve `AppSettings::language()` (auto/EN/JA) into the concrete
+    /// English-or-Japanese choice. Used both by `Labels::for_language` and by
+    /// the World Settings dialog to drive its `lang-ja` property so per-row
+    /// bilingual descriptions match the rest of the UI.
+    pub fn resolve_is_japanese(setting: i64) -> bool {
         match setting {
-            LANG_JAPANESE => Self::japanese(),
-            LANG_ENGLISH => Self::english(),
+            LANG_JAPANESE => true,
+            LANG_ENGLISH => false,
             // LANG_AUTO and unknown: detect from `LANG` env var, fall back to English.
-            _ => {
-                let lang = std::env::var("LANG").unwrap_or_default();
-                if lang.starts_with("ja") {
-                    Self::japanese()
-                } else {
-                    Self::english()
-                }
-            }
+            _ => std::env::var("LANG")
+                .unwrap_or_default()
+                .starts_with("ja"),
         }
     }
 
