@@ -862,6 +862,9 @@ fn clamp_port(v: i32) -> u16 {
 struct Labels {
     main_window_title: String,
     main_language_label: String,
+    section_setup: String,
+    section_profile: String,
+    section_lifecycle: String,
     arksa_dir: String,
     btn_browse: String,
     profile_label: String,
@@ -942,6 +945,9 @@ impl Labels {
         Self {
             main_window_title: "ARKSA Server Maintainer".into(),
             main_language_label: "Language:".into(),
+            section_setup: "Setup".into(),
+            section_profile: "Profile".into(),
+            section_lifecycle: "Server control".into(),
             arksa_dir: "ARKSA dir:".into(),
             btn_browse: "Browse…".into(),
             profile_label: "Profile:".into(),
@@ -1025,6 +1031,9 @@ impl Labels {
         Self {
             main_window_title: "ARKSA サーバーメンテナー".into(),
             main_language_label: "言語:".into(),
+            section_setup: "セットアップ".into(),
+            section_profile: "プロファイル".into(),
+            section_lifecycle: "サーバー操作".into(),
             arksa_dir: "ARKSA フォルダ:".into(),
             btn_browse: "参照…".into(),
             profile_label: "プロファイル:".into(),
@@ -1131,6 +1140,9 @@ impl Labels {
         UiLabels {
             main_window_title: self.main_window_title.as_str().into(),
             main_language_label: self.main_language_label.as_str().into(),
+            section_setup: self.section_setup.as_str().into(),
+            section_profile: self.section_profile.as_str().into(),
+            section_lifecycle: self.section_lifecycle.as_str().into(),
             arksa_dir: self.arksa_dir.as_str().into(),
             btn_browse: self.btn_browse.as_str().into(),
             profile_label: self.profile_label.as_str().into(),

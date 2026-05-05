@@ -13,6 +13,67 @@ import {
     TextEdit, VerticalBox
 } from "std-widgets.slint";
 
+/// Project-wide accent palette layered on top of Slint's `Palette` dark
+/// mode. We pick a turquoise / teal blue so the GUI has its own visual
+/// identity while still feeling at home in dark mode. Standard Slint
+/// widgets (Button, ComboBox, LineEdit) keep their default styling — only
+/// our custom components (SectionGroup headers, CategoryButton highlight,
+/// LabelCell ⓘ marker, popup borders, etc.) switch to AppTheme.
+export global AppTheme {
+    out property <color> accent: #1ABC9C;          // turquoise
+    out property <color> accent-hover: #16A085;
+    out property <color> accent-soft: #1ABC9C40;   // ~25% alpha
+    out property <color> header-bg: #0F2A2E;       // very dark teal
+    out property <color> header-fg: #1ABC9C;       // turquoise text
+    out property <color> border: #1ABC9C66;        // turquoise w/ alpha
+    out property <color> on-accent: #0E2628;       // dark text on accent bg
+}
+
+/// Sectioned content block. Renders a turquoise-accented header bar with
+/// `title` on top and the slot's children below in a padded panel. Used
+/// across the main window so visually-distinct sections (Setup / Profile /
+/// Server status / RCON / Log) all share the same look.
+component SectionGroup inherits VerticalBox {
+    in property <string> title;
+    spacing: 0;
+    padding: 0;
+
+    Rectangle {
+        height: 28px;
+        background: AppTheme.header-bg;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        border-color: AppTheme.border;
+        border-width: 1px;
+        HorizontalBox {
+            padding-left: 12px;
+            padding-right: 12px;
+            padding-top: 0;
+            padding-bottom: 0;
+            Text {
+                text: root.title;
+                color: AppTheme.header-fg;
+                font-weight: 700;
+                font-size: 12px;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+        }
+    }
+    Rectangle {
+        background: Palette.alternate-background;
+        border-bottom-left-radius: 6px;
+        border-bottom-right-radius: 6px;
+        border-color: AppTheme.border;
+        border-width: 1px;
+        VerticalBox {
+            padding: 8px;
+            spacing: 6px;
+            @children
+        }
+    }
+}
+
 export struct ServerStatusView {
     running: bool,
     title: string,
@@ -27,6 +88,9 @@ export struct ServerStatusView {
 export struct UiLabels {
     main_window_title: string,
     main_language_label: string,
+    section_setup: string,
+    section_profile: string,
+    section_lifecycle: string,
     arksa_dir: string,
     btn_browse: string,
     profile_label: string,
@@ -151,84 +215,84 @@ export component MainWindow inherits Window {
 
     VerticalBox {
         padding: 12px;
-        spacing: 10px;
+        spacing: 8px;
 
-        // Top bar: ARKSA install dir + language picker
-        HorizontalBox {
-            spacing: 8px;
-            Text { text: root.labels.arksa_dir; vertical-alignment: center; }
-            Text {
-                text: root.install-dir;
-                vertical-alignment: center;
-                horizontal-stretch: 1;
-                overflow: elide;
-            }
-            Button {
-                text: root.labels.btn_browse;
-                enabled: !root.action-busy;
-                clicked => { root.browse-install-dir(); }
-            }
-            Text {
-                text: root.labels.main_language_label;
-                vertical-alignment: center;
-            }
-            ComboBox {
-                model: root.language-options;
-                current-index <=> root.language-index;
-                enabled: !root.action-busy;
-                selected => { root.language-changed(self.current-index); }
+        // ── Setup section ──────────────────────────────────────────────
+        SectionGroup {
+            title: root.labels.section_setup;
+            HorizontalBox {
+                spacing: 8px;
+                Text { text: root.labels.arksa_dir; vertical-alignment: center; }
+                Text {
+                    text: root.install-dir;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                }
+                Button {
+                    text: root.labels.btn_browse;
+                    enabled: !root.action-busy;
+                    clicked => { root.browse-install-dir(); }
+                }
+                Text {
+                    text: root.labels.main_language_label;
+                    vertical-alignment: center;
+                }
+                ComboBox {
+                    model: root.language-options;
+                    current-index <=> root.language-index;
+                    enabled: !root.action-busy;
+                    selected => { root.language-changed(self.current-index); }
+                }
             }
         }
 
-        // Profile row — pure profile picker + per-profile actions.
-        // Splitting the previous one-row "everything goes here" layout
-        // into two stops the buttons from squashing the ComboBox.
-        HorizontalBox {
-            spacing: 8px;
-            Text { text: root.labels.profile_label; vertical-alignment: center; }
-            ComboBox {
-                model: root.profile-names;
-                current-index <=> root.selected-profile-index;
-                horizontal-stretch: 1;
-                enabled: !root.action-busy && root.profile-names.length > 0;
-                selected => { root.profile-selected(self.current-index); }
+        // ── Profile section ────────────────────────────────────────────
+        SectionGroup {
+            title: root.labels.section_profile;
+            HorizontalBox {
+                spacing: 8px;
+                Text { text: root.labels.profile_label; vertical-alignment: center; }
+                ComboBox {
+                    model: root.profile-names;
+                    current-index <=> root.selected-profile-index;
+                    horizontal-stretch: 1;
+                    enabled: !root.action-busy && root.profile-names.length > 0;
+                    selected => { root.profile-selected(self.current-index); }
+                }
+                Button {
+                    text: root.labels.btn_new;
+                    enabled: !root.action-busy;
+                    clicked => { root.new-profile(); }
+                }
+                Button {
+                    text: root.labels.btn_world_settings;
+                    enabled: !root.action-busy && root.profile-names.length > 0;
+                    clicked => { root.open-world-settings(); }
+                }
             }
-            Button {
-                text: root.labels.btn_new;
-                enabled: !root.action-busy;
-                clicked => { root.new-profile(); }
-            }
-            Button {
-                text: root.labels.btn_world_settings;
-                // Editing Game.ini / GameUserSettings.ini only makes sense
-                // for a real profile; greyed out otherwise.
-                enabled: !root.action-busy && root.profile-names.length > 0;
-                clicked => { root.open-world-settings(); }
-            }
-        }
-
-        // Tools row — global actions (independent of the picked profile)
-        HorizontalBox {
-            spacing: 8px;
-            alignment: end;
-            Button {
-                text: root.labels.btn_find;
-                enabled: !root.action-busy;
-                clicked => { root.open-find(); }
-            }
-            Button {
-                text: root.labels.btn_notifications;
-                enabled: !root.action-busy;
-                clicked => { root.open-notifications(); }
-            }
-            Button {
-                text: root.labels.btn_refresh;
-                enabled: !root.action-busy;
-                clicked => { root.refresh-status(); }
+            HorizontalBox {
+                spacing: 8px;
+                alignment: end;
+                Button {
+                    text: root.labels.btn_find;
+                    enabled: !root.action-busy;
+                    clicked => { root.open-find(); }
+                }
+                Button {
+                    text: root.labels.btn_notifications;
+                    enabled: !root.action-busy;
+                    clicked => { root.open-notifications(); }
+                }
+                Button {
+                    text: root.labels.btn_refresh;
+                    enabled: !root.action-busy;
+                    clicked => { root.refresh-status(); }
+                }
             }
         }
 
-        // Empty state vs. populated state
+        // ── Empty state when no profile exists ─────────────────────────
         if root.profile-names.length == 0: VerticalBox {
             alignment: center;
             spacing: 12px;
@@ -253,44 +317,47 @@ export component MainWindow inherits Window {
             }
         }
 
-        if root.profile-names.length > 0: GroupBox {
+        // ── Server status section ──────────────────────────────────────
+        if root.profile-names.length > 0: SectionGroup {
             title: root.labels.panel_server_status;
-            VerticalBox {
-                spacing: 4px;
-                Text { text: root.labels.label_status + " " + root.status.title; }
-                Text { text: root.labels.label_map + " " + root.status.map; }
-                Text { text: root.labels.label_ports + " " + root.status.ports; }
-                Text { text: root.labels.label_memory + " " + root.status.memory; }
-                Text { text: root.labels.label_uptime + " " + root.status.uptime; }
+            Text { text: root.labels.label_status + " " + root.status.title; }
+            Text { text: root.labels.label_map + " " + root.status.map; }
+            Text { text: root.labels.label_ports + " " + root.status.ports; }
+            Text { text: root.labels.label_memory + " " + root.status.memory; }
+            Text { text: root.labels.label_uptime + " " + root.status.uptime; }
+        }
+
+        // ── Server control section ─────────────────────────────────────
+        if root.profile-names.length > 0: SectionGroup {
+            title: root.labels.section_lifecycle;
+            HorizontalBox {
+                alignment: start;
+                spacing: 8px;
+                Button {
+                    text: root.labels.btn_start;
+                    enabled: !root.action-busy && !root.status.running;
+                    clicked => { root.start-server(); }
+                }
+                Button {
+                    text: root.labels.btn_stop;
+                    enabled: !root.action-busy && root.status.running;
+                    clicked => { root.stop-server(); }
+                }
+                Button {
+                    text: root.labels.btn_restart;
+                    enabled: !root.action-busy && root.status.running;
+                    clicked => { root.restart-server(); }
+                }
+                Button {
+                    text: root.labels.btn_install;
+                    enabled: !root.action-busy && !root.status.running;
+                    clicked => { root.install-update-server(); }
+                }
             }
         }
 
-        if root.profile-names.length > 0: HorizontalBox {
-            alignment: start;
-            spacing: 8px;
-            Button {
-                text: root.labels.btn_start;
-                enabled: !root.action-busy && !root.status.running;
-                clicked => { root.start-server(); }
-            }
-            Button {
-                text: root.labels.btn_stop;
-                enabled: !root.action-busy && root.status.running;
-                clicked => { root.stop-server(); }
-            }
-            Button {
-                text: root.labels.btn_restart;
-                enabled: !root.action-busy && root.status.running;
-                clicked => { root.restart-server(); }
-            }
-            Button {
-                text: root.labels.btn_install;
-                enabled: !root.action-busy && !root.status.running;
-                clicked => { root.install-update-server(); }
-            }
-        }
-
-        if root.profile-names.length > 0: GroupBox {
+        // ── RCON section ───────────────────────────────────────────────
+        if root.profile-names.length > 0: SectionGroup {
             title: root.labels.panel_rcon;
             HorizontalBox {
                 spacing: 6px;
@@ -309,7 +376,8 @@ export component MainWindow inherits Window {
             }
         }
 
-        GroupBox {
+        // ── Log section ────────────────────────────────────────────────
+        SectionGroup {
             title: root.labels.panel_log;
             vertical-stretch: 1;
             TextEdit {
@@ -333,7 +401,7 @@ component LabelCell inherits Rectangle {
 
     width: 260px;
     background: ta.has-hover && root.description != ""
-        ? Palette.alternate-background
+        ? AppTheme.accent-soft
         : transparent;
     border-radius: 3px;
 
@@ -349,7 +417,7 @@ component LabelCell inherits Rectangle {
         // A subtle "ⓘ" affordance only when a description exists.
         if root.description != "": Text {
             text: "ⓘ";
-            color: Palette.accent-background;
+            color: AppTheme.accent;
             vertical-alignment: center;
             font-size: 13px;
         }
@@ -367,7 +435,7 @@ component LabelCell inherits Rectangle {
         close-policy: close-on-click-outside;
         Rectangle {
             background: Palette.alternate-background;
-            border-color: Palette.border;
+            border-color: AppTheme.border;
             border-width: 1px;
             border-radius: 6px;
             drop-shadow-blur: 8px;
@@ -378,7 +446,7 @@ component LabelCell inherits Rectangle {
                 spacing: 4px;
                 Text {
                     text: root.label;
-                    color: Palette.accent-background;
+                    color: AppTheme.accent;
                     font-weight: 700;
                     wrap: word-wrap;
                 }
@@ -434,10 +502,9 @@ component WorldBoolRow inherits HorizontalBox {
     }
 }
 
-/// Sidebar entry for the World Settings dialog. Highlights itself when the
-/// `index` matches `current-index` and fires `clicked` so the parent can
-/// swap the active category. Colors come from `Palette` so the entry stays
-/// readable in both light and dark themes.
+/// Sidebar entry for the World Settings dialog. Highlights itself in the
+/// project's turquoise accent when the `index` matches `current-index`
+/// and fires `clicked` so the parent can swap the active category.
 component CategoryButton inherits Rectangle {
     in property <string> label;
     in property <int> index;
@@ -447,8 +514,8 @@ component CategoryButton inherits Rectangle {
     height: 30px;
     border-radius: 4px;
     background: root.index == root.current-index
-        ? Palette.accent-background
-        : (touch.has-hover ? Palette.alternate-background : transparent);
+        ? AppTheme.accent
+        : (touch.has-hover ? AppTheme.accent-soft : transparent);
 
     HorizontalBox {
         padding-left: 12px;
@@ -456,8 +523,9 @@ component CategoryButton inherits Rectangle {
         Text {
             text: root.label;
             color: root.index == root.current-index
-                ? Palette.accent-foreground
+                ? AppTheme.on-accent
                 : Palette.foreground;
+            font-weight: root.index == root.current-index ? 700 : 400;
             vertical-alignment: center;
             horizontal-stretch: 1;
         }
