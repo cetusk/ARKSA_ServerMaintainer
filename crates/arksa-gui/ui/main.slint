@@ -410,6 +410,23 @@ export component WorldSettingsWindow inherits Window {
     in-out property <bool> b_disable_dino_breeding: false;
     in-out property <bool> b_disable_dino_taming: false;
 
+    // Phase 8d — Loot / Spoilage
+    in-out property <string> f_supply_crate_loot_quality_multiplier: "1.0";
+    in-out property <string> f_fishing_loot_quality_multiplier: "1.0";
+    in-out property <string> f_crop_decay_speed_multiplier: "1.0";
+    in-out property <string> f_crop_growth_speed_multiplier: "1.0";
+    in-out property <bool> b_disable_loot_crates: false;
+    in-out property <string> f_limit_non_player_dropped_items_count: "0";
+    in-out property <string> f_limit_non_player_dropped_items_range: "0";
+    in-out property <string> f_global_item_decomposition_time_multiplier: "1.0";
+    in-out property <string> f_global_spoiling_time_multiplier: "1.0";
+    in-out property <string> f_global_corpse_decomposition_time_multiplier: "1.0";
+    in-out property <string> f_use_corpse_life_span_multiplier: "1.0";
+    in-out property <bool> b_use_corpse_locator: true;
+    in-out property <string> f_poop_interval_multiplier: "1.0";
+    in-out property <string> f_fuel_consumption_interval_multiplier: "1.0";
+    in-out property <string> f_max_fall_speed_multiplier: "1.0";
+
     callback import-clicked();
     callback reset-clicked();
     callback save-clicked();
@@ -581,6 +598,31 @@ export component WorldSettingsWindow inherits Window {
                         WorldFloatRow { label: "BabyCuddleLoseImprintQualitySpeedMultiplier";    value <=> root.f_baby_cuddle_lose_imprint_quality_speed_multiplier; }
                         WorldBoolRow  { label: "bDisableDinoBreeding";                           value <=> root.b_disable_dino_breeding; }
                         WorldBoolRow  { label: "bDisableDinoTaming";                             value <=> root.b_disable_dino_taming; }
+                    }
+                }
+            }
+
+            Tab {
+                title: root.labels.world_tab_loot;
+                ScrollView {
+                    VerticalBox {
+                        padding: 8px;
+                        spacing: 4px;
+                        WorldFloatRow { label: "SupplyCrateLootQualityMultiplier";              value <=> root.f_supply_crate_loot_quality_multiplier; }
+                        WorldFloatRow { label: "FishingLootQualityMultiplier";                  value <=> root.f_fishing_loot_quality_multiplier; }
+                        WorldFloatRow { label: "CropGrowthSpeedMultiplier";                     value <=> root.f_crop_growth_speed_multiplier; }
+                        WorldFloatRow { label: "CropDecaySpeedMultiplier";                      value <=> root.f_crop_decay_speed_multiplier; }
+                        WorldBoolRow  { label: "bDisableLootCrates";                            value <=> root.b_disable_loot_crates; }
+                        WorldFloatRow { label: "LimitNonPlayerDroppedItemsCount (int)";         value <=> root.f_limit_non_player_dropped_items_count; }
+                        WorldFloatRow { label: "LimitNonPlayerDroppedItemsRange (int)";         value <=> root.f_limit_non_player_dropped_items_range; }
+                        WorldFloatRow { label: "GlobalSpoilingTimeMultiplier";                  value <=> root.f_global_spoiling_time_multiplier; }
+                        WorldFloatRow { label: "GlobalItemDecompositionTimeMultiplier";         value <=> root.f_global_item_decomposition_time_multiplier; }
+                        WorldFloatRow { label: "GlobalCorpseDecompositionTimeMultiplier";       value <=> root.f_global_corpse_decomposition_time_multiplier; }
+                        WorldFloatRow { label: "UseCorpseLifeSpanMultiplier";                   value <=> root.f_use_corpse_life_span_multiplier; }
+                        WorldBoolRow  { label: "bUseCorpseLocator";                             value <=> root.b_use_corpse_locator; }
+                        WorldFloatRow { label: "PoopIntervalMultiplier";                        value <=> root.f_poop_interval_multiplier; }
+                        WorldFloatRow { label: "FuelConsumptionIntervalMultiplier";             value <=> root.f_fuel_consumption_interval_multiplier; }
+                        WorldFloatRow { label: "MaxFallSpeedMultiplier";                        value <=> root.f_max_fall_speed_multiplier; }
                     }
                 }
             }

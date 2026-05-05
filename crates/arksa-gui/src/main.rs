@@ -1440,6 +1440,27 @@ fn populate_world_settings_window(window: &WorldSettingsWindow, install_root: &P
     window.set_f_baby_cuddle_lose_imprint_quality_speed_multiplier(g(game_config::GameSettings::baby_cuddle_lose_imprint_quality_speed_multiplier, 1.0));
     window.set_b_disable_dino_breeding(gb(game_config::GameSettings::disable_dino_breeding, false));
     window.set_b_disable_dino_taming(gb(game_config::GameSettings::disable_dino_taming, false));
+
+    // Phase 8d — Loot / Spoilage (Game.ini)
+    window.set_f_supply_crate_loot_quality_multiplier(g(game_config::GameSettings::supply_crate_loot_quality_multiplier, 1.0));
+    window.set_f_fishing_loot_quality_multiplier(g(game_config::GameSettings::fishing_loot_quality_multiplier, 1.0));
+    window.set_f_crop_growth_speed_multiplier(g(game_config::GameSettings::crop_growth_speed_multiplier, 1.0));
+    window.set_f_crop_decay_speed_multiplier(g(game_config::GameSettings::crop_decay_speed_multiplier, 1.0));
+    window.set_b_disable_loot_crates(gb(game_config::GameSettings::disable_loot_crates, false));
+    let gi = |get: fn(&game_config::GameSettings) -> Option<i64>, default: i64| -> SharedString {
+        let v = game.as_ref().and_then(get).unwrap_or(default);
+        fmt_int_for_form(v)
+    };
+    window.set_f_limit_non_player_dropped_items_count(gi(game_config::GameSettings::limit_non_player_dropped_items_count, 0));
+    window.set_f_limit_non_player_dropped_items_range(gi(game_config::GameSettings::limit_non_player_dropped_items_range, 0));
+    window.set_f_global_spoiling_time_multiplier(g(game_config::GameSettings::global_spoiling_time_multiplier, 1.0));
+    window.set_f_global_item_decomposition_time_multiplier(g(game_config::GameSettings::global_item_decomposition_time_multiplier, 1.0));
+    window.set_f_global_corpse_decomposition_time_multiplier(g(game_config::GameSettings::global_corpse_decomposition_time_multiplier, 1.0));
+    window.set_f_use_corpse_life_span_multiplier(g(game_config::GameSettings::use_corpse_life_span_multiplier, 1.0));
+    window.set_b_use_corpse_locator(gb(game_config::GameSettings::use_corpse_locator, true));
+    window.set_f_poop_interval_multiplier(g(game_config::GameSettings::poop_interval_multiplier, 1.0));
+    window.set_f_fuel_consumption_interval_multiplier(g(game_config::GameSettings::fuel_consumption_interval_multiplier, 1.0));
+    window.set_f_max_fall_speed_multiplier(g(game_config::GameSettings::max_fall_speed_multiplier, 1.0));
 }
 
 /// Reset every form field to ARK's vanilla defaults (mostly 1.0, plus the
@@ -1508,9 +1529,26 @@ fn reset_world_settings_window(window: &WorldSettingsWindow) {
     window.set_f_baby_imprinting_stat_scale_multiplier(one.clone());
     window.set_f_baby_cuddle_interval_multiplier(one.clone());
     window.set_f_baby_cuddle_grace_period_multiplier(one.clone());
-    window.set_f_baby_cuddle_lose_imprint_quality_speed_multiplier(one);
+    window.set_f_baby_cuddle_lose_imprint_quality_speed_multiplier(one.clone());
     window.set_b_disable_dino_breeding(false);
     window.set_b_disable_dino_taming(false);
+
+    // Phase 8d — Loot / Spoilage
+    window.set_f_supply_crate_loot_quality_multiplier(one.clone());
+    window.set_f_fishing_loot_quality_multiplier(one.clone());
+    window.set_f_crop_growth_speed_multiplier(one.clone());
+    window.set_f_crop_decay_speed_multiplier(one.clone());
+    window.set_b_disable_loot_crates(false);
+    window.set_f_limit_non_player_dropped_items_count(SharedString::from("0"));
+    window.set_f_limit_non_player_dropped_items_range(SharedString::from("0"));
+    window.set_f_global_spoiling_time_multiplier(one.clone());
+    window.set_f_global_item_decomposition_time_multiplier(one.clone());
+    window.set_f_global_corpse_decomposition_time_multiplier(one.clone());
+    window.set_f_use_corpse_life_span_multiplier(one.clone());
+    window.set_b_use_corpse_locator(true);
+    window.set_f_poop_interval_multiplier(one.clone());
+    window.set_f_fuel_consumption_interval_multiplier(one.clone());
+    window.set_f_max_fall_speed_multiplier(one);
 }
 
 /// Read all form fields, parse floats, return per-file struct values or a
@@ -1595,6 +1633,23 @@ struct WorldFormValues {
     baby_cuddle_lose_imprint_quality_speed_multiplier: f64,
     disable_dino_breeding: bool,
     disable_dino_taming: bool,
+
+    // Phase 8d — Loot / Spoilage — (G)
+    supply_crate_loot_quality_multiplier: f64,
+    fishing_loot_quality_multiplier: f64,
+    crop_growth_speed_multiplier: f64,
+    crop_decay_speed_multiplier: f64,
+    disable_loot_crates: bool,
+    limit_non_player_dropped_items_count: i64,
+    limit_non_player_dropped_items_range: i64,
+    global_spoiling_time_multiplier: f64,
+    global_item_decomposition_time_multiplier: f64,
+    global_corpse_decomposition_time_multiplier: f64,
+    use_corpse_life_span_multiplier: f64,
+    use_corpse_locator: bool,
+    poop_interval_multiplier: f64,
+    fuel_consumption_interval_multiplier: f64,
+    max_fall_speed_multiplier: f64,
 }
 
 fn parse_form_float(value: SharedString, label: &str) -> Result<f64, String> {
@@ -1698,6 +1753,21 @@ fn collect_world_form(window: &WorldSettingsWindow) -> Result<WorldFormValues, S
         baby_cuddle_lose_imprint_quality_speed_multiplier: parse_form_float(window.get_f_baby_cuddle_lose_imprint_quality_speed_multiplier(), "BabyCuddleLoseImprintQualitySpeedMultiplier")?,
         disable_dino_breeding: window.get_b_disable_dino_breeding(),
         disable_dino_taming: window.get_b_disable_dino_taming(),
+        supply_crate_loot_quality_multiplier: parse_form_float(window.get_f_supply_crate_loot_quality_multiplier(), "SupplyCrateLootQualityMultiplier")?,
+        fishing_loot_quality_multiplier: parse_form_float(window.get_f_fishing_loot_quality_multiplier(), "FishingLootQualityMultiplier")?,
+        crop_growth_speed_multiplier: parse_form_float(window.get_f_crop_growth_speed_multiplier(), "CropGrowthSpeedMultiplier")?,
+        crop_decay_speed_multiplier: parse_form_float(window.get_f_crop_decay_speed_multiplier(), "CropDecaySpeedMultiplier")?,
+        disable_loot_crates: window.get_b_disable_loot_crates(),
+        limit_non_player_dropped_items_count: parse_form_int(window.get_f_limit_non_player_dropped_items_count(), "LimitNonPlayerDroppedItemsCount")?,
+        limit_non_player_dropped_items_range: parse_form_int(window.get_f_limit_non_player_dropped_items_range(), "LimitNonPlayerDroppedItemsRange")?,
+        global_spoiling_time_multiplier: parse_form_float(window.get_f_global_spoiling_time_multiplier(), "GlobalSpoilingTimeMultiplier")?,
+        global_item_decomposition_time_multiplier: parse_form_float(window.get_f_global_item_decomposition_time_multiplier(), "GlobalItemDecompositionTimeMultiplier")?,
+        global_corpse_decomposition_time_multiplier: parse_form_float(window.get_f_global_corpse_decomposition_time_multiplier(), "GlobalCorpseDecompositionTimeMultiplier")?,
+        use_corpse_life_span_multiplier: parse_form_float(window.get_f_use_corpse_life_span_multiplier(), "UseCorpseLifeSpanMultiplier")?,
+        use_corpse_locator: window.get_b_use_corpse_locator(),
+        poop_interval_multiplier: parse_form_float(window.get_f_poop_interval_multiplier(), "PoopIntervalMultiplier")?,
+        fuel_consumption_interval_multiplier: parse_form_float(window.get_f_fuel_consumption_interval_multiplier(), "FuelConsumptionIntervalMultiplier")?,
+        max_fall_speed_multiplier: parse_form_float(window.get_f_max_fall_speed_multiplier(), "MaxFallSpeedMultiplier")?,
     })
 }
 
@@ -1786,6 +1856,23 @@ fn write_world_form(install_root: &Path, v: &WorldFormValues) -> Result<()> {
     game.set_baby_cuddle_lose_imprint_quality_speed_multiplier(v.baby_cuddle_lose_imprint_quality_speed_multiplier);
     game.set_disable_dino_breeding(v.disable_dino_breeding);
     game.set_disable_dino_taming(v.disable_dino_taming);
+
+    // Phase 8d — Loot / Spoilage → Game.ini
+    game.set_supply_crate_loot_quality_multiplier(v.supply_crate_loot_quality_multiplier);
+    game.set_fishing_loot_quality_multiplier(v.fishing_loot_quality_multiplier);
+    game.set_crop_growth_speed_multiplier(v.crop_growth_speed_multiplier);
+    game.set_crop_decay_speed_multiplier(v.crop_decay_speed_multiplier);
+    game.set_disable_loot_crates(v.disable_loot_crates);
+    game.set_limit_non_player_dropped_items_count(v.limit_non_player_dropped_items_count);
+    game.set_limit_non_player_dropped_items_range(v.limit_non_player_dropped_items_range);
+    game.set_global_spoiling_time_multiplier(v.global_spoiling_time_multiplier);
+    game.set_global_item_decomposition_time_multiplier(v.global_item_decomposition_time_multiplier);
+    game.set_global_corpse_decomposition_time_multiplier(v.global_corpse_decomposition_time_multiplier);
+    game.set_use_corpse_life_span_multiplier(v.use_corpse_life_span_multiplier);
+    game.set_use_corpse_locator(v.use_corpse_locator);
+    game.set_poop_interval_multiplier(v.poop_interval_multiplier);
+    game.set_fuel_consumption_interval_multiplier(v.fuel_consumption_interval_multiplier);
+    game.set_max_fall_speed_multiplier(v.max_fall_speed_multiplier);
 
     game.save()?;
     gus.save()?;
@@ -1976,6 +2063,53 @@ fn import_world_settings(window: &WorldSettingsWindow, source_path: &Path) -> Re
     }
     if let Some(v) = gb(game_config::GameSettings::disable_dino_taming) {
         window.set_b_disable_dino_taming(v);
+    }
+    // Phase 8d — Loot / Spoilage
+    let gi = |get: fn(&game_config::GameSettings) -> Option<i64>| get(&game);
+    if let Some(v) = g(game_config::GameSettings::supply_crate_loot_quality_multiplier) {
+        window.set_f_supply_crate_loot_quality_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::fishing_loot_quality_multiplier) {
+        window.set_f_fishing_loot_quality_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::crop_growth_speed_multiplier) {
+        window.set_f_crop_growth_speed_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::crop_decay_speed_multiplier) {
+        window.set_f_crop_decay_speed_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = gb(game_config::GameSettings::disable_loot_crates) {
+        window.set_b_disable_loot_crates(v);
+    }
+    if let Some(v) = gi(game_config::GameSettings::limit_non_player_dropped_items_count) {
+        window.set_f_limit_non_player_dropped_items_count(fmt_int_for_form(v));
+    }
+    if let Some(v) = gi(game_config::GameSettings::limit_non_player_dropped_items_range) {
+        window.set_f_limit_non_player_dropped_items_range(fmt_int_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::global_spoiling_time_multiplier) {
+        window.set_f_global_spoiling_time_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::global_item_decomposition_time_multiplier) {
+        window.set_f_global_item_decomposition_time_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::global_corpse_decomposition_time_multiplier) {
+        window.set_f_global_corpse_decomposition_time_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::use_corpse_life_span_multiplier) {
+        window.set_f_use_corpse_life_span_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = gb(game_config::GameSettings::use_corpse_locator) {
+        window.set_b_use_corpse_locator(v);
+    }
+    if let Some(v) = g(game_config::GameSettings::poop_interval_multiplier) {
+        window.set_f_poop_interval_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::fuel_consumption_interval_multiplier) {
+        window.set_f_fuel_consumption_interval_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::max_fall_speed_multiplier) {
+        window.set_f_max_fall_speed_multiplier(fmt_float_for_form(v));
     }
     Ok(())
 }

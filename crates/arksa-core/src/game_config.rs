@@ -221,6 +221,77 @@ impl GameSettings {
         set_allow_anyone_baby_imprint_cuddle,
         "AllowAnyoneBabyImprintCuddle"
     );
+
+    // ── Loot / crops (Phase 8d) ──────────────────────────────────────
+    float_field!(
+        supply_crate_loot_quality_multiplier,
+        set_supply_crate_loot_quality_multiplier,
+        "SupplyCrateLootQualityMultiplier"
+    );
+    float_field!(
+        fishing_loot_quality_multiplier,
+        set_fishing_loot_quality_multiplier,
+        "FishingLootQualityMultiplier"
+    );
+    float_field!(
+        crop_decay_speed_multiplier,
+        set_crop_decay_speed_multiplier,
+        "CropDecaySpeedMultiplier"
+    );
+    float_field!(
+        crop_growth_speed_multiplier,
+        set_crop_growth_speed_multiplier,
+        "CropGrowthSpeedMultiplier"
+    );
+    bool_field!(disable_loot_crates, set_disable_loot_crates, "bDisableLootCrates");
+    int_field!(
+        limit_non_player_dropped_items_count,
+        set_limit_non_player_dropped_items_count,
+        "LimitNonPlayerDroppedItemsCount"
+    );
+    int_field!(
+        limit_non_player_dropped_items_range,
+        set_limit_non_player_dropped_items_range,
+        "LimitNonPlayerDroppedItemsRange"
+    );
+
+    // ── Spoilage / decomposition (Phase 8d) ──────────────────────────
+    float_field!(
+        global_item_decomposition_time_multiplier,
+        set_global_item_decomposition_time_multiplier,
+        "GlobalItemDecompositionTimeMultiplier"
+    );
+    float_field!(
+        global_spoiling_time_multiplier,
+        set_global_spoiling_time_multiplier,
+        "GlobalSpoilingTimeMultiplier"
+    );
+    float_field!(
+        global_corpse_decomposition_time_multiplier,
+        set_global_corpse_decomposition_time_multiplier,
+        "GlobalCorpseDecompositionTimeMultiplier"
+    );
+    float_field!(
+        use_corpse_life_span_multiplier,
+        set_use_corpse_life_span_multiplier,
+        "UseCorpseLifeSpanMultiplier"
+    );
+    bool_field!(use_corpse_locator, set_use_corpse_locator, "bUseCorpseLocator");
+    float_field!(
+        poop_interval_multiplier,
+        set_poop_interval_multiplier,
+        "PoopIntervalMultiplier"
+    );
+    float_field!(
+        fuel_consumption_interval_multiplier,
+        set_fuel_consumption_interval_multiplier,
+        "FuelConsumptionIntervalMultiplier"
+    );
+    float_field!(
+        max_fall_speed_multiplier,
+        set_max_fall_speed_multiplier,
+        "MaxFallSpeedMultiplier"
+    );
 }
 
 #[cfg(test)]
