@@ -853,6 +853,17 @@ struct Labels {
     world_tab_tamed: String,
     world_tab_wild: String,
     world_tab_difficulty: String,
+    world_tab_pvp: String,
+    world_tab_ops: String,
+    world_tab_breeding: String,
+    world_tab_loot: String,
+    world_tab_stats: String,
+    world_tab_combat: String,
+    world_tab_xp: String,
+    world_tab_chat: String,
+    world_tab_cluster: String,
+    world_tab_clamps: String,
+    world_tab_flags: String,
     world_btn_import: String,
     world_btn_reset: String,
     world_btn_save: String,
@@ -921,6 +932,17 @@ impl Labels {
             world_tab_tamed: "Tamed dino".into(),
             world_tab_wild: "Wild dino".into(),
             world_tab_difficulty: "Difficulty / structure".into(),
+            world_tab_pvp: "PvE / PvP".into(),
+            world_tab_ops: "Ops".into(),
+            world_tab_breeding: "Breeding".into(),
+            world_tab_loot: "Loot / Spoilage".into(),
+            world_tab_stats: "Stat arrays".into(),
+            world_tab_combat: "Combat / Structures".into(),
+            world_tab_xp: "XP gain".into(),
+            world_tab_chat: "Cosmetic / Chat".into(),
+            world_tab_cluster: "Cluster / Lists".into(),
+            world_tab_clamps: "Clamps / Blueprints".into(),
+            world_tab_flags: "Launch flags".into(),
             world_btn_import: "Import settings from file…".into(),
             world_btn_reset: "Reset to defaults".into(),
             world_btn_save: "Save".into(),
@@ -992,6 +1014,17 @@ impl Labels {
             world_tab_tamed: "テイム済み恐竜".into(),
             world_tab_wild: "野生恐竜".into(),
             world_tab_difficulty: "難易度・建造物".into(),
+            world_tab_pvp: "PvE / PvP".into(),
+            world_tab_ops: "運用".into(),
+            world_tab_breeding: "繁殖".into(),
+            world_tab_loot: "戦利品・腐敗".into(),
+            world_tab_stats: "ステータス配列".into(),
+            world_tab_combat: "戦闘・建造".into(),
+            world_tab_xp: "XP 獲得".into(),
+            world_tab_chat: "表示・チャット".into(),
+            world_tab_cluster: "クラスタ・リスト".into(),
+            world_tab_clamps: "上限・設計図".into(),
+            world_tab_flags: "起動フラグ".into(),
             world_btn_import: "ファイルから設定をインポート…".into(),
             world_btn_reset: "デフォルトに戻す".into(),
             world_btn_save: "保存".into(),
@@ -1076,6 +1109,17 @@ impl Labels {
             world_tab_tamed: self.world_tab_tamed.as_str().into(),
             world_tab_wild: self.world_tab_wild.as_str().into(),
             world_tab_difficulty: self.world_tab_difficulty.as_str().into(),
+            world_tab_pvp: self.world_tab_pvp.as_str().into(),
+            world_tab_ops: self.world_tab_ops.as_str().into(),
+            world_tab_breeding: self.world_tab_breeding.as_str().into(),
+            world_tab_loot: self.world_tab_loot.as_str().into(),
+            world_tab_stats: self.world_tab_stats.as_str().into(),
+            world_tab_combat: self.world_tab_combat.as_str().into(),
+            world_tab_xp: self.world_tab_xp.as_str().into(),
+            world_tab_chat: self.world_tab_chat.as_str().into(),
+            world_tab_cluster: self.world_tab_cluster.as_str().into(),
+            world_tab_clamps: self.world_tab_clamps.as_str().into(),
+            world_tab_flags: self.world_tab_flags.as_str().into(),
             world_btn_import: self.world_btn_import.as_str().into(),
             world_btn_reset: self.world_btn_reset.as_str().into(),
             world_btn_save: self.world_btn_save.as_str().into(),
@@ -1288,6 +1332,11 @@ fn fmt_float_for_form(v: f64) -> SharedString {
     }
 }
 
+/// Format an integer for display in a `LineEdit`.
+fn fmt_int_for_form(v: i64) -> SharedString {
+    v.to_string().into()
+}
+
 /// Apply the values from the two INIs at `install_root` to the form. Missing
 /// keys fall back to ARK's documented vanilla defaults so a brand-new
 /// profile (no Game.ini yet) shows sensible starting values.
@@ -1312,52 +1361,72 @@ fn populate_world_settings_window(window: &WorldSettingsWindow, install_root: &P
         let v = gus.as_ref().and_then(get).unwrap_or(default);
         fmt_float_for_form(v)
     };
+    let ub = |get: fn(&ark_config::GameUserSettings) -> Option<bool>, default: bool| -> bool {
+        gus.as_ref().and_then(get).unwrap_or(default)
+    };
+    let ui_ = |get: fn(&ark_config::GameUserSettings) -> Option<i64>, default: i64| -> SharedString {
+        let v = gus.as_ref().and_then(get).unwrap_or(default);
+        fmt_int_for_form(v)
+    };
 
-    // Rates
-    window.set_f_xp_multiplier(g(game_config::GameSettings::xp_multiplier, 1.0));
-    window.set_f_harvest_amount_multiplier(g(game_config::GameSettings::harvest_amount_multiplier, 1.0));
-    window.set_f_harvest_health_multiplier(g(game_config::GameSettings::harvest_health_multiplier, 1.0));
-    window.set_f_resources_respawn_period_multiplier(g(game_config::GameSettings::resources_respawn_period_multiplier, 1.0));
-    window.set_f_taming_speed_multiplier(g(game_config::GameSettings::taming_speed_multiplier, 1.0));
+    // Rates (now correctly routed to GameUserSettings.ini [ServerSettings])
+    window.set_f_xp_multiplier(u(ark_config::GameUserSettings::xp_multiplier, 1.0));
+    window.set_f_harvest_amount_multiplier(u(ark_config::GameUserSettings::harvest_amount_multiplier, 1.0));
+    window.set_f_harvest_health_multiplier(u(ark_config::GameUserSettings::harvest_health_multiplier, 1.0));
+    window.set_f_resources_respawn_period_multiplier(u(ark_config::GameUserSettings::resources_respawn_period_multiplier, 1.0));
+    window.set_f_taming_speed_multiplier(u(ark_config::GameUserSettings::taming_speed_multiplier, 1.0));
+    // Breeding (these stay in Game.ini)
     window.set_f_mating_interval_multiplier(g(game_config::GameSettings::mating_interval_multiplier, 1.0));
     window.set_f_egg_hatch_speed_multiplier(g(game_config::GameSettings::egg_hatch_speed_multiplier, 1.0));
     window.set_f_baby_mature_speed_multiplier(g(game_config::GameSettings::baby_mature_speed_multiplier, 1.0));
 
-    // Day cycle
-    window.set_f_day_cycle_speed_scale(g(game_config::GameSettings::day_cycle_speed_scale, 1.0));
-    window.set_f_day_time_speed_scale(g(game_config::GameSettings::day_time_speed_scale, 1.0));
-    window.set_f_night_time_speed_scale(g(game_config::GameSettings::night_time_speed_scale, 1.0));
+    // Day cycle (GameUserSettings.ini)
+    window.set_f_day_cycle_speed_scale(u(ark_config::GameUserSettings::day_cycle_speed_scale, 1.0));
+    window.set_f_day_time_speed_scale(u(ark_config::GameUserSettings::day_time_speed_scale, 1.0));
+    window.set_f_night_time_speed_scale(u(ark_config::GameUserSettings::night_time_speed_scale, 1.0));
 
-    // Player
-    window.set_f_player_food(g(game_config::GameSettings::player_character_food_drain_multiplier, 1.0));
-    window.set_f_player_water(g(game_config::GameSettings::player_character_water_drain_multiplier, 1.0));
-    window.set_f_player_stamina(g(game_config::GameSettings::player_character_stamina_drain_multiplier, 1.0));
-    window.set_f_player_health_recovery(g(game_config::GameSettings::player_character_health_recovery_multiplier, 1.0));
-    window.set_f_player_damage(g(game_config::GameSettings::player_damage_multiplier, 1.0));
-    window.set_f_player_resistance(g(game_config::GameSettings::player_resistance_multiplier, 1.0));
+    // Player (GameUserSettings.ini except harvesting which stays in Game.ini)
+    window.set_f_player_food(u(ark_config::GameUserSettings::player_food_drain_multiplier, 1.0));
+    window.set_f_player_water(u(ark_config::GameUserSettings::player_water_drain_multiplier, 1.0));
+    window.set_f_player_stamina(u(ark_config::GameUserSettings::player_stamina_drain_multiplier, 1.0));
+    window.set_f_player_health_recovery(u(ark_config::GameUserSettings::player_health_recovery_multiplier, 1.0));
+    window.set_f_player_damage(u(ark_config::GameUserSettings::player_damage_multiplier, 1.0));
+    window.set_f_player_resistance(u(ark_config::GameUserSettings::player_resistance_multiplier, 1.0));
     window.set_f_player_harvesting(g(game_config::GameSettings::player_harvesting_damage_multiplier, 1.0));
 
-    // Tamed dino
-    window.set_f_dino_food(g(game_config::GameSettings::dino_character_food_drain_multiplier, 1.0));
-    window.set_f_dino_stamina(g(game_config::GameSettings::dino_character_stamina_drain_multiplier, 1.0));
-    window.set_f_dino_health_recovery(g(game_config::GameSettings::dino_character_health_recovery_multiplier, 1.0));
-    window.set_f_tamed_damage(g(game_config::GameSettings::tamed_dino_damage_multiplier, 1.0));
-    window.set_f_tamed_resistance(g(game_config::GameSettings::tamed_dino_resistance_multiplier, 1.0));
+    // Tamed dino (GameUserSettings.ini)
+    window.set_f_dino_food(u(ark_config::GameUserSettings::dino_food_drain_multiplier, 1.0));
+    window.set_f_dino_stamina(u(ark_config::GameUserSettings::dino_stamina_drain_multiplier, 1.0));
+    window.set_f_dino_health_recovery(u(ark_config::GameUserSettings::dino_health_recovery_multiplier, 1.0));
+    window.set_f_tamed_damage(u(ark_config::GameUserSettings::tamed_dino_damage_multiplier, 1.0));
+    window.set_f_tamed_resistance(u(ark_config::GameUserSettings::tamed_dino_resistance_multiplier, 1.0));
 
-    // Wild dino
-    window.set_f_wild_food(g(game_config::GameSettings::wild_dino_character_food_drain_multiplier, 1.0));
-    window.set_f_wild_stamina(g(game_config::GameSettings::wild_dino_character_stamina_drain_multiplier, 1.0));
+    // Wild dino: food/torpor live in Game.ini, stamina lives in GameUserSettings.ini
+    window.set_f_wild_food(g(game_config::GameSettings::wild_dino_food_drain_multiplier, 1.0));
+    window.set_f_wild_stamina(u(ark_config::GameUserSettings::wild_dino_stamina_drain_multiplier, 1.0));
     window.set_f_wild_torpor(g(game_config::GameSettings::wild_dino_torpor_drain_multiplier, 1.0));
-    window.set_f_dino_count(g(game_config::GameSettings::dino_count_multiplier, 1.0));
+    window.set_f_dino_count(u(ark_config::GameUserSettings::dino_count_multiplier, 1.0));
 
     // Difficulty / structure
     window.set_f_difficulty_offset(u(ark_config::GameUserSettings::difficulty_offset, 0.2));
     window.set_f_override_official_difficulty(u(ark_config::GameUserSettings::override_official_difficulty, 5.0));
-    window.set_f_structure_damage(g(game_config::GameSettings::structure_damage_multiplier, 1.0));
-    window.set_f_structure_resistance(g(game_config::GameSettings::structure_resistance_multiplier, 1.0));
+    window.set_f_structure_damage(u(ark_config::GameUserSettings::structure_damage_multiplier, 1.0));
+    window.set_f_structure_resistance(u(ark_config::GameUserSettings::structure_resistance_multiplier, 1.0));
     window.set_f_structure_repair_cooldown(g(game_config::GameSettings::structure_damage_repair_cooldown, 180.0));
     window.set_b_disable_imprint_dino_buff(gb(game_config::GameSettings::disable_imprint_dino_buff, false));
     window.set_b_allow_anyone_baby_imprint(gb(game_config::GameSettings::allow_anyone_baby_imprint_cuddle, false));
+
+    // PvE / PvP toggles (Phase 8b — all GameUserSettings.ini)
+    window.set_b_server_pve(ub(ark_config::GameUserSettings::server_pve, false));
+    window.set_b_allow_flyer_carry_pve(ub(ark_config::GameUserSettings::allow_flyer_carry_pve, false));
+    window.set_b_enable_cryo_sickness_pve(ub(ark_config::GameUserSettings::enable_cryo_sickness_pve, false));
+    window.set_b_disable_structure_decay_pve(ub(ark_config::GameUserSettings::disable_structure_decay_pve, false));
+
+    // Operations basics (Phase 8b)
+    window.set_f_max_tamed_dinos(u(ark_config::GameUserSettings::max_tamed_dinos, 5000.0));
+    window.set_f_kick_idle_players_period(u(ark_config::GameUserSettings::kick_idle_players_period, 3600.0));
+    window.set_f_auto_save_period_minutes(u(ark_config::GameUserSettings::auto_save_period_minutes, 15.0));
+    window.set_f_the_max_structures_in_range(ui_(ark_config::GameUserSettings::the_max_structures_in_range, 10500));
 }
 
 /// Reset every form field to ARK's vanilla defaults (mostly 1.0, plus the
@@ -1399,29 +1468,49 @@ fn reset_world_settings_window(window: &WorldSettingsWindow) {
     window.set_f_difficulty_offset(SharedString::from("0.2"));
     window.set_f_override_official_difficulty(SharedString::from("5.0"));
     window.set_f_structure_damage(one.clone());
-    window.set_f_structure_resistance(one.clone());
+    window.set_f_structure_resistance(one);
     window.set_f_structure_repair_cooldown(SharedString::from("180.0"));
     window.set_b_disable_imprint_dino_buff(false);
     window.set_b_allow_anyone_baby_imprint(false);
+
+    // Phase 8b — PvE/PvP defaults (all PvP-on / non-PvE)
+    window.set_b_server_pve(false);
+    window.set_b_allow_flyer_carry_pve(false);
+    window.set_b_enable_cryo_sickness_pve(false);
+    window.set_b_disable_structure_decay_pve(false);
+
+    // Phase 8b — Operations basics
+    window.set_f_max_tamed_dinos(SharedString::from("5000.0"));
+    window.set_f_kick_idle_players_period(SharedString::from("3600.0"));
+    window.set_f_auto_save_period_minutes(SharedString::from("15.0"));
+    window.set_f_the_max_structures_in_range(SharedString::from("10500"));
 }
 
 /// Read all form fields, parse floats, return per-file struct values or a
 /// validation error pinpointing the first bad input.
+///
+/// Routing comment per field: (G) = Game.ini, (U) = GameUserSettings.ini.
+/// Phase 8b corrected the routing: most multipliers used to be saved to
+/// Game.ini but the canonical home for the bulk of them is GameUserSettings.
+#[allow(dead_code)]
 struct WorldFormValues {
-    // Game.ini side
+    // Rates — (U) GameUserSettings.ini [ServerSettings]
     xp_multiplier: f64,
     harvest_amount_multiplier: f64,
     harvest_health_multiplier: f64,
     resources_respawn_period_multiplier: f64,
     taming_speed_multiplier: f64,
+    // Breeding rates — (G) Game.ini
     mating_interval_multiplier: f64,
     egg_hatch_speed_multiplier: f64,
     baby_mature_speed_multiplier: f64,
 
+    // Day cycle — (U)
     day_cycle_speed_scale: f64,
     day_time_speed_scale: f64,
     night_time_speed_scale: f64,
 
+    // Player tuning — (U) except harvesting which is (G)
     player_food: f64,
     player_water: f64,
     player_stamina: f64,
@@ -1430,26 +1519,42 @@ struct WorldFormValues {
     player_resistance: f64,
     player_harvesting: f64,
 
+    // Tamed dino — (U)
     dino_food: f64,
     dino_stamina: f64,
     dino_health_recovery: f64,
     tamed_damage: f64,
     tamed_resistance: f64,
 
+    // Wild dino — food/torpor (G), stamina (U), count (U)
     wild_food: f64,
     wild_stamina: f64,
     wild_torpor: f64,
     dino_count: f64,
 
+    // Structures — damage/resistance (U), repair cooldown (G)
     structure_damage: f64,
     structure_resistance: f64,
     structure_repair_cooldown: f64,
+    // Imprint behaviour — (G)
     disable_imprint_dino_buff: bool,
     allow_anyone_baby_imprint: bool,
 
-    // GameUserSettings.ini side
+    // Difficulty — (U)
     difficulty_offset: f64,
     override_official_difficulty: f64,
+
+    // PvE / PvP toggles — (U)
+    server_pve: bool,
+    allow_flyer_carry_pve: bool,
+    enable_cryo_sickness_pve: bool,
+    disable_structure_decay_pve: bool,
+
+    // Operations basics — (U)
+    max_tamed_dinos: f64,
+    kick_idle_players_period: f64,
+    auto_save_period_minutes: f64,
+    the_max_structures_in_range: i64,
 }
 
 fn parse_form_float(value: SharedString, label: &str) -> Result<f64, String> {
@@ -1458,6 +1563,14 @@ fn parse_form_float(value: SharedString, label: &str) -> Result<f64, String> {
         .trim()
         .parse::<f64>()
         .map_err(|_| format!("Invalid number for {label}: {value:?}"))
+}
+
+fn parse_form_int(value: SharedString, label: &str) -> Result<i64, String> {
+    value
+        .as_str()
+        .trim()
+        .parse::<i64>()
+        .map_err(|_| format!("Invalid integer for {label}: {value:?}"))
 }
 
 fn collect_world_form(window: &WorldSettingsWindow) -> Result<WorldFormValues, String> {
@@ -1526,63 +1639,92 @@ fn collect_world_form(window: &WorldSettingsWindow) -> Result<WorldFormValues, S
         allow_anyone_baby_imprint: window.get_b_allow_anyone_baby_imprint(),
         difficulty_offset: parse_form_float(window.get_f_difficulty_offset(), "DifficultyOffset")?,
         override_official_difficulty: parse_form_float(window.get_f_override_official_difficulty(), "OverrideOfficialDifficulty")?,
+        server_pve: window.get_b_server_pve(),
+        allow_flyer_carry_pve: window.get_b_allow_flyer_carry_pve(),
+        enable_cryo_sickness_pve: window.get_b_enable_cryo_sickness_pve(),
+        disable_structure_decay_pve: window.get_b_disable_structure_decay_pve(),
+        max_tamed_dinos: parse_form_float(window.get_f_max_tamed_dinos(), "MaxTamedDinos")?,
+        kick_idle_players_period: parse_form_float(window.get_f_kick_idle_players_period(), "KickIdlePlayersPeriod")?,
+        auto_save_period_minutes: parse_form_float(window.get_f_auto_save_period_minutes(), "AutoSavePeriodMinutes")?,
+        the_max_structures_in_range: parse_form_int(window.get_f_the_max_structures_in_range(), "TheMaxStructuresInRange")?,
     })
 }
 
 /// Apply parsed form values to the install root's two INIs, preserving every
-/// other key that already lived there.
+/// other key that already lived there. Phase 8b corrected the routing:
+/// the bulk of multipliers now save to GameUserSettings.ini [ServerSettings].
 fn write_world_form(install_root: &Path, v: &WorldFormValues) -> Result<()> {
     let mut game = game_config::GameSettings::load_or_empty(
         game_config::game_ini_path(install_root),
     )?;
+    let mut gus = ark_config::GameUserSettings::load_or_empty(
+        ark_config::game_user_settings_path(install_root),
+    )?;
 
-    game.set_xp_multiplier(v.xp_multiplier);
-    game.set_harvest_amount_multiplier(v.harvest_amount_multiplier);
-    game.set_harvest_health_multiplier(v.harvest_health_multiplier);
-    game.set_resources_respawn_period_multiplier(v.resources_respawn_period_multiplier);
-    game.set_taming_speed_multiplier(v.taming_speed_multiplier);
+    // Game.ini-only fields
     game.set_mating_interval_multiplier(v.mating_interval_multiplier);
     game.set_egg_hatch_speed_multiplier(v.egg_hatch_speed_multiplier);
     game.set_baby_mature_speed_multiplier(v.baby_mature_speed_multiplier);
-
-    game.set_day_cycle_speed_scale(v.day_cycle_speed_scale);
-    game.set_day_time_speed_scale(v.day_time_speed_scale);
-    game.set_night_time_speed_scale(v.night_time_speed_scale);
-
-    game.set_player_character_food_drain_multiplier(v.player_food);
-    game.set_player_character_water_drain_multiplier(v.player_water);
-    game.set_player_character_stamina_drain_multiplier(v.player_stamina);
-    game.set_player_character_health_recovery_multiplier(v.player_health_recovery);
-    game.set_player_damage_multiplier(v.player_damage);
-    game.set_player_resistance_multiplier(v.player_resistance);
     game.set_player_harvesting_damage_multiplier(v.player_harvesting);
-
-    game.set_dino_character_food_drain_multiplier(v.dino_food);
-    game.set_dino_character_stamina_drain_multiplier(v.dino_stamina);
-    game.set_dino_character_health_recovery_multiplier(v.dino_health_recovery);
-    game.set_tamed_dino_damage_multiplier(v.tamed_damage);
-    game.set_tamed_dino_resistance_multiplier(v.tamed_resistance);
-
-    game.set_wild_dino_character_food_drain_multiplier(v.wild_food);
-    game.set_wild_dino_character_stamina_drain_multiplier(v.wild_stamina);
+    game.set_wild_dino_food_drain_multiplier(v.wild_food);
     game.set_wild_dino_torpor_drain_multiplier(v.wild_torpor);
-    game.set_dino_count_multiplier(v.dino_count);
-
-    game.set_structure_damage_multiplier(v.structure_damage);
-    game.set_structure_resistance_multiplier(v.structure_resistance);
     game.set_structure_damage_repair_cooldown(v.structure_repair_cooldown);
     game.set_disable_imprint_dino_buff(v.disable_imprint_dino_buff);
     game.set_allow_anyone_baby_imprint_cuddle(v.allow_anyone_baby_imprint);
 
-    game.save()?;
+    // Rates → GUS
+    gus.set_xp_multiplier(v.xp_multiplier);
+    gus.set_harvest_amount_multiplier(v.harvest_amount_multiplier);
+    gus.set_harvest_health_multiplier(v.harvest_health_multiplier);
+    gus.set_resources_respawn_period_multiplier(v.resources_respawn_period_multiplier);
+    gus.set_taming_speed_multiplier(v.taming_speed_multiplier);
 
-    let mut gus = ark_config::GameUserSettings::load_or_empty(
-        ark_config::game_user_settings_path(install_root),
-    )?;
+    // Day cycle → GUS
+    gus.set_day_cycle_speed_scale(v.day_cycle_speed_scale);
+    gus.set_day_time_speed_scale(v.day_time_speed_scale);
+    gus.set_night_time_speed_scale(v.night_time_speed_scale);
+
+    // Player → GUS (harvesting stays in Game.ini above)
+    gus.set_player_food_drain_multiplier(v.player_food);
+    gus.set_player_water_drain_multiplier(v.player_water);
+    gus.set_player_stamina_drain_multiplier(v.player_stamina);
+    gus.set_player_health_recovery_multiplier(v.player_health_recovery);
+    gus.set_player_damage_multiplier(v.player_damage);
+    gus.set_player_resistance_multiplier(v.player_resistance);
+
+    // Tamed dino → GUS
+    gus.set_dino_food_drain_multiplier(v.dino_food);
+    gus.set_dino_stamina_drain_multiplier(v.dino_stamina);
+    gus.set_dino_health_recovery_multiplier(v.dino_health_recovery);
+    gus.set_tamed_dino_damage_multiplier(v.tamed_damage);
+    gus.set_tamed_dino_resistance_multiplier(v.tamed_resistance);
+
+    // Wild dino → mostly Game.ini above; stamina + count → GUS
+    gus.set_wild_dino_stamina_drain_multiplier(v.wild_stamina);
+    gus.set_dino_count_multiplier(v.dino_count);
+
+    // Structures → GUS (repair cooldown is Game.ini above)
+    gus.set_structure_damage_multiplier(v.structure_damage);
+    gus.set_structure_resistance_multiplier(v.structure_resistance);
+
+    // Difficulty → GUS
     gus.set_difficulty_offset(v.difficulty_offset);
     gus.set_override_official_difficulty(v.override_official_difficulty);
-    gus.save()?;
 
+    // Phase 8b — PvE/PvP toggles → GUS
+    gus.set_server_pve(v.server_pve);
+    gus.set_allow_flyer_carry_pve(v.allow_flyer_carry_pve);
+    gus.set_enable_cryo_sickness_pve(v.enable_cryo_sickness_pve);
+    gus.set_disable_structure_decay_pve(v.disable_structure_decay_pve);
+
+    // Phase 8b — Operations basics → GUS
+    gus.set_max_tamed_dinos(v.max_tamed_dinos);
+    gus.set_kick_idle_players_period(v.kick_idle_players_period);
+    gus.set_auto_save_period_minutes(v.auto_save_period_minutes);
+    gus.set_the_max_structures_in_range(v.the_max_structures_in_range);
+
+    game.save()?;
+    gus.save()?;
     Ok(())
 }
 
@@ -1598,22 +1740,26 @@ fn import_world_settings(window: &WorldSettingsWindow, source_path: &Path) -> Re
     let g = |get: fn(&game_config::GameSettings) -> Option<f64>| get(&game);
     let gb = |get: fn(&game_config::GameSettings) -> Option<bool>| get(&game);
     let u = |get: fn(&ark_config::GameUserSettings) -> Option<f64>| get(&gus);
+    let ub = |get: fn(&ark_config::GameUserSettings) -> Option<bool>| get(&gus);
+    let ui_ = |get: fn(&ark_config::GameUserSettings) -> Option<i64>| get(&gus);
 
-    if let Some(v) = g(game_config::GameSettings::xp_multiplier) {
+    // Rates → GUS
+    if let Some(v) = u(ark_config::GameUserSettings::xp_multiplier) {
         window.set_f_xp_multiplier(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::harvest_amount_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::harvest_amount_multiplier) {
         window.set_f_harvest_amount_multiplier(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::harvest_health_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::harvest_health_multiplier) {
         window.set_f_harvest_health_multiplier(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::resources_respawn_period_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::resources_respawn_period_multiplier) {
         window.set_f_resources_respawn_period_multiplier(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::taming_speed_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::taming_speed_multiplier) {
         window.set_f_taming_speed_multiplier(fmt_float_for_form(v));
     }
+    // Breeding → Game.ini
     if let Some(v) = g(game_config::GameSettings::mating_interval_multiplier) {
         window.set_f_mating_interval_multiplier(fmt_float_for_form(v));
     }
@@ -1623,67 +1769,72 @@ fn import_world_settings(window: &WorldSettingsWindow, source_path: &Path) -> Re
     if let Some(v) = g(game_config::GameSettings::baby_mature_speed_multiplier) {
         window.set_f_baby_mature_speed_multiplier(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::day_cycle_speed_scale) {
+    // Day cycle → GUS
+    if let Some(v) = u(ark_config::GameUserSettings::day_cycle_speed_scale) {
         window.set_f_day_cycle_speed_scale(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::day_time_speed_scale) {
+    if let Some(v) = u(ark_config::GameUserSettings::day_time_speed_scale) {
         window.set_f_day_time_speed_scale(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::night_time_speed_scale) {
+    if let Some(v) = u(ark_config::GameUserSettings::night_time_speed_scale) {
         window.set_f_night_time_speed_scale(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::player_character_food_drain_multiplier) {
+    // Player → GUS (harvesting → Game.ini)
+    if let Some(v) = u(ark_config::GameUserSettings::player_food_drain_multiplier) {
         window.set_f_player_food(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::player_character_water_drain_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::player_water_drain_multiplier) {
         window.set_f_player_water(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::player_character_stamina_drain_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::player_stamina_drain_multiplier) {
         window.set_f_player_stamina(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::player_character_health_recovery_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::player_health_recovery_multiplier) {
         window.set_f_player_health_recovery(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::player_damage_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::player_damage_multiplier) {
         window.set_f_player_damage(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::player_resistance_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::player_resistance_multiplier) {
         window.set_f_player_resistance(fmt_float_for_form(v));
     }
     if let Some(v) = g(game_config::GameSettings::player_harvesting_damage_multiplier) {
         window.set_f_player_harvesting(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::dino_character_food_drain_multiplier) {
+    // Tamed dino → GUS
+    if let Some(v) = u(ark_config::GameUserSettings::dino_food_drain_multiplier) {
         window.set_f_dino_food(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::dino_character_stamina_drain_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::dino_stamina_drain_multiplier) {
         window.set_f_dino_stamina(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::dino_character_health_recovery_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::dino_health_recovery_multiplier) {
         window.set_f_dino_health_recovery(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::tamed_dino_damage_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::tamed_dino_damage_multiplier) {
         window.set_f_tamed_damage(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::tamed_dino_resistance_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::tamed_dino_resistance_multiplier) {
         window.set_f_tamed_resistance(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::wild_dino_character_food_drain_multiplier) {
+    // Wild dino — food/torpor (G), stamina (U), count (U)
+    if let Some(v) = g(game_config::GameSettings::wild_dino_food_drain_multiplier) {
         window.set_f_wild_food(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::wild_dino_character_stamina_drain_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::wild_dino_stamina_drain_multiplier) {
         window.set_f_wild_stamina(fmt_float_for_form(v));
     }
     if let Some(v) = g(game_config::GameSettings::wild_dino_torpor_drain_multiplier) {
         window.set_f_wild_torpor(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::dino_count_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::dino_count_multiplier) {
         window.set_f_dino_count(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::structure_damage_multiplier) {
+    // Structures
+    if let Some(v) = u(ark_config::GameUserSettings::structure_damage_multiplier) {
         window.set_f_structure_damage(fmt_float_for_form(v));
     }
-    if let Some(v) = g(game_config::GameSettings::structure_resistance_multiplier) {
+    if let Some(v) = u(ark_config::GameUserSettings::structure_resistance_multiplier) {
         window.set_f_structure_resistance(fmt_float_for_form(v));
     }
     if let Some(v) = g(game_config::GameSettings::structure_damage_repair_cooldown) {
@@ -1695,11 +1846,38 @@ fn import_world_settings(window: &WorldSettingsWindow, source_path: &Path) -> Re
     if let Some(v) = gb(game_config::GameSettings::allow_anyone_baby_imprint_cuddle) {
         window.set_b_allow_anyone_baby_imprint(v);
     }
+    // Difficulty → GUS
     if let Some(v) = u(ark_config::GameUserSettings::difficulty_offset) {
         window.set_f_difficulty_offset(fmt_float_for_form(v));
     }
     if let Some(v) = u(ark_config::GameUserSettings::override_official_difficulty) {
         window.set_f_override_official_difficulty(fmt_float_for_form(v));
+    }
+    // Phase 8b — PvE/PvP
+    if let Some(v) = ub(ark_config::GameUserSettings::server_pve) {
+        window.set_b_server_pve(v);
+    }
+    if let Some(v) = ub(ark_config::GameUserSettings::allow_flyer_carry_pve) {
+        window.set_b_allow_flyer_carry_pve(v);
+    }
+    if let Some(v) = ub(ark_config::GameUserSettings::enable_cryo_sickness_pve) {
+        window.set_b_enable_cryo_sickness_pve(v);
+    }
+    if let Some(v) = ub(ark_config::GameUserSettings::disable_structure_decay_pve) {
+        window.set_b_disable_structure_decay_pve(v);
+    }
+    // Phase 8b — Operations basics
+    if let Some(v) = u(ark_config::GameUserSettings::max_tamed_dinos) {
+        window.set_f_max_tamed_dinos(fmt_float_for_form(v));
+    }
+    if let Some(v) = u(ark_config::GameUserSettings::kick_idle_players_period) {
+        window.set_f_kick_idle_players_period(fmt_float_for_form(v));
+    }
+    if let Some(v) = u(ark_config::GameUserSettings::auto_save_period_minutes) {
+        window.set_f_auto_save_period_minutes(fmt_float_for_form(v));
+    }
+    if let Some(v) = ui_(ark_config::GameUserSettings::the_max_structures_in_range) {
+        window.set_f_the_max_structures_in_range(fmt_int_for_form(v));
     }
     Ok(())
 }

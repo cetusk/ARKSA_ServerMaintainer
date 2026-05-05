@@ -80,6 +80,17 @@ export struct UiLabels {
     world_tab_tamed: string,
     world_tab_wild: string,
     world_tab_difficulty: string,
+    world_tab_pvp: string,
+    world_tab_ops: string,
+    world_tab_breeding: string,
+    world_tab_loot: string,
+    world_tab_stats: string,
+    world_tab_combat: string,
+    world_tab_xp: string,
+    world_tab_chat: string,
+    world_tab_cluster: string,
+    world_tab_clamps: string,
+    world_tab_flags: string,
     world_btn_import: string,
     world_btn_reset: string,
     world_btn_save: string,
@@ -374,6 +385,18 @@ export component WorldSettingsWindow inherits Window {
     in-out property <bool> b_disable_imprint_dino_buff: false;
     in-out property <bool> b_allow_anyone_baby_imprint: false;
 
+    // Phase 8b — PvE/PvP toggles
+    in-out property <bool> b_server_pve: false;
+    in-out property <bool> b_allow_flyer_carry_pve: false;
+    in-out property <bool> b_enable_cryo_sickness_pve: false;
+    in-out property <bool> b_disable_structure_decay_pve: false;
+
+    // Phase 8b — Operations basics
+    in-out property <string> f_max_tamed_dinos: "5000.0";
+    in-out property <string> f_kick_idle_players_period: "3600.0";
+    in-out property <string> f_auto_save_period_minutes: "15.0";
+    in-out property <string> f_the_max_structures_in_range: "10500";
+
     callback import-clicked();
     callback reset-clicked();
     callback save-clicked();
@@ -489,13 +512,41 @@ export component WorldSettingsWindow inherits Window {
                     VerticalBox {
                         padding: 8px;
                         spacing: 4px;
-                        WorldFloatRow { label: "DifficultyOffset (GameUserSettings.ini)";     value <=> root.f_difficulty_offset; }
-                        WorldFloatRow { label: "OverrideOfficialDifficulty (GameUserSettings.ini)"; value <=> root.f_override_official_difficulty; }
+                        WorldFloatRow { label: "DifficultyOffset";                           value <=> root.f_difficulty_offset; }
+                        WorldFloatRow { label: "OverrideOfficialDifficulty";                 value <=> root.f_override_official_difficulty; }
                         WorldFloatRow { label: "StructureDamageMultiplier";                  value <=> root.f_structure_damage; }
                         WorldFloatRow { label: "StructureResistanceMultiplier";              value <=> root.f_structure_resistance; }
                         WorldFloatRow { label: "StructureDamageRepairCooldown";              value <=> root.f_structure_repair_cooldown; }
                         WorldBoolRow  { label: "DisableImprintDinoBuff";                     value <=> root.b_disable_imprint_dino_buff; }
                         WorldBoolRow  { label: "AllowAnyoneBabyImprintCuddle";               value <=> root.b_allow_anyone_baby_imprint; }
+                    }
+                }
+            }
+
+            Tab {
+                title: root.labels.world_tab_pvp;
+                ScrollView {
+                    VerticalBox {
+                        padding: 8px;
+                        spacing: 4px;
+                        WorldBoolRow  { label: "serverPVE";                                  value <=> root.b_server_pve; }
+                        WorldBoolRow  { label: "AllowFlyerCarryPvE";                         value <=> root.b_allow_flyer_carry_pve; }
+                        WorldBoolRow  { label: "EnableCryoSicknessPVE";                      value <=> root.b_enable_cryo_sickness_pve; }
+                        WorldBoolRow  { label: "DisableStructureDecayPvE";                   value <=> root.b_disable_structure_decay_pve; }
+                    }
+                }
+            }
+
+            Tab {
+                title: root.labels.world_tab_ops;
+                ScrollView {
+                    VerticalBox {
+                        padding: 8px;
+                        spacing: 4px;
+                        WorldFloatRow { label: "MaxTamedDinos";                              value <=> root.f_max_tamed_dinos; }
+                        WorldFloatRow { label: "KickIdlePlayersPeriod (sec)";                value <=> root.f_kick_idle_players_period; }
+                        WorldFloatRow { label: "AutoSavePeriodMinutes";                      value <=> root.f_auto_save_period_minutes; }
+                        WorldFloatRow { label: "TheMaxStructuresInRange (int)";              value <=> root.f_the_max_structures_in_range; }
                     }
                 }
             }

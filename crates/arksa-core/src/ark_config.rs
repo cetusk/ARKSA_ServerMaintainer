@@ -1,11 +1,16 @@
 //! ARK SA dedicated server config files (`GameUserSettings.ini`, `Game.ini`).
 //!
-//! Authoritative for settings that ARK SA's URL parser cannot accept reliably:
-//! `ServerAdminPassword`, `RCONEnabled`, `RCONPort`. Putting these in the
-//! launch URL leads to value corruption (the rest of the URL gets folded into
-//! the password string) and silently disables RCON. Writing them straight
-//! into `[ServerSettings]` of `GameUserSettings.ini` bypasses the bug, and
-//! the URL parser ignores keys it does not see.
+//! Authoritative for almost everything the server admin tunes. The vast
+//! majority of multipliers (XP / harvest / taming / drain / day cycle /
+//! structures / dino / player) live in `[ServerSettings]` of
+//! `GameUserSettings.ini` and only a focused subset (breeding rates, XP
+//! breakdown, stat arrays) live in `Game.ini` (see `game_config.rs`).
+//!
+//! `ServerAdminPassword`, `RCONEnabled`, `RCONPort` cannot be reliably passed
+//! through the launch URL — ARK SA's URL parser folds the rest of the URL
+//! into the password string and silently disables RCON. Writing them straight
+//! into `[ServerSettings]` of `GameUserSettings.ini` bypasses the bug; the
+//! URL parser ignores keys it does not see.
 
 use std::path::{Path, PathBuf};
 
@@ -26,12 +31,64 @@ pub fn game_user_settings_path(install_root: &Path) -> PathBuf {
         .join("GameUserSettings.ini")
 }
 
-/// Wrapper over `GameUserSettings.ini` exposing only the keys we own. All other
+/// Wrapper over `GameUserSettings.ini` exposing the keys we model. All other
 /// settings round-trip untouched (the underlying `IniDoc` preserves them).
 #[derive(Debug)]
 pub struct GameUserSettings {
     path: PathBuf,
     doc: IniDoc,
+}
+
+macro_rules! float_field {
+    ($getter:ident, $setter:ident, $key:literal) => {
+        pub fn $getter(&self) -> Option<f64> {
+            self.doc.get_f64(SECTION_SERVER_SETTINGS, $key)
+        }
+        pub fn $setter(&mut self, v: f64) {
+            self.doc.set_f64(SECTION_SERVER_SETTINGS, $key, v);
+        }
+    };
+}
+
+macro_rules! int_field {
+    ($getter:ident, $setter:ident, $key:literal) => {
+        pub fn $getter(&self) -> Option<i64> {
+            self.doc.get_i64(SECTION_SERVER_SETTINGS, $key)
+        }
+        pub fn $setter(&mut self, v: i64) {
+            self.doc.set_i64(SECTION_SERVER_SETTINGS, $key, v);
+        }
+    };
+}
+
+macro_rules! bool_field {
+    ($getter:ident, $setter:ident, $key:literal) => {
+        pub fn $getter(&self) -> Option<bool> {
+            self.doc
+                .get_string(SECTION_SERVER_SETTINGS, $key)
+                .map(|v| matches!(v.trim(), s if s.eq_ignore_ascii_case("true") || s == "1"))
+        }
+        pub fn $setter(&mut self, v: bool) {
+            // ARK writes "True"/"False" (capital initial) in this file, so
+            // match upstream rather than IniDoc::set_bool's 0/1 form.
+            self.doc.set_string(
+                SECTION_SERVER_SETTINGS,
+                $key,
+                if v { "True" } else { "False" },
+            );
+        }
+    };
+}
+
+macro_rules! string_field {
+    ($getter:ident, $setter:ident, $key:literal) => {
+        pub fn $getter(&self) -> Option<String> {
+            self.doc.get_string(SECTION_SERVER_SETTINGS, $key)
+        }
+        pub fn $setter(&mut self, v: &str) {
+            self.doc.set_string(SECTION_SERVER_SETTINGS, $key, v);
+        }
+    };
 }
 
 impl GameUserSettings {
@@ -61,33 +118,9 @@ impl GameUserSettings {
         self.doc.save(&self.path)
     }
 
-    // ── settings we author ────────────────────────────────────────────
-
-    pub fn set_rcon_enabled(&mut self, enabled: bool) {
-        // ARK writes "True"/"False" (capital initial) in this file, so match
-        // upstream rather than IniDoc::set_bool's 0/1 form.
-        self.doc.set_string(
-            SECTION_SERVER_SETTINGS,
-            "RCONEnabled",
-            if enabled { "True" } else { "False" },
-        );
-    }
-
-    pub fn set_rcon_port(&mut self, port: u16) {
-        self.doc
-            .set_i64(SECTION_SERVER_SETTINGS, "RCONPort", port as i64);
-    }
-
-    pub fn set_admin_password(&mut self, password: &str) {
-        self.doc
-            .set_string(SECTION_SERVER_SETTINGS, "ServerAdminPassword", password);
-    }
-
-    pub fn rcon_enabled(&self) -> Option<bool> {
-        self.doc
-            .get_string(SECTION_SERVER_SETTINGS, "RCONEnabled")
-            .map(|v| matches!(v.trim(), s if s.eq_ignore_ascii_case("true") || s == "1"))
-    }
+    // ── RCON / admin ─────────────────────────────────────────────────
+    bool_field!(rcon_enabled, set_rcon_enabled, "RCONEnabled");
+    string_field!(admin_password, set_admin_password, "ServerAdminPassword");
 
     pub fn rcon_port(&self) -> Option<u16> {
         self.doc
@@ -95,36 +128,173 @@ impl GameUserSettings {
             .and_then(|n| u16::try_from(n).ok())
     }
 
-    pub fn admin_password(&self) -> Option<String> {
+    pub fn set_rcon_port(&mut self, port: u16) {
         self.doc
-            .get_string(SECTION_SERVER_SETTINGS, "ServerAdminPassword")
+            .set_i64(SECTION_SERVER_SETTINGS, "RCONPort", port as i64);
     }
 
-    // ── Difficulty (canonical home: GameUserSettings.ini) ────────────
+    // ── Difficulty ───────────────────────────────────────────────────
+    float_field!(difficulty_offset, set_difficulty_offset, "DifficultyOffset");
+    float_field!(
+        override_official_difficulty,
+        set_override_official_difficulty,
+        "OverrideOfficialDifficulty"
+    );
 
-    /// `DifficultyOffset` — typically 0.0 to 1.0, controls wild dino max
-    /// level scaling along with `OverrideOfficialDifficulty`.
-    pub fn difficulty_offset(&self) -> Option<f64> {
-        self.doc
-            .get_f64(SECTION_SERVER_SETTINGS, "DifficultyOffset")
-    }
+    // ── Rates (multipliers) ──────────────────────────────────────────
+    float_field!(xp_multiplier, set_xp_multiplier, "XPMultiplier");
+    float_field!(
+        harvest_amount_multiplier,
+        set_harvest_amount_multiplier,
+        "HarvestAmountMultiplier"
+    );
+    float_field!(
+        harvest_health_multiplier,
+        set_harvest_health_multiplier,
+        "HarvestHealthMultiplier"
+    );
+    float_field!(
+        resources_respawn_period_multiplier,
+        set_resources_respawn_period_multiplier,
+        "ResourcesRespawnPeriodMultiplier"
+    );
+    float_field!(
+        taming_speed_multiplier,
+        set_taming_speed_multiplier,
+        "TamingSpeedMultiplier"
+    );
 
-    pub fn set_difficulty_offset(&mut self, v: f64) {
-        self.doc
-            .set_f64(SECTION_SERVER_SETTINGS, "DifficultyOffset", v);
-    }
+    // ── Day / night cycle ────────────────────────────────────────────
+    float_field!(
+        day_cycle_speed_scale,
+        set_day_cycle_speed_scale,
+        "DayCycleSpeedScale"
+    );
+    float_field!(
+        day_time_speed_scale,
+        set_day_time_speed_scale,
+        "DayTimeSpeedScale"
+    );
+    float_field!(
+        night_time_speed_scale,
+        set_night_time_speed_scale,
+        "NightTimeSpeedScale"
+    );
 
-    /// `OverrideOfficialDifficulty` — common values are 4.0 (vanilla cap),
-    /// 5.0 (max wild dino level 150), or higher for boosted servers.
-    pub fn override_official_difficulty(&self) -> Option<f64> {
-        self.doc
-            .get_f64(SECTION_SERVER_SETTINGS, "OverrideOfficialDifficulty")
-    }
+    // ── Player tuning ────────────────────────────────────────────────
+    float_field!(
+        player_food_drain_multiplier,
+        set_player_food_drain_multiplier,
+        "PlayerCharacterFoodDrainMultiplier"
+    );
+    float_field!(
+        player_water_drain_multiplier,
+        set_player_water_drain_multiplier,
+        "PlayerCharacterWaterDrainMultiplier"
+    );
+    float_field!(
+        player_stamina_drain_multiplier,
+        set_player_stamina_drain_multiplier,
+        "PlayerCharacterStaminaDrainMultiplier"
+    );
+    float_field!(
+        player_health_recovery_multiplier,
+        set_player_health_recovery_multiplier,
+        "PlayerCharacterHealthRecoveryMultiplier"
+    );
+    float_field!(
+        player_damage_multiplier,
+        set_player_damage_multiplier,
+        "PlayerDamageMultiplier"
+    );
+    float_field!(
+        player_resistance_multiplier,
+        set_player_resistance_multiplier,
+        "PlayerResistanceMultiplier"
+    );
 
-    pub fn set_override_official_difficulty(&mut self, v: f64) {
-        self.doc
-            .set_f64(SECTION_SERVER_SETTINGS, "OverrideOfficialDifficulty", v);
-    }
+    // ── Tamed dino tuning ────────────────────────────────────────────
+    float_field!(
+        dino_food_drain_multiplier,
+        set_dino_food_drain_multiplier,
+        "DinoCharacterFoodDrainMultiplier"
+    );
+    float_field!(
+        dino_stamina_drain_multiplier,
+        set_dino_stamina_drain_multiplier,
+        "DinoCharacterStaminaDrainMultiplier"
+    );
+    float_field!(
+        dino_health_recovery_multiplier,
+        set_dino_health_recovery_multiplier,
+        "DinoCharacterHealthRecoveryMultiplier"
+    );
+    float_field!(
+        tamed_dino_damage_multiplier,
+        set_tamed_dino_damage_multiplier,
+        "TamedDinoDamageMultiplier"
+    );
+    float_field!(
+        tamed_dino_resistance_multiplier,
+        set_tamed_dino_resistance_multiplier,
+        "TamedDinoResistanceMultiplier"
+    );
+
+    // ── Wild dino (note: wild stamina lives here, not in Game.ini) ──
+    float_field!(
+        wild_dino_stamina_drain_multiplier,
+        set_wild_dino_stamina_drain_multiplier,
+        "WildDinoCharacterStaminaDrainMultiplier"
+    );
+    float_field!(
+        dino_count_multiplier,
+        set_dino_count_multiplier,
+        "DinoCountMultiplier"
+    );
+
+    // ── Structures ───────────────────────────────────────────────────
+    float_field!(
+        structure_damage_multiplier,
+        set_structure_damage_multiplier,
+        "StructureDamageMultiplier"
+    );
+    float_field!(
+        structure_resistance_multiplier,
+        set_structure_resistance_multiplier,
+        "StructureResistanceMultiplier"
+    );
+
+    // ── PvE / PvP ────────────────────────────────────────────────────
+    bool_field!(server_pve, set_server_pve, "serverPVE");
+    bool_field!(allow_flyer_carry_pve, set_allow_flyer_carry_pve, "AllowFlyerCarryPvE");
+    bool_field!(
+        enable_cryo_sickness_pve,
+        set_enable_cryo_sickness_pve,
+        "EnableCryoSicknessPVE"
+    );
+    bool_field!(
+        disable_structure_decay_pve,
+        set_disable_structure_decay_pve,
+        "DisableStructureDecayPvE"
+    );
+
+    // ── Operations basics ────────────────────────────────────────────
+    float_field!(max_tamed_dinos, set_max_tamed_dinos, "MaxTamedDinos");
+    float_field!(
+        kick_idle_players_period,
+        set_kick_idle_players_period,
+        "KickIdlePlayersPeriod"
+    );
+    float_field!(
+        auto_save_period_minutes,
+        set_auto_save_period_minutes,
+        "AutoSavePeriodMinutes"
+    );
+    int_field!(
+        the_max_structures_in_range,
+        set_the_max_structures_in_range,
+        "TheMaxStructuresInRange"
+    );
 }
 
 /// Apply the RCON settings from a `LaunchArgs`-style triple to the file at
@@ -183,7 +353,6 @@ mod tests {
         assert!(raw.contains("RCONEnabled=True"));
         assert!(raw.contains("RCONPort=27020"));
         assert!(raw.contains("ServerAdminPassword=MyArkPass"));
-        // Backslashes in the path must not be doubled by the writer.
         assert!(!raw.contains("\\\\"));
         let _ = std::fs::remove_file(p);
     }
@@ -192,8 +361,6 @@ mod tests {
     fn write_rcon_settings_preserves_unrelated_keys() {
         let p = temp_path("preserve");
         let _ = std::fs::remove_file(&p);
-        // Pre-seed the file with a [ServerSettings] section that contains an
-        // unrelated key plus a stale ServerAdminPassword we want to overwrite.
         std::fs::write(
             &p,
             "[ServerSettings]\r\n\
@@ -248,6 +415,32 @@ mod tests {
             Some(false)
         );
 
+        let _ = std::fs::remove_file(p);
+    }
+
+    #[test]
+    fn multipliers_and_pvp_round_trip() {
+        let p = temp_path("multi_pvp");
+        let _ = std::fs::remove_file(&p);
+        let mut gus = GameUserSettings::load_or_empty(&p).unwrap();
+        gus.set_xp_multiplier(2.5);
+        gus.set_taming_speed_multiplier(10.0);
+        gus.set_server_pve(true);
+        gus.set_max_tamed_dinos(5000.0);
+        gus.set_the_max_structures_in_range(10500);
+        gus.save().unwrap();
+
+        let raw = std::fs::read_to_string(&p).unwrap();
+        assert!(raw.contains("XPMultiplier=2.5"));
+        assert!(raw.contains("TamingSpeedMultiplier=10.0"));
+        assert!(raw.contains("serverPVE=True"));
+        assert!(raw.contains("MaxTamedDinos=5000.0"));
+        assert!(raw.contains("TheMaxStructuresInRange=10500"));
+
+        let r = GameUserSettings::load_or_empty(&p).unwrap();
+        assert_eq!(r.xp_multiplier(), Some(2.5));
+        assert_eq!(r.server_pve(), Some(true));
+        assert_eq!(r.the_max_structures_in_range(), Some(10500));
         let _ = std::fs::remove_file(p);
     }
 }
