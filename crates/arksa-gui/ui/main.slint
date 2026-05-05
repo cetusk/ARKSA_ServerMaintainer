@@ -516,12 +516,12 @@ component LabelCell inherits Rectangle {
         // so we use a fixed offset sized for the typical body height
         // (~100–140 px on a 360 px-wide bilingual description).
         //
-        // -140 px lands the popup so the bottom edge sits roughly at the
-        // top of the clicked label for a tall popup, and only one row up
-        // is covered for an average popup — matching the user's "1 行上
-        // が隠れる程度" request. Earlier -200 px left a noticeable gap
-        // above the label.
-        y: -140px;
+        // -110 px keeps the popup close to the clicked label: average
+        // body (~100 px) lands the bottom edge ~10 px above the label,
+        // long bodies (~130–140 px) clip the label top slightly which the
+        // user explicitly accepted ("もう少し下でもよい"). Earlier values
+        // (-200, -140) left too much air above the label.
+        y: -110px;
         close-policy: close-on-click-outside;
         popup_body := Rectangle {
             background: Palette.alternate-background;
