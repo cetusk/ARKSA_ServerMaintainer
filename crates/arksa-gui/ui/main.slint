@@ -166,6 +166,7 @@ export struct UiLabels {
     world_hint: string,
     world_col_param: string,
     world_col_value: string,
+    world_col_category: string,
 }
 
 // ─── Main window ───────────────────────────────────────────────────────────
@@ -634,9 +635,13 @@ component CategoryButton inherits Rectangle {
 
 export component WorldSettingsWindow inherits Window {
     title: root.labels.world_window_title;
-    preferred-width: 720px;
-    preferred-height: 640px;
-    min-width: 580px;
+    // Roughly: 170 (sidebar) + 340 (LabelCell) + 180 (LineEdit) +
+    // padding/margins ≈ 760 px just for the form. Bumped from 720 to
+    // 980 so the input column is fully visible at the default opening
+    // size (rather than relying on the user resizing or scrolling).
+    preferred-width: 980px;
+    preferred-height: 700px;
+    min-width: 700px;
     min-height: 480px;
 
     in property <UiLabels> labels;
@@ -950,6 +955,33 @@ export component WorldSettingsWindow inherits Window {
                 // breathing room. Was 200 px previously.
                 width: 170px;
                 background: Palette.alternate-background;
+                VerticalLayout {
+                    spacing: 0;
+                    // Sidebar header — same turquoise styling as the
+                    // right-pane "Parameter / Value" headers so the user
+                    // can tell at a glance that this column is the
+                    // category picker.
+                    Rectangle {
+                        height: 38px;
+                        background: AppTheme.header-bg;
+                        HorizontalBox {
+                            padding-left: 12px;
+                            padding-right: 12px;
+                            Rectangle {
+                                height: 22px;
+                                background: AppTheme.header-bg;
+                                vertical-stretch: 0;
+                                Text {
+                                    text: root.labels.world_col_category;
+                                    color: AppTheme.accent;
+                                    font-weight: 700;
+                                    font-size: 11px;
+                                    vertical-alignment: center;
+                                    x: 0;
+                                }
+                            }
+                        }
+                    }
                 ScrollView {
                     VerticalBox {
                         padding: 4px;
@@ -973,6 +1005,7 @@ export component WorldSettingsWindow inherits Window {
                         CategoryButton { index: 16; current-index: root.current-category; label: root.labels.world_tab_flags;       clicked => { root.current-category = 16; } }
                     }
                 }
+                }   // end sidebar VerticalLayout (header + ScrollView)
             }
 
             // Right: content pane (only the currently-selected category renders)

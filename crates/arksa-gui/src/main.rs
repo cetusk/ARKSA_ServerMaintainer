@@ -967,6 +967,7 @@ struct Labels {
     world_hint: String,
     world_col_param: String,
     world_col_value: String,
+    world_col_category: String,
 }
 
 impl Labels {
@@ -1061,6 +1062,7 @@ impl Labels {
                     .into(),
             world_col_param: "Parameter".into(),
             world_col_value: "Value".into(),
+            world_col_category: "Category".into(),
         }
     }
 
@@ -1156,6 +1158,7 @@ impl Labels {
                     .into(),
             world_col_param: "パラメーター".into(),
             world_col_value: "値".into(),
+            world_col_category: "カテゴリ".into(),
         }
     }
 
@@ -1264,6 +1267,7 @@ impl Labels {
             world_hint: self.world_hint.as_str().into(),
             world_col_param: self.world_col_param.as_str().into(),
             world_col_value: self.world_col_value.as_str().into(),
+            world_col_category: self.world_col_category.as_str().into(),
         }
     }
 }
