@@ -131,7 +131,7 @@ impl GameSettings {
         "WildDinoTorporDrainMultiplier"
     );
 
-    // ── Breeding (rest of breeding lives in Phase 8c expansion) ──────
+    // ── Breeding ─────────────────────────────────────────────────────
     float_field!(
         mating_interval_multiplier,
         set_mating_interval_multiplier,
@@ -146,6 +146,61 @@ impl GameSettings {
         baby_mature_speed_multiplier,
         set_baby_mature_speed_multiplier,
         "BabyMatureSpeedMultiplier"
+    );
+    float_field!(
+        mating_speed_multiplier,
+        set_mating_speed_multiplier,
+        "MatingSpeedMultiplier"
+    );
+    float_field!(
+        lay_egg_interval_multiplier,
+        set_lay_egg_interval_multiplier,
+        "LayEggIntervalMultiplier"
+    );
+    float_field!(
+        passive_tame_interval_multiplier,
+        set_passive_tame_interval_multiplier,
+        "PassiveTameIntervalMultiplier"
+    );
+    float_field!(
+        baby_food_consumption_speed_multiplier,
+        set_baby_food_consumption_speed_multiplier,
+        "BabyFoodConsumptionSpeedMultiplier"
+    );
+    float_field!(
+        baby_imprint_amount_multiplier,
+        set_baby_imprint_amount_multiplier,
+        "BabyImprintAmountMultiplier"
+    );
+    float_field!(
+        baby_imprinting_stat_scale_multiplier,
+        set_baby_imprinting_stat_scale_multiplier,
+        "BabyImprintingStatScaleMultiplier"
+    );
+    float_field!(
+        baby_cuddle_interval_multiplier,
+        set_baby_cuddle_interval_multiplier,
+        "BabyCuddleIntervalMultiplier"
+    );
+    float_field!(
+        baby_cuddle_grace_period_multiplier,
+        set_baby_cuddle_grace_period_multiplier,
+        "BabyCuddleGracePeriodMultiplier"
+    );
+    float_field!(
+        baby_cuddle_lose_imprint_quality_speed_multiplier,
+        set_baby_cuddle_lose_imprint_quality_speed_multiplier,
+        "BabyCuddleLoseImprintQualitySpeedMultiplier"
+    );
+    bool_field!(
+        disable_dino_breeding,
+        set_disable_dino_breeding,
+        "bDisableDinoBreeding"
+    );
+    bool_field!(
+        disable_dino_taming,
+        set_disable_dino_taming,
+        "bDisableDinoTaming"
     );
 
     // ── Structure (repair cooldown is a Game.ini-only knob) ──────────

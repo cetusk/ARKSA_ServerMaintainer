@@ -397,6 +397,19 @@ export component WorldSettingsWindow inherits Window {
     in-out property <string> f_auto_save_period_minutes: "15.0";
     in-out property <string> f_the_max_structures_in_range: "10500";
 
+    // Phase 8c — Breeding / Imprint
+    in-out property <string> f_mating_speed_multiplier: "1.0";
+    in-out property <string> f_lay_egg_interval_multiplier: "1.0";
+    in-out property <string> f_passive_tame_interval_multiplier: "1.0";
+    in-out property <string> f_baby_food_consumption_speed_multiplier: "1.0";
+    in-out property <string> f_baby_imprint_amount_multiplier: "1.0";
+    in-out property <string> f_baby_imprinting_stat_scale_multiplier: "1.0";
+    in-out property <string> f_baby_cuddle_interval_multiplier: "1.0";
+    in-out property <string> f_baby_cuddle_grace_period_multiplier: "1.0";
+    in-out property <string> f_baby_cuddle_lose_imprint_quality_speed_multiplier: "1.0";
+    in-out property <bool> b_disable_dino_breeding: false;
+    in-out property <bool> b_disable_dino_taming: false;
+
     callback import-clicked();
     callback reset-clicked();
     callback save-clicked();
@@ -547,6 +560,27 @@ export component WorldSettingsWindow inherits Window {
                         WorldFloatRow { label: "KickIdlePlayersPeriod (sec)";                value <=> root.f_kick_idle_players_period; }
                         WorldFloatRow { label: "AutoSavePeriodMinutes";                      value <=> root.f_auto_save_period_minutes; }
                         WorldFloatRow { label: "TheMaxStructuresInRange (int)";              value <=> root.f_the_max_structures_in_range; }
+                    }
+                }
+            }
+
+            Tab {
+                title: root.labels.world_tab_breeding;
+                ScrollView {
+                    VerticalBox {
+                        padding: 8px;
+                        spacing: 4px;
+                        WorldFloatRow { label: "MatingSpeedMultiplier";                          value <=> root.f_mating_speed_multiplier; }
+                        WorldFloatRow { label: "LayEggIntervalMultiplier";                       value <=> root.f_lay_egg_interval_multiplier; }
+                        WorldFloatRow { label: "PassiveTameIntervalMultiplier";                  value <=> root.f_passive_tame_interval_multiplier; }
+                        WorldFloatRow { label: "BabyFoodConsumptionSpeedMultiplier";             value <=> root.f_baby_food_consumption_speed_multiplier; }
+                        WorldFloatRow { label: "BabyImprintAmountMultiplier";                    value <=> root.f_baby_imprint_amount_multiplier; }
+                        WorldFloatRow { label: "BabyImprintingStatScaleMultiplier";              value <=> root.f_baby_imprinting_stat_scale_multiplier; }
+                        WorldFloatRow { label: "BabyCuddleIntervalMultiplier";                   value <=> root.f_baby_cuddle_interval_multiplier; }
+                        WorldFloatRow { label: "BabyCuddleGracePeriodMultiplier";                value <=> root.f_baby_cuddle_grace_period_multiplier; }
+                        WorldFloatRow { label: "BabyCuddleLoseImprintQualitySpeedMultiplier";    value <=> root.f_baby_cuddle_lose_imprint_quality_speed_multiplier; }
+                        WorldBoolRow  { label: "bDisableDinoBreeding";                           value <=> root.b_disable_dino_breeding; }
+                        WorldBoolRow  { label: "bDisableDinoTaming";                             value <=> root.b_disable_dino_taming; }
                     }
                 }
             }

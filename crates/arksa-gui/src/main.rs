@@ -1427,6 +1427,19 @@ fn populate_world_settings_window(window: &WorldSettingsWindow, install_root: &P
     window.set_f_kick_idle_players_period(u(ark_config::GameUserSettings::kick_idle_players_period, 3600.0));
     window.set_f_auto_save_period_minutes(u(ark_config::GameUserSettings::auto_save_period_minutes, 15.0));
     window.set_f_the_max_structures_in_range(ui_(ark_config::GameUserSettings::the_max_structures_in_range, 10500));
+
+    // Phase 8c — Breeding / Imprint (Game.ini)
+    window.set_f_mating_speed_multiplier(g(game_config::GameSettings::mating_speed_multiplier, 1.0));
+    window.set_f_lay_egg_interval_multiplier(g(game_config::GameSettings::lay_egg_interval_multiplier, 1.0));
+    window.set_f_passive_tame_interval_multiplier(g(game_config::GameSettings::passive_tame_interval_multiplier, 1.0));
+    window.set_f_baby_food_consumption_speed_multiplier(g(game_config::GameSettings::baby_food_consumption_speed_multiplier, 1.0));
+    window.set_f_baby_imprint_amount_multiplier(g(game_config::GameSettings::baby_imprint_amount_multiplier, 1.0));
+    window.set_f_baby_imprinting_stat_scale_multiplier(g(game_config::GameSettings::baby_imprinting_stat_scale_multiplier, 1.0));
+    window.set_f_baby_cuddle_interval_multiplier(g(game_config::GameSettings::baby_cuddle_interval_multiplier, 1.0));
+    window.set_f_baby_cuddle_grace_period_multiplier(g(game_config::GameSettings::baby_cuddle_grace_period_multiplier, 1.0));
+    window.set_f_baby_cuddle_lose_imprint_quality_speed_multiplier(g(game_config::GameSettings::baby_cuddle_lose_imprint_quality_speed_multiplier, 1.0));
+    window.set_b_disable_dino_breeding(gb(game_config::GameSettings::disable_dino_breeding, false));
+    window.set_b_disable_dino_taming(gb(game_config::GameSettings::disable_dino_taming, false));
 }
 
 /// Reset every form field to ARK's vanilla defaults (mostly 1.0, plus the
@@ -1484,6 +1497,20 @@ fn reset_world_settings_window(window: &WorldSettingsWindow) {
     window.set_f_kick_idle_players_period(SharedString::from("3600.0"));
     window.set_f_auto_save_period_minutes(SharedString::from("15.0"));
     window.set_f_the_max_structures_in_range(SharedString::from("10500"));
+
+    // Phase 8c — Breeding / Imprint
+    let one = SharedString::from("1.0");
+    window.set_f_mating_speed_multiplier(one.clone());
+    window.set_f_lay_egg_interval_multiplier(one.clone());
+    window.set_f_passive_tame_interval_multiplier(one.clone());
+    window.set_f_baby_food_consumption_speed_multiplier(one.clone());
+    window.set_f_baby_imprint_amount_multiplier(one.clone());
+    window.set_f_baby_imprinting_stat_scale_multiplier(one.clone());
+    window.set_f_baby_cuddle_interval_multiplier(one.clone());
+    window.set_f_baby_cuddle_grace_period_multiplier(one.clone());
+    window.set_f_baby_cuddle_lose_imprint_quality_speed_multiplier(one);
+    window.set_b_disable_dino_breeding(false);
+    window.set_b_disable_dino_taming(false);
 }
 
 /// Read all form fields, parse floats, return per-file struct values or a
@@ -1555,6 +1582,19 @@ struct WorldFormValues {
     kick_idle_players_period: f64,
     auto_save_period_minutes: f64,
     the_max_structures_in_range: i64,
+
+    // Phase 8c — Breeding / Imprint — (G)
+    mating_speed_multiplier: f64,
+    lay_egg_interval_multiplier: f64,
+    passive_tame_interval_multiplier: f64,
+    baby_food_consumption_speed_multiplier: f64,
+    baby_imprint_amount_multiplier: f64,
+    baby_imprinting_stat_scale_multiplier: f64,
+    baby_cuddle_interval_multiplier: f64,
+    baby_cuddle_grace_period_multiplier: f64,
+    baby_cuddle_lose_imprint_quality_speed_multiplier: f64,
+    disable_dino_breeding: bool,
+    disable_dino_taming: bool,
 }
 
 fn parse_form_float(value: SharedString, label: &str) -> Result<f64, String> {
@@ -1647,6 +1687,17 @@ fn collect_world_form(window: &WorldSettingsWindow) -> Result<WorldFormValues, S
         kick_idle_players_period: parse_form_float(window.get_f_kick_idle_players_period(), "KickIdlePlayersPeriod")?,
         auto_save_period_minutes: parse_form_float(window.get_f_auto_save_period_minutes(), "AutoSavePeriodMinutes")?,
         the_max_structures_in_range: parse_form_int(window.get_f_the_max_structures_in_range(), "TheMaxStructuresInRange")?,
+        mating_speed_multiplier: parse_form_float(window.get_f_mating_speed_multiplier(), "MatingSpeedMultiplier")?,
+        lay_egg_interval_multiplier: parse_form_float(window.get_f_lay_egg_interval_multiplier(), "LayEggIntervalMultiplier")?,
+        passive_tame_interval_multiplier: parse_form_float(window.get_f_passive_tame_interval_multiplier(), "PassiveTameIntervalMultiplier")?,
+        baby_food_consumption_speed_multiplier: parse_form_float(window.get_f_baby_food_consumption_speed_multiplier(), "BabyFoodConsumptionSpeedMultiplier")?,
+        baby_imprint_amount_multiplier: parse_form_float(window.get_f_baby_imprint_amount_multiplier(), "BabyImprintAmountMultiplier")?,
+        baby_imprinting_stat_scale_multiplier: parse_form_float(window.get_f_baby_imprinting_stat_scale_multiplier(), "BabyImprintingStatScaleMultiplier")?,
+        baby_cuddle_interval_multiplier: parse_form_float(window.get_f_baby_cuddle_interval_multiplier(), "BabyCuddleIntervalMultiplier")?,
+        baby_cuddle_grace_period_multiplier: parse_form_float(window.get_f_baby_cuddle_grace_period_multiplier(), "BabyCuddleGracePeriodMultiplier")?,
+        baby_cuddle_lose_imprint_quality_speed_multiplier: parse_form_float(window.get_f_baby_cuddle_lose_imprint_quality_speed_multiplier(), "BabyCuddleLoseImprintQualitySpeedMultiplier")?,
+        disable_dino_breeding: window.get_b_disable_dino_breeding(),
+        disable_dino_taming: window.get_b_disable_dino_taming(),
     })
 }
 
@@ -1722,6 +1773,19 @@ fn write_world_form(install_root: &Path, v: &WorldFormValues) -> Result<()> {
     gus.set_kick_idle_players_period(v.kick_idle_players_period);
     gus.set_auto_save_period_minutes(v.auto_save_period_minutes);
     gus.set_the_max_structures_in_range(v.the_max_structures_in_range);
+
+    // Phase 8c — Breeding / Imprint → Game.ini
+    game.set_mating_speed_multiplier(v.mating_speed_multiplier);
+    game.set_lay_egg_interval_multiplier(v.lay_egg_interval_multiplier);
+    game.set_passive_tame_interval_multiplier(v.passive_tame_interval_multiplier);
+    game.set_baby_food_consumption_speed_multiplier(v.baby_food_consumption_speed_multiplier);
+    game.set_baby_imprint_amount_multiplier(v.baby_imprint_amount_multiplier);
+    game.set_baby_imprinting_stat_scale_multiplier(v.baby_imprinting_stat_scale_multiplier);
+    game.set_baby_cuddle_interval_multiplier(v.baby_cuddle_interval_multiplier);
+    game.set_baby_cuddle_grace_period_multiplier(v.baby_cuddle_grace_period_multiplier);
+    game.set_baby_cuddle_lose_imprint_quality_speed_multiplier(v.baby_cuddle_lose_imprint_quality_speed_multiplier);
+    game.set_disable_dino_breeding(v.disable_dino_breeding);
+    game.set_disable_dino_taming(v.disable_dino_taming);
 
     game.save()?;
     gus.save()?;
@@ -1878,6 +1942,40 @@ fn import_world_settings(window: &WorldSettingsWindow, source_path: &Path) -> Re
     }
     if let Some(v) = ui_(ark_config::GameUserSettings::the_max_structures_in_range) {
         window.set_f_the_max_structures_in_range(fmt_int_for_form(v));
+    }
+    // Phase 8c — Breeding / Imprint
+    if let Some(v) = g(game_config::GameSettings::mating_speed_multiplier) {
+        window.set_f_mating_speed_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::lay_egg_interval_multiplier) {
+        window.set_f_lay_egg_interval_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::passive_tame_interval_multiplier) {
+        window.set_f_passive_tame_interval_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::baby_food_consumption_speed_multiplier) {
+        window.set_f_baby_food_consumption_speed_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::baby_imprint_amount_multiplier) {
+        window.set_f_baby_imprint_amount_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::baby_imprinting_stat_scale_multiplier) {
+        window.set_f_baby_imprinting_stat_scale_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::baby_cuddle_interval_multiplier) {
+        window.set_f_baby_cuddle_interval_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::baby_cuddle_grace_period_multiplier) {
+        window.set_f_baby_cuddle_grace_period_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = g(game_config::GameSettings::baby_cuddle_lose_imprint_quality_speed_multiplier) {
+        window.set_f_baby_cuddle_lose_imprint_quality_speed_multiplier(fmt_float_for_form(v));
+    }
+    if let Some(v) = gb(game_config::GameSettings::disable_dino_breeding) {
+        window.set_b_disable_dino_breeding(v);
+    }
+    if let Some(v) = gb(game_config::GameSettings::disable_dino_taming) {
+        window.set_b_disable_dino_taming(v);
     }
     Ok(())
 }
