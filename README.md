@@ -390,12 +390,19 @@ floats with a `.` decimal separator regardless of locale. Our `IniDoc`:
 ### Server-client version mismatch (manifest pinning)
 Steam's auto-update can move the server ahead of the client release the
 players have installed (e.g. server v86.15 vs client v86.11 → black
-screen on connect). Workaround documented for the `Install / Update`
-flow: drive `steamcmd` (or [DepotDownloader](https://github.com/SteamRE/DepotDownloader))
-with an explicit manifest pin. In practice we have used DepotDownloader
-manifest **`684954496930236842`** (server build 86.12) which works with
-client 86.11. Future work (Phase 9 / steamcmd integration polish) will
-expose the manifest as a per-profile setting.
+screen on connect). The GUI's *Install / Update server* button drives
+`steamcmd` which always pulls the latest, so pinning to an older
+build has to happen out-of-band today. Workaround: use
+[DepotDownloader](https://github.com/SteamRE/DepotDownloader) with an
+explicit manifest. Known-good combination — DepotDownloader manifest
+**`684954496930236842`** (server build 86.12) joins cleanly from
+client build 86.11.
+
+The full step-by-step procedure (auth setup, command flags, how to
+pick the right manifest from SteamDB, troubleshooting matrix) lives
+in [`docs/manifest-pinning.md`](./docs/manifest-pinning.md). Phase 9
+plans to expose the manifest as a per-profile setting so this becomes
+a GUI checkbox instead of a separate command-line workflow.
 
 ### Slint component initialisation overflows the default Windows stack
 The World Settings window now declares ~250 properties, 17 conditional
