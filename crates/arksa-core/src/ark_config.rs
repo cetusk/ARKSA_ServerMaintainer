@@ -350,6 +350,46 @@ impl GameUserSettings {
         set_disable_cryopod_fridge_requirement,
         "DisableCryopodFridgeRequirement"
     );
+
+    // ── Cosmetic / Chat (Phase 8h) ───────────────────────────────────
+    bool_field!(global_voice_chat, set_global_voice_chat, "globalVoiceChat");
+    bool_field!(proximity_chat, set_proximity_chat, "ProximityChat");
+    bool_field!(
+        dont_always_notify_player_joined,
+        set_dont_always_notify_player_joined,
+        "DontAlwaysNotifyPlayerJoined"
+    );
+    bool_field!(
+        always_notify_player_left,
+        set_always_notify_player_left,
+        "AlwaysNotifyPlayerLeft"
+    );
+    bool_field!(admin_logging, set_admin_logging, "AdminLogging");
+    bool_field!(
+        allow_hide_damage_source_from_logs,
+        set_allow_hide_damage_source_from_logs,
+        "AllowHideDamageSourceFromLogs"
+    );
+    bool_field!(
+        show_floating_damage_text,
+        set_show_floating_damage_text,
+        "ShowFloatingDamageText"
+    );
+    bool_field!(
+        show_map_player_location,
+        set_show_map_player_location,
+        "ShowMapPlayerLocation"
+    );
+    bool_field!(server_crosshair, set_server_crosshair, "ServerCrosshair");
+    bool_field!(server_force_no_hud, set_server_force_no_hud, "ServerForceNoHUD");
+    bool_field!(
+        allow_third_person_player,
+        set_allow_third_person_player,
+        "AllowThirdPersonPlayer"
+    );
+    bool_field!(allow_hit_markers, set_allow_hit_markers, "AllowHitMarkers");
+    bool_field!(disable_pve_gamma, set_disable_pve_gamma, "DisablePvEGamma");
+    bool_field!(enable_pvp_gamma, set_enable_pvp_gamma, "EnablePvPGamma");
 }
 
 /// Apply the RCON settings from a `LaunchArgs`-style triple to the file at

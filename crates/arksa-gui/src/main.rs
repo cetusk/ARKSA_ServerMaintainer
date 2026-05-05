@@ -1583,6 +1583,22 @@ fn populate_world_settings_window(window: &WorldSettingsWindow, install_root: &P
     window.set_f_alpha_kill_xp_multiplier(g(game_config::GameSettings::alpha_kill_xp_multiplier, 1.0));
     window.set_f_override_max_experience_points_player(gi2(game_config::GameSettings::override_max_experience_points_player, 0));
     window.set_f_override_max_experience_points_dino(gi2(game_config::GameSettings::override_max_experience_points_dino, 0));
+
+    // Phase 8h — Cosmetic / Chat (GUS)
+    window.set_b_global_voice_chat(ub(ark_config::GameUserSettings::global_voice_chat, false));
+    window.set_b_proximity_chat(ub(ark_config::GameUserSettings::proximity_chat, false));
+    window.set_b_dont_always_notify_player_joined(ub(ark_config::GameUserSettings::dont_always_notify_player_joined, false));
+    window.set_b_always_notify_player_left(ub(ark_config::GameUserSettings::always_notify_player_left, false));
+    window.set_b_admin_logging(ub(ark_config::GameUserSettings::admin_logging, false));
+    window.set_b_allow_hide_damage_source_from_logs(ub(ark_config::GameUserSettings::allow_hide_damage_source_from_logs, false));
+    window.set_b_show_floating_damage_text(ub(ark_config::GameUserSettings::show_floating_damage_text, false));
+    window.set_b_show_map_player_location(ub(ark_config::GameUserSettings::show_map_player_location, true));
+    window.set_b_server_crosshair(ub(ark_config::GameUserSettings::server_crosshair, true));
+    window.set_b_server_force_no_hud(ub(ark_config::GameUserSettings::server_force_no_hud, false));
+    window.set_b_allow_third_person_player(ub(ark_config::GameUserSettings::allow_third_person_player, true));
+    window.set_b_allow_hit_markers(ub(ark_config::GameUserSettings::allow_hit_markers, true));
+    window.set_b_disable_pve_gamma(ub(ark_config::GameUserSettings::disable_pve_gamma, false));
+    window.set_b_enable_pvp_gamma(ub(ark_config::GameUserSettings::enable_pvp_gamma, false));
 }
 
 /// Reset every form field to ARK's vanilla defaults (mostly 1.0, plus the
@@ -1721,6 +1737,22 @@ fn reset_world_settings_window(window: &WorldSettingsWindow) {
     window.set_f_alpha_kill_xp_multiplier(one_xp);
     window.set_f_override_max_experience_points_player(SharedString::from("0"));
     window.set_f_override_max_experience_points_dino(SharedString::from("0"));
+
+    // Phase 8h — Cosmetic / Chat
+    window.set_b_global_voice_chat(false);
+    window.set_b_proximity_chat(false);
+    window.set_b_dont_always_notify_player_joined(false);
+    window.set_b_always_notify_player_left(false);
+    window.set_b_admin_logging(false);
+    window.set_b_allow_hide_damage_source_from_logs(false);
+    window.set_b_show_floating_damage_text(false);
+    window.set_b_show_map_player_location(true);
+    window.set_b_server_crosshair(true);
+    window.set_b_server_force_no_hud(false);
+    window.set_b_allow_third_person_player(true);
+    window.set_b_allow_hit_markers(true);
+    window.set_b_disable_pve_gamma(false);
+    window.set_b_enable_pvp_gamma(false);
 }
 
 /// Read all form fields, parse floats, return per-file struct values or a
@@ -1870,6 +1902,22 @@ struct WorldFormValues {
     alpha_kill_xp_multiplier: f64,
     override_max_experience_points_player: i64,
     override_max_experience_points_dino: i64,
+
+    // Phase 8h — Cosmetic / Chat (GUS)
+    global_voice_chat: bool,
+    proximity_chat: bool,
+    dont_always_notify_player_joined: bool,
+    always_notify_player_left: bool,
+    admin_logging: bool,
+    allow_hide_damage_source_from_logs: bool,
+    show_floating_damage_text: bool,
+    show_map_player_location: bool,
+    server_crosshair: bool,
+    server_force_no_hud: bool,
+    allow_third_person_player: bool,
+    allow_hit_markers: bool,
+    disable_pve_gamma: bool,
+    enable_pvp_gamma: bool,
 }
 
 fn parse_form_float(value: SharedString, label: &str) -> Result<f64, String> {
@@ -2108,6 +2156,20 @@ fn collect_world_form(window: &WorldSettingsWindow) -> Result<WorldFormValues, S
         alpha_kill_xp_multiplier: parse_form_float(window.get_f_alpha_kill_xp_multiplier(), "AlphaKillXPMultiplier")?,
         override_max_experience_points_player: parse_form_int(window.get_f_override_max_experience_points_player(), "OverrideMaxExperiencePointsPlayer")?,
         override_max_experience_points_dino: parse_form_int(window.get_f_override_max_experience_points_dino(), "OverrideMaxExperiencePointsDino")?,
+        global_voice_chat: window.get_b_global_voice_chat(),
+        proximity_chat: window.get_b_proximity_chat(),
+        dont_always_notify_player_joined: window.get_b_dont_always_notify_player_joined(),
+        always_notify_player_left: window.get_b_always_notify_player_left(),
+        admin_logging: window.get_b_admin_logging(),
+        allow_hide_damage_source_from_logs: window.get_b_allow_hide_damage_source_from_logs(),
+        show_floating_damage_text: window.get_b_show_floating_damage_text(),
+        show_map_player_location: window.get_b_show_map_player_location(),
+        server_crosshair: window.get_b_server_crosshair(),
+        server_force_no_hud: window.get_b_server_force_no_hud(),
+        allow_third_person_player: window.get_b_allow_third_person_player(),
+        allow_hit_markers: window.get_b_allow_hit_markers(),
+        disable_pve_gamma: window.get_b_disable_pve_gamma(),
+        enable_pvp_gamma: window.get_b_enable_pvp_gamma(),
     })
 }
 
@@ -2263,6 +2325,22 @@ fn write_world_form(install_root: &Path, v: &WorldFormValues) -> Result<()> {
     game.set_alpha_kill_xp_multiplier(v.alpha_kill_xp_multiplier);
     game.set_override_max_experience_points_player(v.override_max_experience_points_player);
     game.set_override_max_experience_points_dino(v.override_max_experience_points_dino);
+
+    // Phase 8h — Cosmetic / Chat → GUS
+    gus.set_global_voice_chat(v.global_voice_chat);
+    gus.set_proximity_chat(v.proximity_chat);
+    gus.set_dont_always_notify_player_joined(v.dont_always_notify_player_joined);
+    gus.set_always_notify_player_left(v.always_notify_player_left);
+    gus.set_admin_logging(v.admin_logging);
+    gus.set_allow_hide_damage_source_from_logs(v.allow_hide_damage_source_from_logs);
+    gus.set_show_floating_damage_text(v.show_floating_damage_text);
+    gus.set_show_map_player_location(v.show_map_player_location);
+    gus.set_server_crosshair(v.server_crosshair);
+    gus.set_server_force_no_hud(v.server_force_no_hud);
+    gus.set_allow_third_person_player(v.allow_third_person_player);
+    gus.set_allow_hit_markers(v.allow_hit_markers);
+    gus.set_disable_pve_gamma(v.disable_pve_gamma);
+    gus.set_enable_pvp_gamma(v.enable_pvp_gamma);
 
     game.save()?;
     gus.save()?;
@@ -2656,6 +2734,21 @@ fn import_world_settings(window: &WorldSettingsWindow, source_path: &Path) -> Re
     if let Some(v) = g(game_config::GameSettings::alpha_kill_xp_multiplier) { window.set_f_alpha_kill_xp_multiplier(fmt_float_for_form(v)); }
     if let Some(v) = gi(game_config::GameSettings::override_max_experience_points_player) { window.set_f_override_max_experience_points_player(fmt_int_for_form(v)); }
     if let Some(v) = gi(game_config::GameSettings::override_max_experience_points_dino) { window.set_f_override_max_experience_points_dino(fmt_int_for_form(v)); }
+    // Phase 8h — Cosmetic / Chat
+    if let Some(v) = ub(ark_config::GameUserSettings::global_voice_chat) { window.set_b_global_voice_chat(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::proximity_chat) { window.set_b_proximity_chat(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::dont_always_notify_player_joined) { window.set_b_dont_always_notify_player_joined(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::always_notify_player_left) { window.set_b_always_notify_player_left(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::admin_logging) { window.set_b_admin_logging(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::allow_hide_damage_source_from_logs) { window.set_b_allow_hide_damage_source_from_logs(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::show_floating_damage_text) { window.set_b_show_floating_damage_text(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::show_map_player_location) { window.set_b_show_map_player_location(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::server_crosshair) { window.set_b_server_crosshair(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::server_force_no_hud) { window.set_b_server_force_no_hud(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::allow_third_person_player) { window.set_b_allow_third_person_player(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::allow_hit_markers) { window.set_b_allow_hit_markers(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::disable_pve_gamma) { window.set_b_disable_pve_gamma(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::enable_pvp_gamma) { window.set_b_enable_pvp_gamma(v); }
     Ok(())
 }
 

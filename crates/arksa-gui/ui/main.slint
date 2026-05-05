@@ -543,6 +543,22 @@ export component WorldSettingsWindow inherits Window {
     in-out property <string> f_override_max_experience_points_player: "0";
     in-out property <string> f_override_max_experience_points_dino: "0";
 
+    // Phase 8h — Cosmetic / Chat
+    in-out property <bool> b_global_voice_chat: false;
+    in-out property <bool> b_proximity_chat: false;
+    in-out property <bool> b_dont_always_notify_player_joined: false;
+    in-out property <bool> b_always_notify_player_left: false;
+    in-out property <bool> b_admin_logging: false;
+    in-out property <bool> b_allow_hide_damage_source_from_logs: false;
+    in-out property <bool> b_show_floating_damage_text: false;
+    in-out property <bool> b_show_map_player_location: true;
+    in-out property <bool> b_server_crosshair: true;
+    in-out property <bool> b_server_force_no_hud: false;
+    in-out property <bool> b_allow_third_person_player: true;
+    in-out property <bool> b_allow_hit_markers: true;
+    in-out property <bool> b_disable_pve_gamma: false;
+    in-out property <bool> b_enable_pvp_gamma: false;
+
     callback import-clicked();
     callback reset-clicked();
     callback save-clicked();
@@ -947,6 +963,30 @@ export component WorldSettingsWindow inherits Window {
                         WorldFloatRow { label: "AlphaKillXPMultiplier";                         value <=> root.f_alpha_kill_xp_multiplier; }
                         WorldFloatRow { label: "OverrideMaxExperiencePointsPlayer (int, 0=default)"; value <=> root.f_override_max_experience_points_player; }
                         WorldFloatRow { label: "OverrideMaxExperiencePointsDino (int, 0=default)";   value <=> root.f_override_max_experience_points_dino; }
+                    }
+                }
+            }
+
+            Tab {
+                title: root.labels.world_tab_chat;
+                ScrollView {
+                    VerticalBox {
+                        padding: 8px;
+                        spacing: 4px;
+                        WorldBoolRow { label: "globalVoiceChat";                                 value <=> root.b_global_voice_chat; }
+                        WorldBoolRow { label: "ProximityChat";                                   value <=> root.b_proximity_chat; }
+                        WorldBoolRow { label: "DontAlwaysNotifyPlayerJoined";                    value <=> root.b_dont_always_notify_player_joined; }
+                        WorldBoolRow { label: "AlwaysNotifyPlayerLeft";                          value <=> root.b_always_notify_player_left; }
+                        WorldBoolRow { label: "AdminLogging";                                    value <=> root.b_admin_logging; }
+                        WorldBoolRow { label: "AllowHideDamageSourceFromLogs";                   value <=> root.b_allow_hide_damage_source_from_logs; }
+                        WorldBoolRow { label: "ShowFloatingDamageText";                          value <=> root.b_show_floating_damage_text; }
+                        WorldBoolRow { label: "ShowMapPlayerLocation";                           value <=> root.b_show_map_player_location; }
+                        WorldBoolRow { label: "ServerCrosshair";                                 value <=> root.b_server_crosshair; }
+                        WorldBoolRow { label: "ServerForceNoHUD";                                value <=> root.b_server_force_no_hud; }
+                        WorldBoolRow { label: "AllowThirdPersonPlayer";                          value <=> root.b_allow_third_person_player; }
+                        WorldBoolRow { label: "AllowHitMarkers";                                 value <=> root.b_allow_hit_markers; }
+                        WorldBoolRow { label: "DisablePvEGamma";                                 value <=> root.b_disable_pve_gamma; }
+                        WorldBoolRow { label: "EnablePvPGamma";                                  value <=> root.b_enable_pvp_gamma; }
                     }
                 }
             }
