@@ -1599,6 +1599,27 @@ fn populate_world_settings_window(window: &WorldSettingsWindow, install_root: &P
     window.set_b_allow_hit_markers(ub(ark_config::GameUserSettings::allow_hit_markers, true));
     window.set_b_disable_pve_gamma(ub(ark_config::GameUserSettings::disable_pve_gamma, false));
     window.set_b_enable_pvp_gamma(ub(ark_config::GameUserSettings::enable_pvp_gamma, false));
+
+    // Phase 8i — Cluster / Lists (GUS)
+    let us = |get: fn(&ark_config::GameUserSettings) -> Option<String>| -> SharedString {
+        gus.as_ref().and_then(get).unwrap_or_default().as_str().into()
+    };
+    window.set_f_server_password(us(ark_config::GameUserSettings::server_password));
+    window.set_f_ban_list_url(us(ark_config::GameUserSettings::ban_list_url));
+    window.set_f_admin_list_url(us(ark_config::GameUserSettings::admin_list_url));
+    window.set_f_bad_word_list_url(us(ark_config::GameUserSettings::bad_word_list_url));
+    window.set_f_bad_word_white_list_url(us(ark_config::GameUserSettings::bad_word_white_list_url));
+    window.set_f_custom_live_tuning_url(us(ark_config::GameUserSettings::custom_live_tuning_url));
+    window.set_b_no_tribute_downloads(ub(ark_config::GameUserSettings::no_tribute_downloads, false));
+    window.set_b_prevent_download_dinos(ub(ark_config::GameUserSettings::prevent_download_dinos, false));
+    window.set_b_prevent_download_items(ub(ark_config::GameUserSettings::prevent_download_items, false));
+    window.set_b_prevent_download_survivors(ub(ark_config::GameUserSettings::prevent_download_survivors, false));
+    window.set_b_prevent_upload_dinos(ub(ark_config::GameUserSettings::prevent_upload_dinos, false));
+    window.set_b_prevent_upload_items(ub(ark_config::GameUserSettings::prevent_upload_items, false));
+    window.set_b_prevent_upload_survivors(ub(ark_config::GameUserSettings::prevent_upload_survivors, false));
+    window.set_b_cross_ark_allow_foreign_dino_downloads(ub(ark_config::GameUserSettings::cross_ark_allow_foreign_dino_downloads, false));
+    window.set_b_prevent_tribe_alliances(ub(ark_config::GameUserSettings::prevent_tribe_alliances, false));
+    window.set_f_max_number_of_players_in_tribe(ui_2(ark_config::GameUserSettings::max_number_of_players_in_tribe, 0));
 }
 
 /// Reset every form field to ARK's vanilla defaults (mostly 1.0, plus the
@@ -1753,6 +1774,25 @@ fn reset_world_settings_window(window: &WorldSettingsWindow) {
     window.set_b_allow_hit_markers(true);
     window.set_b_disable_pve_gamma(false);
     window.set_b_enable_pvp_gamma(false);
+
+    // Phase 8i — Cluster / Lists
+    let empty = SharedString::default();
+    window.set_f_server_password(empty.clone());
+    window.set_f_ban_list_url(empty.clone());
+    window.set_f_admin_list_url(empty.clone());
+    window.set_f_bad_word_list_url(empty.clone());
+    window.set_f_bad_word_white_list_url(empty.clone());
+    window.set_f_custom_live_tuning_url(empty);
+    window.set_b_no_tribute_downloads(false);
+    window.set_b_prevent_download_dinos(false);
+    window.set_b_prevent_download_items(false);
+    window.set_b_prevent_download_survivors(false);
+    window.set_b_prevent_upload_dinos(false);
+    window.set_b_prevent_upload_items(false);
+    window.set_b_prevent_upload_survivors(false);
+    window.set_b_cross_ark_allow_foreign_dino_downloads(false);
+    window.set_b_prevent_tribe_alliances(false);
+    window.set_f_max_number_of_players_in_tribe(SharedString::from("0"));
 }
 
 /// Read all form fields, parse floats, return per-file struct values or a
@@ -1918,6 +1958,24 @@ struct WorldFormValues {
     allow_hit_markers: bool,
     disable_pve_gamma: bool,
     enable_pvp_gamma: bool,
+
+    // Phase 8i — Cluster / Lists (GUS)
+    server_password: String,
+    ban_list_url: String,
+    admin_list_url: String,
+    bad_word_list_url: String,
+    bad_word_white_list_url: String,
+    custom_live_tuning_url: String,
+    no_tribute_downloads: bool,
+    prevent_download_dinos: bool,
+    prevent_download_items: bool,
+    prevent_download_survivors: bool,
+    prevent_upload_dinos: bool,
+    prevent_upload_items: bool,
+    prevent_upload_survivors: bool,
+    cross_ark_allow_foreign_dino_downloads: bool,
+    prevent_tribe_alliances: bool,
+    max_number_of_players_in_tribe: i64,
 }
 
 fn parse_form_float(value: SharedString, label: &str) -> Result<f64, String> {
@@ -2170,6 +2228,22 @@ fn collect_world_form(window: &WorldSettingsWindow) -> Result<WorldFormValues, S
         allow_hit_markers: window.get_b_allow_hit_markers(),
         disable_pve_gamma: window.get_b_disable_pve_gamma(),
         enable_pvp_gamma: window.get_b_enable_pvp_gamma(),
+        server_password: window.get_f_server_password().as_str().to_string(),
+        ban_list_url: window.get_f_ban_list_url().as_str().to_string(),
+        admin_list_url: window.get_f_admin_list_url().as_str().to_string(),
+        bad_word_list_url: window.get_f_bad_word_list_url().as_str().to_string(),
+        bad_word_white_list_url: window.get_f_bad_word_white_list_url().as_str().to_string(),
+        custom_live_tuning_url: window.get_f_custom_live_tuning_url().as_str().to_string(),
+        no_tribute_downloads: window.get_b_no_tribute_downloads(),
+        prevent_download_dinos: window.get_b_prevent_download_dinos(),
+        prevent_download_items: window.get_b_prevent_download_items(),
+        prevent_download_survivors: window.get_b_prevent_download_survivors(),
+        prevent_upload_dinos: window.get_b_prevent_upload_dinos(),
+        prevent_upload_items: window.get_b_prevent_upload_items(),
+        prevent_upload_survivors: window.get_b_prevent_upload_survivors(),
+        cross_ark_allow_foreign_dino_downloads: window.get_b_cross_ark_allow_foreign_dino_downloads(),
+        prevent_tribe_alliances: window.get_b_prevent_tribe_alliances(),
+        max_number_of_players_in_tribe: parse_form_int(window.get_f_max_number_of_players_in_tribe(), "MaxNumberOfPlayersInTribe")?,
     })
 }
 
@@ -2341,6 +2415,24 @@ fn write_world_form(install_root: &Path, v: &WorldFormValues) -> Result<()> {
     gus.set_allow_hit_markers(v.allow_hit_markers);
     gus.set_disable_pve_gamma(v.disable_pve_gamma);
     gus.set_enable_pvp_gamma(v.enable_pvp_gamma);
+
+    // Phase 8i — Cluster / Lists → GUS
+    gus.set_server_password(&v.server_password);
+    gus.set_ban_list_url(&v.ban_list_url);
+    gus.set_admin_list_url(&v.admin_list_url);
+    gus.set_bad_word_list_url(&v.bad_word_list_url);
+    gus.set_bad_word_white_list_url(&v.bad_word_white_list_url);
+    gus.set_custom_live_tuning_url(&v.custom_live_tuning_url);
+    gus.set_no_tribute_downloads(v.no_tribute_downloads);
+    gus.set_prevent_download_dinos(v.prevent_download_dinos);
+    gus.set_prevent_download_items(v.prevent_download_items);
+    gus.set_prevent_download_survivors(v.prevent_download_survivors);
+    gus.set_prevent_upload_dinos(v.prevent_upload_dinos);
+    gus.set_prevent_upload_items(v.prevent_upload_items);
+    gus.set_prevent_upload_survivors(v.prevent_upload_survivors);
+    gus.set_cross_ark_allow_foreign_dino_downloads(v.cross_ark_allow_foreign_dino_downloads);
+    gus.set_prevent_tribe_alliances(v.prevent_tribe_alliances);
+    gus.set_max_number_of_players_in_tribe(v.max_number_of_players_in_tribe);
 
     game.save()?;
     gus.save()?;
@@ -2749,6 +2841,24 @@ fn import_world_settings(window: &WorldSettingsWindow, source_path: &Path) -> Re
     if let Some(v) = ub(ark_config::GameUserSettings::allow_hit_markers) { window.set_b_allow_hit_markers(v); }
     if let Some(v) = ub(ark_config::GameUserSettings::disable_pve_gamma) { window.set_b_disable_pve_gamma(v); }
     if let Some(v) = ub(ark_config::GameUserSettings::enable_pvp_gamma) { window.set_b_enable_pvp_gamma(v); }
+    // Phase 8i — Cluster / Lists
+    let us = |get: fn(&ark_config::GameUserSettings) -> Option<String>| get(&gus);
+    if let Some(v) = us(ark_config::GameUserSettings::server_password) { window.set_f_server_password(v.as_str().into()); }
+    if let Some(v) = us(ark_config::GameUserSettings::ban_list_url) { window.set_f_ban_list_url(v.as_str().into()); }
+    if let Some(v) = us(ark_config::GameUserSettings::admin_list_url) { window.set_f_admin_list_url(v.as_str().into()); }
+    if let Some(v) = us(ark_config::GameUserSettings::bad_word_list_url) { window.set_f_bad_word_list_url(v.as_str().into()); }
+    if let Some(v) = us(ark_config::GameUserSettings::bad_word_white_list_url) { window.set_f_bad_word_white_list_url(v.as_str().into()); }
+    if let Some(v) = us(ark_config::GameUserSettings::custom_live_tuning_url) { window.set_f_custom_live_tuning_url(v.as_str().into()); }
+    if let Some(v) = ub(ark_config::GameUserSettings::no_tribute_downloads) { window.set_b_no_tribute_downloads(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::prevent_download_dinos) { window.set_b_prevent_download_dinos(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::prevent_download_items) { window.set_b_prevent_download_items(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::prevent_download_survivors) { window.set_b_prevent_download_survivors(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::prevent_upload_dinos) { window.set_b_prevent_upload_dinos(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::prevent_upload_items) { window.set_b_prevent_upload_items(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::prevent_upload_survivors) { window.set_b_prevent_upload_survivors(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::cross_ark_allow_foreign_dino_downloads) { window.set_b_cross_ark_allow_foreign_dino_downloads(v); }
+    if let Some(v) = ub(ark_config::GameUserSettings::prevent_tribe_alliances) { window.set_b_prevent_tribe_alliances(v); }
+    if let Some(v) = ui_(ark_config::GameUserSettings::max_number_of_players_in_tribe) { window.set_f_max_number_of_players_in_tribe(fmt_int_for_form(v)); }
     Ok(())
 }
 

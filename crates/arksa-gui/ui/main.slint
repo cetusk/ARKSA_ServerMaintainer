@@ -559,6 +559,24 @@ export component WorldSettingsWindow inherits Window {
     in-out property <bool> b_disable_pve_gamma: false;
     in-out property <bool> b_enable_pvp_gamma: false;
 
+    // Phase 8i — Cluster / Lists
+    in-out property <string> f_server_password: "";
+    in-out property <string> f_ban_list_url: "";
+    in-out property <string> f_admin_list_url: "";
+    in-out property <string> f_bad_word_list_url: "";
+    in-out property <string> f_bad_word_white_list_url: "";
+    in-out property <string> f_custom_live_tuning_url: "";
+    in-out property <bool> b_no_tribute_downloads: false;
+    in-out property <bool> b_prevent_download_dinos: false;
+    in-out property <bool> b_prevent_download_items: false;
+    in-out property <bool> b_prevent_download_survivors: false;
+    in-out property <bool> b_prevent_upload_dinos: false;
+    in-out property <bool> b_prevent_upload_items: false;
+    in-out property <bool> b_prevent_upload_survivors: false;
+    in-out property <bool> b_cross_ark_allow_foreign_dino_downloads: false;
+    in-out property <bool> b_prevent_tribe_alliances: false;
+    in-out property <string> f_max_number_of_players_in_tribe: "0";
+
     callback import-clicked();
     callback reset-clicked();
     callback save-clicked();
@@ -987,6 +1005,53 @@ export component WorldSettingsWindow inherits Window {
                         WorldBoolRow { label: "AllowHitMarkers";                                 value <=> root.b_allow_hit_markers; }
                         WorldBoolRow { label: "DisablePvEGamma";                                 value <=> root.b_disable_pve_gamma; }
                         WorldBoolRow { label: "EnablePvPGamma";                                  value <=> root.b_enable_pvp_gamma; }
+                    }
+                }
+            }
+
+            Tab {
+                title: root.labels.world_tab_cluster;
+                ScrollView {
+                    VerticalBox {
+                        padding: 8px;
+                        spacing: 6px;
+                        GroupBox {
+                            title: "Passwords / URLs (GameUserSettings.ini)";
+                            VerticalBox {
+                                padding: 4px;
+                                spacing: 2px;
+                                WorldFloatRow { label: "ServerPassword (string)";               value <=> root.f_server_password; }
+                                WorldFloatRow { label: "BanListURL (string)";                   value <=> root.f_ban_list_url; }
+                                WorldFloatRow { label: "AdminListURL (string)";                 value <=> root.f_admin_list_url; }
+                                WorldFloatRow { label: "BadWordListURL (string)";               value <=> root.f_bad_word_list_url; }
+                                WorldFloatRow { label: "BadWordWhiteListURL (string)";          value <=> root.f_bad_word_white_list_url; }
+                                WorldFloatRow { label: "CustomLiveTuningUrl (string)";          value <=> root.f_custom_live_tuning_url; }
+                            }
+                        }
+                        GroupBox {
+                            title: "Cross-ARK transfer (GameUserSettings.ini)";
+                            VerticalBox {
+                                padding: 4px;
+                                spacing: 2px;
+                                WorldBoolRow { label: "noTributeDownloads";                       value <=> root.b_no_tribute_downloads; }
+                                WorldBoolRow { label: "PreventDownloadDinos";                     value <=> root.b_prevent_download_dinos; }
+                                WorldBoolRow { label: "PreventDownloadItems";                     value <=> root.b_prevent_download_items; }
+                                WorldBoolRow { label: "PreventDownloadSurvivors";                 value <=> root.b_prevent_download_survivors; }
+                                WorldBoolRow { label: "PreventUploadDinos";                       value <=> root.b_prevent_upload_dinos; }
+                                WorldBoolRow { label: "PreventUploadItems";                       value <=> root.b_prevent_upload_items; }
+                                WorldBoolRow { label: "PreventUploadSurvivors";                   value <=> root.b_prevent_upload_survivors; }
+                                WorldBoolRow { label: "CrossARKAllowForeignDinoDownloads";        value <=> root.b_cross_ark_allow_foreign_dino_downloads; }
+                            }
+                        }
+                        GroupBox {
+                            title: "Tribes (GameUserSettings.ini)";
+                            VerticalBox {
+                                padding: 4px;
+                                spacing: 2px;
+                                WorldBoolRow { label: "PreventTribeAlliances";                    value <=> root.b_prevent_tribe_alliances; }
+                                WorldFloatRow { label: "MaxNumberOfPlayersInTribe (int)";         value <=> root.f_max_number_of_players_in_tribe; }
+                            }
+                        }
                     }
                 }
             }

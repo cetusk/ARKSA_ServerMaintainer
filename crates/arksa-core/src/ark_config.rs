@@ -390,6 +390,60 @@ impl GameUserSettings {
     bool_field!(allow_hit_markers, set_allow_hit_markers, "AllowHitMarkers");
     bool_field!(disable_pve_gamma, set_disable_pve_gamma, "DisablePvEGamma");
     bool_field!(enable_pvp_gamma, set_enable_pvp_gamma, "EnablePvPGamma");
+
+    // ── Cluster / Lists (Phase 8i) ───────────────────────────────────
+    string_field!(server_password, set_server_password, "ServerPassword");
+    string_field!(ban_list_url, set_ban_list_url, "BanListURL");
+    string_field!(admin_list_url, set_admin_list_url, "AdminListURL");
+    string_field!(bad_word_list_url, set_bad_word_list_url, "BadWordListURL");
+    string_field!(
+        bad_word_white_list_url,
+        set_bad_word_white_list_url,
+        "BadWordWhiteListURL"
+    );
+    string_field!(
+        custom_live_tuning_url,
+        set_custom_live_tuning_url,
+        "CustomLiveTuningUrl"
+    );
+    bool_field!(no_tribute_downloads, set_no_tribute_downloads, "noTributeDownloads");
+    bool_field!(
+        prevent_download_dinos,
+        set_prevent_download_dinos,
+        "PreventDownloadDinos"
+    );
+    bool_field!(
+        prevent_download_items,
+        set_prevent_download_items,
+        "PreventDownloadItems"
+    );
+    bool_field!(
+        prevent_download_survivors,
+        set_prevent_download_survivors,
+        "PreventDownloadSurvivors"
+    );
+    bool_field!(prevent_upload_dinos, set_prevent_upload_dinos, "PreventUploadDinos");
+    bool_field!(prevent_upload_items, set_prevent_upload_items, "PreventUploadItems");
+    bool_field!(
+        prevent_upload_survivors,
+        set_prevent_upload_survivors,
+        "PreventUploadSurvivors"
+    );
+    bool_field!(
+        cross_ark_allow_foreign_dino_downloads,
+        set_cross_ark_allow_foreign_dino_downloads,
+        "CrossARKAllowForeignDinoDownloads"
+    );
+    bool_field!(
+        prevent_tribe_alliances,
+        set_prevent_tribe_alliances,
+        "PreventTribeAlliances"
+    );
+    int_field!(
+        max_number_of_players_in_tribe,
+        set_max_number_of_players_in_tribe,
+        "MaxNumberOfPlayersInTribe"
+    );
 }
 
 /// Apply the RCON settings from a `LaunchArgs`-style triple to the file at
