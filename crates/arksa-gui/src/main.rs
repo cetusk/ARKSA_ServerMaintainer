@@ -1461,6 +1461,80 @@ fn populate_world_settings_window(window: &WorldSettingsWindow, install_root: &P
     window.set_f_poop_interval_multiplier(g(game_config::GameSettings::poop_interval_multiplier, 1.0));
     window.set_f_fuel_consumption_interval_multiplier(g(game_config::GameSettings::fuel_consumption_interval_multiplier, 1.0));
     window.set_f_max_fall_speed_multiplier(g(game_config::GameSettings::max_fall_speed_multiplier, 1.0));
+
+    // Phase 8e — Stat arrays (Game.ini)
+    window.set_f_pls_player_0(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_player(0)).unwrap_or(1.0)));
+    window.set_f_pls_player_1(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_player(1)).unwrap_or(1.0)));
+    window.set_f_pls_player_2(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_player(2)).unwrap_or(1.0)));
+    window.set_f_pls_player_3(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_player(3)).unwrap_or(1.0)));
+    window.set_f_pls_player_4(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_player(4)).unwrap_or(1.0)));
+    window.set_f_pls_player_5(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_player(5)).unwrap_or(1.0)));
+    window.set_f_pls_player_6(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_player(6)).unwrap_or(1.0)));
+    window.set_f_pls_player_7(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_player(7)).unwrap_or(1.0)));
+    window.set_f_pls_player_8(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_player(8)).unwrap_or(1.0)));
+    window.set_f_pls_player_9(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_player(9)).unwrap_or(1.0)));
+    window.set_f_pls_player_10(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_player(10)).unwrap_or(1.0)));
+    window.set_f_pls_player_11(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_player(11)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_0(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed(0)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_1(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed(1)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_2(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed(2)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_3(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed(3)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_4(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed(4)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_5(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed(5)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_6(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed(6)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_7(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed(7)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_8(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed(8)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_9(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed(9)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_10(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed(10)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_11(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed(11)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_add_0(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_add(0)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_add_1(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_add(1)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_add_2(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_add(2)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_add_3(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_add(3)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_add_4(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_add(4)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_add_5(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_add(5)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_add_6(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_add(6)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_add_7(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_add(7)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_add_8(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_add(8)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_add_9(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_add(9)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_add_10(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_add(10)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_add_11(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_add(11)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_affinity_0(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_affinity(0)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_affinity_1(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_affinity(1)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_affinity_2(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_affinity(2)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_affinity_3(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_affinity(3)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_affinity_4(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_affinity(4)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_affinity_5(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_affinity(5)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_affinity_6(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_affinity(6)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_affinity_7(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_affinity(7)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_affinity_8(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_affinity(8)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_affinity_9(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_affinity(9)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_affinity_10(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_affinity(10)).unwrap_or(1.0)));
+    window.set_f_pls_tamed_affinity_11(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_tamed_affinity(11)).unwrap_or(1.0)));
+    window.set_f_pls_wild_0(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_wild(0)).unwrap_or(1.0)));
+    window.set_f_pls_wild_1(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_wild(1)).unwrap_or(1.0)));
+    window.set_f_pls_wild_2(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_wild(2)).unwrap_or(1.0)));
+    window.set_f_pls_wild_3(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_wild(3)).unwrap_or(1.0)));
+    window.set_f_pls_wild_4(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_wild(4)).unwrap_or(1.0)));
+    window.set_f_pls_wild_5(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_wild(5)).unwrap_or(1.0)));
+    window.set_f_pls_wild_6(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_wild(6)).unwrap_or(1.0)));
+    window.set_f_pls_wild_7(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_wild(7)).unwrap_or(1.0)));
+    window.set_f_pls_wild_8(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_wild(8)).unwrap_or(1.0)));
+    window.set_f_pls_wild_9(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_wild(9)).unwrap_or(1.0)));
+    window.set_f_pls_wild_10(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_wild(10)).unwrap_or(1.0)));
+    window.set_f_pls_wild_11(fmt_float_for_form(game.as_ref().and_then(|g| g.per_level_stats_multiplier_dino_wild(11)).unwrap_or(1.0)));
+    window.set_f_pls_base_0(fmt_float_for_form(game.as_ref().and_then(|g| g.player_base_stat_multipliers(0)).unwrap_or(1.0)));
+    window.set_f_pls_base_1(fmt_float_for_form(game.as_ref().and_then(|g| g.player_base_stat_multipliers(1)).unwrap_or(1.0)));
+    window.set_f_pls_base_2(fmt_float_for_form(game.as_ref().and_then(|g| g.player_base_stat_multipliers(2)).unwrap_or(1.0)));
+    window.set_f_pls_base_3(fmt_float_for_form(game.as_ref().and_then(|g| g.player_base_stat_multipliers(3)).unwrap_or(1.0)));
+    window.set_f_pls_base_4(fmt_float_for_form(game.as_ref().and_then(|g| g.player_base_stat_multipliers(4)).unwrap_or(1.0)));
+    window.set_f_pls_base_5(fmt_float_for_form(game.as_ref().and_then(|g| g.player_base_stat_multipliers(5)).unwrap_or(1.0)));
+    window.set_f_pls_base_6(fmt_float_for_form(game.as_ref().and_then(|g| g.player_base_stat_multipliers(6)).unwrap_or(1.0)));
+    window.set_f_pls_base_7(fmt_float_for_form(game.as_ref().and_then(|g| g.player_base_stat_multipliers(7)).unwrap_or(1.0)));
+    window.set_f_pls_base_8(fmt_float_for_form(game.as_ref().and_then(|g| g.player_base_stat_multipliers(8)).unwrap_or(1.0)));
+    window.set_f_pls_base_9(fmt_float_for_form(game.as_ref().and_then(|g| g.player_base_stat_multipliers(9)).unwrap_or(1.0)));
+    window.set_f_pls_base_10(fmt_float_for_form(game.as_ref().and_then(|g| g.player_base_stat_multipliers(10)).unwrap_or(1.0)));
+    window.set_f_pls_base_11(fmt_float_for_form(game.as_ref().and_then(|g| g.player_base_stat_multipliers(11)).unwrap_or(1.0)));
 }
 
 /// Reset every form field to ARK's vanilla defaults (mostly 1.0, plus the
@@ -1548,7 +1622,16 @@ fn reset_world_settings_window(window: &WorldSettingsWindow) {
     window.set_b_use_corpse_locator(true);
     window.set_f_poop_interval_multiplier(one.clone());
     window.set_f_fuel_consumption_interval_multiplier(one.clone());
-    window.set_f_max_fall_speed_multiplier(one);
+    window.set_f_max_fall_speed_multiplier(one.clone());
+
+    // Phase 8e — Stat arrays — every cell to 1.0
+    let one_s = SharedString::from("1.0");
+    window.set_f_pls_player_0(one_s.clone()); window.set_f_pls_player_1(one_s.clone()); window.set_f_pls_player_2(one_s.clone()); window.set_f_pls_player_3(one_s.clone()); window.set_f_pls_player_4(one_s.clone()); window.set_f_pls_player_5(one_s.clone()); window.set_f_pls_player_6(one_s.clone()); window.set_f_pls_player_7(one_s.clone()); window.set_f_pls_player_8(one_s.clone()); window.set_f_pls_player_9(one_s.clone()); window.set_f_pls_player_10(one_s.clone()); window.set_f_pls_player_11(one_s.clone());
+    window.set_f_pls_tamed_0(one_s.clone()); window.set_f_pls_tamed_1(one_s.clone()); window.set_f_pls_tamed_2(one_s.clone()); window.set_f_pls_tamed_3(one_s.clone()); window.set_f_pls_tamed_4(one_s.clone()); window.set_f_pls_tamed_5(one_s.clone()); window.set_f_pls_tamed_6(one_s.clone()); window.set_f_pls_tamed_7(one_s.clone()); window.set_f_pls_tamed_8(one_s.clone()); window.set_f_pls_tamed_9(one_s.clone()); window.set_f_pls_tamed_10(one_s.clone()); window.set_f_pls_tamed_11(one_s.clone());
+    window.set_f_pls_tamed_add_0(one_s.clone()); window.set_f_pls_tamed_add_1(one_s.clone()); window.set_f_pls_tamed_add_2(one_s.clone()); window.set_f_pls_tamed_add_3(one_s.clone()); window.set_f_pls_tamed_add_4(one_s.clone()); window.set_f_pls_tamed_add_5(one_s.clone()); window.set_f_pls_tamed_add_6(one_s.clone()); window.set_f_pls_tamed_add_7(one_s.clone()); window.set_f_pls_tamed_add_8(one_s.clone()); window.set_f_pls_tamed_add_9(one_s.clone()); window.set_f_pls_tamed_add_10(one_s.clone()); window.set_f_pls_tamed_add_11(one_s.clone());
+    window.set_f_pls_tamed_affinity_0(one_s.clone()); window.set_f_pls_tamed_affinity_1(one_s.clone()); window.set_f_pls_tamed_affinity_2(one_s.clone()); window.set_f_pls_tamed_affinity_3(one_s.clone()); window.set_f_pls_tamed_affinity_4(one_s.clone()); window.set_f_pls_tamed_affinity_5(one_s.clone()); window.set_f_pls_tamed_affinity_6(one_s.clone()); window.set_f_pls_tamed_affinity_7(one_s.clone()); window.set_f_pls_tamed_affinity_8(one_s.clone()); window.set_f_pls_tamed_affinity_9(one_s.clone()); window.set_f_pls_tamed_affinity_10(one_s.clone()); window.set_f_pls_tamed_affinity_11(one_s.clone());
+    window.set_f_pls_wild_0(one_s.clone()); window.set_f_pls_wild_1(one_s.clone()); window.set_f_pls_wild_2(one_s.clone()); window.set_f_pls_wild_3(one_s.clone()); window.set_f_pls_wild_4(one_s.clone()); window.set_f_pls_wild_5(one_s.clone()); window.set_f_pls_wild_6(one_s.clone()); window.set_f_pls_wild_7(one_s.clone()); window.set_f_pls_wild_8(one_s.clone()); window.set_f_pls_wild_9(one_s.clone()); window.set_f_pls_wild_10(one_s.clone()); window.set_f_pls_wild_11(one_s.clone());
+    window.set_f_pls_base_0(one_s.clone()); window.set_f_pls_base_1(one_s.clone()); window.set_f_pls_base_2(one_s.clone()); window.set_f_pls_base_3(one_s.clone()); window.set_f_pls_base_4(one_s.clone()); window.set_f_pls_base_5(one_s.clone()); window.set_f_pls_base_6(one_s.clone()); window.set_f_pls_base_7(one_s.clone()); window.set_f_pls_base_8(one_s.clone()); window.set_f_pls_base_9(one_s.clone()); window.set_f_pls_base_10(one_s.clone()); window.set_f_pls_base_11(one_s);
 }
 
 /// Read all form fields, parse floats, return per-file struct values or a
@@ -1650,6 +1733,14 @@ struct WorldFormValues {
     poop_interval_multiplier: f64,
     fuel_consumption_interval_multiplier: f64,
     max_fall_speed_multiplier: f64,
+
+    // Phase 8e — Stat arrays (Game.ini)
+    pls_player: [f64; 12],
+    pls_tamed: [f64; 12],
+    pls_tamed_add: [f64; 12],
+    pls_tamed_affinity: [f64; 12],
+    pls_wild: [f64; 12],
+    pls_base: [f64; 12],
 }
 
 fn parse_form_float(value: SharedString, label: &str) -> Result<f64, String> {
@@ -1768,6 +1859,90 @@ fn collect_world_form(window: &WorldSettingsWindow) -> Result<WorldFormValues, S
         poop_interval_multiplier: parse_form_float(window.get_f_poop_interval_multiplier(), "PoopIntervalMultiplier")?,
         fuel_consumption_interval_multiplier: parse_form_float(window.get_f_fuel_consumption_interval_multiplier(), "FuelConsumptionIntervalMultiplier")?,
         max_fall_speed_multiplier: parse_form_float(window.get_f_max_fall_speed_multiplier(), "MaxFallSpeedMultiplier")?,
+        pls_player: [
+            parse_form_float(window.get_f_pls_player_0(), "PerLevelStatsMultiplier_Player[0]")?,
+            parse_form_float(window.get_f_pls_player_1(), "PerLevelStatsMultiplier_Player[1]")?,
+            parse_form_float(window.get_f_pls_player_2(), "PerLevelStatsMultiplier_Player[2]")?,
+            parse_form_float(window.get_f_pls_player_3(), "PerLevelStatsMultiplier_Player[3]")?,
+            parse_form_float(window.get_f_pls_player_4(), "PerLevelStatsMultiplier_Player[4]")?,
+            parse_form_float(window.get_f_pls_player_5(), "PerLevelStatsMultiplier_Player[5]")?,
+            parse_form_float(window.get_f_pls_player_6(), "PerLevelStatsMultiplier_Player[6]")?,
+            parse_form_float(window.get_f_pls_player_7(), "PerLevelStatsMultiplier_Player[7]")?,
+            parse_form_float(window.get_f_pls_player_8(), "PerLevelStatsMultiplier_Player[8]")?,
+            parse_form_float(window.get_f_pls_player_9(), "PerLevelStatsMultiplier_Player[9]")?,
+            parse_form_float(window.get_f_pls_player_10(), "PerLevelStatsMultiplier_Player[10]")?,
+            parse_form_float(window.get_f_pls_player_11(), "PerLevelStatsMultiplier_Player[11]")?,
+        ],
+        pls_tamed: [
+            parse_form_float(window.get_f_pls_tamed_0(), "PerLevelStatsMultiplier_DinoTamed[0]")?,
+            parse_form_float(window.get_f_pls_tamed_1(), "PerLevelStatsMultiplier_DinoTamed[1]")?,
+            parse_form_float(window.get_f_pls_tamed_2(), "PerLevelStatsMultiplier_DinoTamed[2]")?,
+            parse_form_float(window.get_f_pls_tamed_3(), "PerLevelStatsMultiplier_DinoTamed[3]")?,
+            parse_form_float(window.get_f_pls_tamed_4(), "PerLevelStatsMultiplier_DinoTamed[4]")?,
+            parse_form_float(window.get_f_pls_tamed_5(), "PerLevelStatsMultiplier_DinoTamed[5]")?,
+            parse_form_float(window.get_f_pls_tamed_6(), "PerLevelStatsMultiplier_DinoTamed[6]")?,
+            parse_form_float(window.get_f_pls_tamed_7(), "PerLevelStatsMultiplier_DinoTamed[7]")?,
+            parse_form_float(window.get_f_pls_tamed_8(), "PerLevelStatsMultiplier_DinoTamed[8]")?,
+            parse_form_float(window.get_f_pls_tamed_9(), "PerLevelStatsMultiplier_DinoTamed[9]")?,
+            parse_form_float(window.get_f_pls_tamed_10(), "PerLevelStatsMultiplier_DinoTamed[10]")?,
+            parse_form_float(window.get_f_pls_tamed_11(), "PerLevelStatsMultiplier_DinoTamed[11]")?,
+        ],
+        pls_tamed_add: [
+            parse_form_float(window.get_f_pls_tamed_add_0(), "PerLevelStatsMultiplier_DinoTamed_Add[0]")?,
+            parse_form_float(window.get_f_pls_tamed_add_1(), "PerLevelStatsMultiplier_DinoTamed_Add[1]")?,
+            parse_form_float(window.get_f_pls_tamed_add_2(), "PerLevelStatsMultiplier_DinoTamed_Add[2]")?,
+            parse_form_float(window.get_f_pls_tamed_add_3(), "PerLevelStatsMultiplier_DinoTamed_Add[3]")?,
+            parse_form_float(window.get_f_pls_tamed_add_4(), "PerLevelStatsMultiplier_DinoTamed_Add[4]")?,
+            parse_form_float(window.get_f_pls_tamed_add_5(), "PerLevelStatsMultiplier_DinoTamed_Add[5]")?,
+            parse_form_float(window.get_f_pls_tamed_add_6(), "PerLevelStatsMultiplier_DinoTamed_Add[6]")?,
+            parse_form_float(window.get_f_pls_tamed_add_7(), "PerLevelStatsMultiplier_DinoTamed_Add[7]")?,
+            parse_form_float(window.get_f_pls_tamed_add_8(), "PerLevelStatsMultiplier_DinoTamed_Add[8]")?,
+            parse_form_float(window.get_f_pls_tamed_add_9(), "PerLevelStatsMultiplier_DinoTamed_Add[9]")?,
+            parse_form_float(window.get_f_pls_tamed_add_10(), "PerLevelStatsMultiplier_DinoTamed_Add[10]")?,
+            parse_form_float(window.get_f_pls_tamed_add_11(), "PerLevelStatsMultiplier_DinoTamed_Add[11]")?,
+        ],
+        pls_tamed_affinity: [
+            parse_form_float(window.get_f_pls_tamed_affinity_0(), "PerLevelStatsMultiplier_DinoTamed_Affinity[0]")?,
+            parse_form_float(window.get_f_pls_tamed_affinity_1(), "PerLevelStatsMultiplier_DinoTamed_Affinity[1]")?,
+            parse_form_float(window.get_f_pls_tamed_affinity_2(), "PerLevelStatsMultiplier_DinoTamed_Affinity[2]")?,
+            parse_form_float(window.get_f_pls_tamed_affinity_3(), "PerLevelStatsMultiplier_DinoTamed_Affinity[3]")?,
+            parse_form_float(window.get_f_pls_tamed_affinity_4(), "PerLevelStatsMultiplier_DinoTamed_Affinity[4]")?,
+            parse_form_float(window.get_f_pls_tamed_affinity_5(), "PerLevelStatsMultiplier_DinoTamed_Affinity[5]")?,
+            parse_form_float(window.get_f_pls_tamed_affinity_6(), "PerLevelStatsMultiplier_DinoTamed_Affinity[6]")?,
+            parse_form_float(window.get_f_pls_tamed_affinity_7(), "PerLevelStatsMultiplier_DinoTamed_Affinity[7]")?,
+            parse_form_float(window.get_f_pls_tamed_affinity_8(), "PerLevelStatsMultiplier_DinoTamed_Affinity[8]")?,
+            parse_form_float(window.get_f_pls_tamed_affinity_9(), "PerLevelStatsMultiplier_DinoTamed_Affinity[9]")?,
+            parse_form_float(window.get_f_pls_tamed_affinity_10(), "PerLevelStatsMultiplier_DinoTamed_Affinity[10]")?,
+            parse_form_float(window.get_f_pls_tamed_affinity_11(), "PerLevelStatsMultiplier_DinoTamed_Affinity[11]")?,
+        ],
+        pls_wild: [
+            parse_form_float(window.get_f_pls_wild_0(), "PerLevelStatsMultiplier_DinoWild[0]")?,
+            parse_form_float(window.get_f_pls_wild_1(), "PerLevelStatsMultiplier_DinoWild[1]")?,
+            parse_form_float(window.get_f_pls_wild_2(), "PerLevelStatsMultiplier_DinoWild[2]")?,
+            parse_form_float(window.get_f_pls_wild_3(), "PerLevelStatsMultiplier_DinoWild[3]")?,
+            parse_form_float(window.get_f_pls_wild_4(), "PerLevelStatsMultiplier_DinoWild[4]")?,
+            parse_form_float(window.get_f_pls_wild_5(), "PerLevelStatsMultiplier_DinoWild[5]")?,
+            parse_form_float(window.get_f_pls_wild_6(), "PerLevelStatsMultiplier_DinoWild[6]")?,
+            parse_form_float(window.get_f_pls_wild_7(), "PerLevelStatsMultiplier_DinoWild[7]")?,
+            parse_form_float(window.get_f_pls_wild_8(), "PerLevelStatsMultiplier_DinoWild[8]")?,
+            parse_form_float(window.get_f_pls_wild_9(), "PerLevelStatsMultiplier_DinoWild[9]")?,
+            parse_form_float(window.get_f_pls_wild_10(), "PerLevelStatsMultiplier_DinoWild[10]")?,
+            parse_form_float(window.get_f_pls_wild_11(), "PerLevelStatsMultiplier_DinoWild[11]")?,
+        ],
+        pls_base: [
+            parse_form_float(window.get_f_pls_base_0(), "PlayerBaseStatMultipliers[0]")?,
+            parse_form_float(window.get_f_pls_base_1(), "PlayerBaseStatMultipliers[1]")?,
+            parse_form_float(window.get_f_pls_base_2(), "PlayerBaseStatMultipliers[2]")?,
+            parse_form_float(window.get_f_pls_base_3(), "PlayerBaseStatMultipliers[3]")?,
+            parse_form_float(window.get_f_pls_base_4(), "PlayerBaseStatMultipliers[4]")?,
+            parse_form_float(window.get_f_pls_base_5(), "PlayerBaseStatMultipliers[5]")?,
+            parse_form_float(window.get_f_pls_base_6(), "PlayerBaseStatMultipliers[6]")?,
+            parse_form_float(window.get_f_pls_base_7(), "PlayerBaseStatMultipliers[7]")?,
+            parse_form_float(window.get_f_pls_base_8(), "PlayerBaseStatMultipliers[8]")?,
+            parse_form_float(window.get_f_pls_base_9(), "PlayerBaseStatMultipliers[9]")?,
+            parse_form_float(window.get_f_pls_base_10(), "PlayerBaseStatMultipliers[10]")?,
+            parse_form_float(window.get_f_pls_base_11(), "PlayerBaseStatMultipliers[11]")?,
+        ],
     })
 }
 
@@ -1873,6 +2048,16 @@ fn write_world_form(install_root: &Path, v: &WorldFormValues) -> Result<()> {
     game.set_poop_interval_multiplier(v.poop_interval_multiplier);
     game.set_fuel_consumption_interval_multiplier(v.fuel_consumption_interval_multiplier);
     game.set_max_fall_speed_multiplier(v.max_fall_speed_multiplier);
+
+    // Phase 8e — Stat arrays → Game.ini
+    for i in 0..12 {
+        game.set_per_level_stats_multiplier_player(i as u8, v.pls_player[i]);
+        game.set_per_level_stats_multiplier_dino_tamed(i as u8, v.pls_tamed[i]);
+        game.set_per_level_stats_multiplier_dino_tamed_add(i as u8, v.pls_tamed_add[i]);
+        game.set_per_level_stats_multiplier_dino_tamed_affinity(i as u8, v.pls_tamed_affinity[i]);
+        game.set_per_level_stats_multiplier_dino_wild(i as u8, v.pls_wild[i]);
+        game.set_player_base_stat_multipliers(i as u8, v.pls_base[i]);
+    }
 
     game.save()?;
     gus.save()?;
@@ -2111,6 +2296,79 @@ fn import_world_settings(window: &WorldSettingsWindow, source_path: &Path) -> Re
     if let Some(v) = g(game_config::GameSettings::max_fall_speed_multiplier) {
         window.set_f_max_fall_speed_multiplier(fmt_float_for_form(v));
     }
+    // Phase 8e — Stat arrays
+    if let Some(x) = game.per_level_stats_multiplier_player(0) { window.set_f_pls_player_0(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_player(1) { window.set_f_pls_player_1(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_player(2) { window.set_f_pls_player_2(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_player(3) { window.set_f_pls_player_3(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_player(4) { window.set_f_pls_player_4(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_player(5) { window.set_f_pls_player_5(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_player(6) { window.set_f_pls_player_6(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_player(7) { window.set_f_pls_player_7(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_player(8) { window.set_f_pls_player_8(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_player(9) { window.set_f_pls_player_9(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_player(10) { window.set_f_pls_player_10(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_player(11) { window.set_f_pls_player_11(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed(0) { window.set_f_pls_tamed_0(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed(1) { window.set_f_pls_tamed_1(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed(2) { window.set_f_pls_tamed_2(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed(3) { window.set_f_pls_tamed_3(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed(4) { window.set_f_pls_tamed_4(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed(5) { window.set_f_pls_tamed_5(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed(6) { window.set_f_pls_tamed_6(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed(7) { window.set_f_pls_tamed_7(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed(8) { window.set_f_pls_tamed_8(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed(9) { window.set_f_pls_tamed_9(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed(10) { window.set_f_pls_tamed_10(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed(11) { window.set_f_pls_tamed_11(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_add(0) { window.set_f_pls_tamed_add_0(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_add(1) { window.set_f_pls_tamed_add_1(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_add(2) { window.set_f_pls_tamed_add_2(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_add(3) { window.set_f_pls_tamed_add_3(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_add(4) { window.set_f_pls_tamed_add_4(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_add(5) { window.set_f_pls_tamed_add_5(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_add(6) { window.set_f_pls_tamed_add_6(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_add(7) { window.set_f_pls_tamed_add_7(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_add(8) { window.set_f_pls_tamed_add_8(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_add(9) { window.set_f_pls_tamed_add_9(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_add(10) { window.set_f_pls_tamed_add_10(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_add(11) { window.set_f_pls_tamed_add_11(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_affinity(0) { window.set_f_pls_tamed_affinity_0(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_affinity(1) { window.set_f_pls_tamed_affinity_1(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_affinity(2) { window.set_f_pls_tamed_affinity_2(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_affinity(3) { window.set_f_pls_tamed_affinity_3(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_affinity(4) { window.set_f_pls_tamed_affinity_4(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_affinity(5) { window.set_f_pls_tamed_affinity_5(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_affinity(6) { window.set_f_pls_tamed_affinity_6(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_affinity(7) { window.set_f_pls_tamed_affinity_7(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_affinity(8) { window.set_f_pls_tamed_affinity_8(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_affinity(9) { window.set_f_pls_tamed_affinity_9(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_affinity(10) { window.set_f_pls_tamed_affinity_10(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_tamed_affinity(11) { window.set_f_pls_tamed_affinity_11(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_wild(0) { window.set_f_pls_wild_0(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_wild(1) { window.set_f_pls_wild_1(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_wild(2) { window.set_f_pls_wild_2(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_wild(3) { window.set_f_pls_wild_3(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_wild(4) { window.set_f_pls_wild_4(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_wild(5) { window.set_f_pls_wild_5(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_wild(6) { window.set_f_pls_wild_6(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_wild(7) { window.set_f_pls_wild_7(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_wild(8) { window.set_f_pls_wild_8(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_wild(9) { window.set_f_pls_wild_9(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_wild(10) { window.set_f_pls_wild_10(fmt_float_for_form(x)); }
+    if let Some(x) = game.per_level_stats_multiplier_dino_wild(11) { window.set_f_pls_wild_11(fmt_float_for_form(x)); }
+    if let Some(x) = game.player_base_stat_multipliers(0) { window.set_f_pls_base_0(fmt_float_for_form(x)); }
+    if let Some(x) = game.player_base_stat_multipliers(1) { window.set_f_pls_base_1(fmt_float_for_form(x)); }
+    if let Some(x) = game.player_base_stat_multipliers(2) { window.set_f_pls_base_2(fmt_float_for_form(x)); }
+    if let Some(x) = game.player_base_stat_multipliers(3) { window.set_f_pls_base_3(fmt_float_for_form(x)); }
+    if let Some(x) = game.player_base_stat_multipliers(4) { window.set_f_pls_base_4(fmt_float_for_form(x)); }
+    if let Some(x) = game.player_base_stat_multipliers(5) { window.set_f_pls_base_5(fmt_float_for_form(x)); }
+    if let Some(x) = game.player_base_stat_multipliers(6) { window.set_f_pls_base_6(fmt_float_for_form(x)); }
+    if let Some(x) = game.player_base_stat_multipliers(7) { window.set_f_pls_base_7(fmt_float_for_form(x)); }
+    if let Some(x) = game.player_base_stat_multipliers(8) { window.set_f_pls_base_8(fmt_float_for_form(x)); }
+    if let Some(x) = game.player_base_stat_multipliers(9) { window.set_f_pls_base_9(fmt_float_for_form(x)); }
+    if let Some(x) = game.player_base_stat_multipliers(10) { window.set_f_pls_base_10(fmt_float_for_form(x)); }
+    if let Some(x) = game.player_base_stat_multipliers(11) { window.set_f_pls_base_11(fmt_float_for_form(x)); }
     Ok(())
 }
 

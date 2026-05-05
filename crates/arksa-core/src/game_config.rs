@@ -292,7 +292,76 @@ impl GameSettings {
         set_max_fall_speed_multiplier,
         "MaxFallSpeedMultiplier"
     );
+
+    // ── Stat arrays (Phase 8e) ───────────────────────────────────────
+    //
+    // Six 12-element float arrays. Indices map to:
+    //   0=Health 1=Stamina 2=Torpidity 3=Oxygen 4=Food 5=Water
+    //   6=Temperature 7=Weight 8=MeleeDamage 9=Speed 10=Fortitude
+    //   11=CraftingSpeed
+    //
+    // ARK encodes each element as `Key[index]=value` in the same section.
+    // We expose them via indexed accessors rather than 72 individual macro
+    // expansions to keep the surface area sane.
+
+    pub fn per_level_stats_multiplier_player(&self, idx: u8) -> Option<f64> {
+        self.doc.get_f64(SECTION_GAME_MODE, &format!("PerLevelStatsMultiplier_Player[{idx}]"))
+    }
+    pub fn set_per_level_stats_multiplier_player(&mut self, idx: u8, v: f64) {
+        self.doc.set_f64(SECTION_GAME_MODE, &format!("PerLevelStatsMultiplier_Player[{idx}]"), v);
+    }
+
+    pub fn per_level_stats_multiplier_dino_tamed(&self, idx: u8) -> Option<f64> {
+        self.doc.get_f64(SECTION_GAME_MODE, &format!("PerLevelStatsMultiplier_DinoTamed[{idx}]"))
+    }
+    pub fn set_per_level_stats_multiplier_dino_tamed(&mut self, idx: u8, v: f64) {
+        self.doc.set_f64(SECTION_GAME_MODE, &format!("PerLevelStatsMultiplier_DinoTamed[{idx}]"), v);
+    }
+
+    pub fn per_level_stats_multiplier_dino_tamed_add(&self, idx: u8) -> Option<f64> {
+        self.doc.get_f64(SECTION_GAME_MODE, &format!("PerLevelStatsMultiplier_DinoTamed_Add[{idx}]"))
+    }
+    pub fn set_per_level_stats_multiplier_dino_tamed_add(&mut self, idx: u8, v: f64) {
+        self.doc.set_f64(SECTION_GAME_MODE, &format!("PerLevelStatsMultiplier_DinoTamed_Add[{idx}]"), v);
+    }
+
+    pub fn per_level_stats_multiplier_dino_tamed_affinity(&self, idx: u8) -> Option<f64> {
+        self.doc.get_f64(SECTION_GAME_MODE, &format!("PerLevelStatsMultiplier_DinoTamed_Affinity[{idx}]"))
+    }
+    pub fn set_per_level_stats_multiplier_dino_tamed_affinity(&mut self, idx: u8, v: f64) {
+        self.doc.set_f64(SECTION_GAME_MODE, &format!("PerLevelStatsMultiplier_DinoTamed_Affinity[{idx}]"), v);
+    }
+
+    pub fn per_level_stats_multiplier_dino_wild(&self, idx: u8) -> Option<f64> {
+        self.doc.get_f64(SECTION_GAME_MODE, &format!("PerLevelStatsMultiplier_DinoWild[{idx}]"))
+    }
+    pub fn set_per_level_stats_multiplier_dino_wild(&mut self, idx: u8, v: f64) {
+        self.doc.set_f64(SECTION_GAME_MODE, &format!("PerLevelStatsMultiplier_DinoWild[{idx}]"), v);
+    }
+
+    pub fn player_base_stat_multipliers(&self, idx: u8) -> Option<f64> {
+        self.doc.get_f64(SECTION_GAME_MODE, &format!("PlayerBaseStatMultipliers[{idx}]"))
+    }
+    pub fn set_player_base_stat_multipliers(&mut self, idx: u8, v: f64) {
+        self.doc.set_f64(SECTION_GAME_MODE, &format!("PlayerBaseStatMultipliers[{idx}]"), v);
+    }
 }
+
+/// Stat-index labels matching ARK's `PerLevelStatsMultiplier_*[i]` ordering.
+pub const STAT_NAMES: [&str; 12] = [
+    "Health",
+    "Stamina",
+    "Torpidity",
+    "Oxygen",
+    "Food",
+    "Water",
+    "Temperature",
+    "Weight",
+    "MeleeDamage",
+    "Speed",
+    "Fortitude",
+    "CraftingSpeed",
+];
 
 #[cfg(test)]
 mod tests {

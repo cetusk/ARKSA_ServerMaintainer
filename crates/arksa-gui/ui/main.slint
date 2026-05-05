@@ -427,6 +427,82 @@ export component WorldSettingsWindow inherits Window {
     in-out property <string> f_fuel_consumption_interval_multiplier: "1.0";
     in-out property <string> f_max_fall_speed_multiplier: "1.0";
 
+    // Phase 8e — Stat arrays (PerLevelStatsMultiplier_* + PlayerBaseStatMultipliers)
+    // Indices: 0=Health 1=Stamina 2=Torpidity 3=Oxygen 4=Food 5=Water
+    //          6=Temperature 7=Weight 8=MeleeDamage 9=Speed 10=Fortitude 11=CraftingSpeed
+    in-out property <string> f_pls_player_0: "1.0";
+    in-out property <string> f_pls_player_1: "1.0";
+    in-out property <string> f_pls_player_2: "1.0";
+    in-out property <string> f_pls_player_3: "1.0";
+    in-out property <string> f_pls_player_4: "1.0";
+    in-out property <string> f_pls_player_5: "1.0";
+    in-out property <string> f_pls_player_6: "1.0";
+    in-out property <string> f_pls_player_7: "1.0";
+    in-out property <string> f_pls_player_8: "1.0";
+    in-out property <string> f_pls_player_9: "1.0";
+    in-out property <string> f_pls_player_10: "1.0";
+    in-out property <string> f_pls_player_11: "1.0";
+    in-out property <string> f_pls_tamed_0: "1.0";
+    in-out property <string> f_pls_tamed_1: "1.0";
+    in-out property <string> f_pls_tamed_2: "1.0";
+    in-out property <string> f_pls_tamed_3: "1.0";
+    in-out property <string> f_pls_tamed_4: "1.0";
+    in-out property <string> f_pls_tamed_5: "1.0";
+    in-out property <string> f_pls_tamed_6: "1.0";
+    in-out property <string> f_pls_tamed_7: "1.0";
+    in-out property <string> f_pls_tamed_8: "1.0";
+    in-out property <string> f_pls_tamed_9: "1.0";
+    in-out property <string> f_pls_tamed_10: "1.0";
+    in-out property <string> f_pls_tamed_11: "1.0";
+    in-out property <string> f_pls_tamed_add_0: "1.0";
+    in-out property <string> f_pls_tamed_add_1: "1.0";
+    in-out property <string> f_pls_tamed_add_2: "1.0";
+    in-out property <string> f_pls_tamed_add_3: "1.0";
+    in-out property <string> f_pls_tamed_add_4: "1.0";
+    in-out property <string> f_pls_tamed_add_5: "1.0";
+    in-out property <string> f_pls_tamed_add_6: "1.0";
+    in-out property <string> f_pls_tamed_add_7: "1.0";
+    in-out property <string> f_pls_tamed_add_8: "1.0";
+    in-out property <string> f_pls_tamed_add_9: "1.0";
+    in-out property <string> f_pls_tamed_add_10: "1.0";
+    in-out property <string> f_pls_tamed_add_11: "1.0";
+    in-out property <string> f_pls_tamed_affinity_0: "1.0";
+    in-out property <string> f_pls_tamed_affinity_1: "1.0";
+    in-out property <string> f_pls_tamed_affinity_2: "1.0";
+    in-out property <string> f_pls_tamed_affinity_3: "1.0";
+    in-out property <string> f_pls_tamed_affinity_4: "1.0";
+    in-out property <string> f_pls_tamed_affinity_5: "1.0";
+    in-out property <string> f_pls_tamed_affinity_6: "1.0";
+    in-out property <string> f_pls_tamed_affinity_7: "1.0";
+    in-out property <string> f_pls_tamed_affinity_8: "1.0";
+    in-out property <string> f_pls_tamed_affinity_9: "1.0";
+    in-out property <string> f_pls_tamed_affinity_10: "1.0";
+    in-out property <string> f_pls_tamed_affinity_11: "1.0";
+    in-out property <string> f_pls_wild_0: "1.0";
+    in-out property <string> f_pls_wild_1: "1.0";
+    in-out property <string> f_pls_wild_2: "1.0";
+    in-out property <string> f_pls_wild_3: "1.0";
+    in-out property <string> f_pls_wild_4: "1.0";
+    in-out property <string> f_pls_wild_5: "1.0";
+    in-out property <string> f_pls_wild_6: "1.0";
+    in-out property <string> f_pls_wild_7: "1.0";
+    in-out property <string> f_pls_wild_8: "1.0";
+    in-out property <string> f_pls_wild_9: "1.0";
+    in-out property <string> f_pls_wild_10: "1.0";
+    in-out property <string> f_pls_wild_11: "1.0";
+    in-out property <string> f_pls_base_0: "1.0";
+    in-out property <string> f_pls_base_1: "1.0";
+    in-out property <string> f_pls_base_2: "1.0";
+    in-out property <string> f_pls_base_3: "1.0";
+    in-out property <string> f_pls_base_4: "1.0";
+    in-out property <string> f_pls_base_5: "1.0";
+    in-out property <string> f_pls_base_6: "1.0";
+    in-out property <string> f_pls_base_7: "1.0";
+    in-out property <string> f_pls_base_8: "1.0";
+    in-out property <string> f_pls_base_9: "1.0";
+    in-out property <string> f_pls_base_10: "1.0";
+    in-out property <string> f_pls_base_11: "1.0";
+
     callback import-clicked();
     callback reset-clicked();
     callback save-clicked();
@@ -623,6 +699,130 @@ export component WorldSettingsWindow inherits Window {
                         WorldFloatRow { label: "PoopIntervalMultiplier";                        value <=> root.f_poop_interval_multiplier; }
                         WorldFloatRow { label: "FuelConsumptionIntervalMultiplier";             value <=> root.f_fuel_consumption_interval_multiplier; }
                         WorldFloatRow { label: "MaxFallSpeedMultiplier";                        value <=> root.f_max_fall_speed_multiplier; }
+                    }
+                }
+            }
+
+            Tab {
+                title: root.labels.world_tab_stats;
+                ScrollView {
+                    VerticalBox {
+                        padding: 8px;
+                        spacing: 6px;
+                        GroupBox {
+                            title: "PerLevelStatsMultiplier_Player[i]";
+                            VerticalBox {
+                                padding: 4px;
+                                spacing: 2px;
+                                WorldFloatRow { label: "[0] Health";           value <=> root.f_pls_player_0; }
+                                WorldFloatRow { label: "[1] Stamina";          value <=> root.f_pls_player_1; }
+                                WorldFloatRow { label: "[2] Torpidity";        value <=> root.f_pls_player_2; }
+                                WorldFloatRow { label: "[3] Oxygen";           value <=> root.f_pls_player_3; }
+                                WorldFloatRow { label: "[4] Food";             value <=> root.f_pls_player_4; }
+                                WorldFloatRow { label: "[5] Water";            value <=> root.f_pls_player_5; }
+                                WorldFloatRow { label: "[6] Temperature";      value <=> root.f_pls_player_6; }
+                                WorldFloatRow { label: "[7] Weight";           value <=> root.f_pls_player_7; }
+                                WorldFloatRow { label: "[8] MeleeDamage";      value <=> root.f_pls_player_8; }
+                                WorldFloatRow { label: "[9] Speed";            value <=> root.f_pls_player_9; }
+                                WorldFloatRow { label: "[10] Fortitude";       value <=> root.f_pls_player_10; }
+                                WorldFloatRow { label: "[11] CraftingSpeed";   value <=> root.f_pls_player_11; }
+                            }
+                        }
+                        GroupBox {
+                            title: "PerLevelStatsMultiplier_DinoTamed[i]";
+                            VerticalBox {
+                                padding: 4px;
+                                spacing: 2px;
+                                WorldFloatRow { label: "[0] Health";           value <=> root.f_pls_tamed_0; }
+                                WorldFloatRow { label: "[1] Stamina";          value <=> root.f_pls_tamed_1; }
+                                WorldFloatRow { label: "[2] Torpidity";        value <=> root.f_pls_tamed_2; }
+                                WorldFloatRow { label: "[3] Oxygen";           value <=> root.f_pls_tamed_3; }
+                                WorldFloatRow { label: "[4] Food";             value <=> root.f_pls_tamed_4; }
+                                WorldFloatRow { label: "[5] Water";            value <=> root.f_pls_tamed_5; }
+                                WorldFloatRow { label: "[6] Temperature";      value <=> root.f_pls_tamed_6; }
+                                WorldFloatRow { label: "[7] Weight";           value <=> root.f_pls_tamed_7; }
+                                WorldFloatRow { label: "[8] MeleeDamage";      value <=> root.f_pls_tamed_8; }
+                                WorldFloatRow { label: "[9] Speed";            value <=> root.f_pls_tamed_9; }
+                                WorldFloatRow { label: "[10] Fortitude";       value <=> root.f_pls_tamed_10; }
+                                WorldFloatRow { label: "[11] CraftingSpeed";   value <=> root.f_pls_tamed_11; }
+                            }
+                        }
+                        GroupBox {
+                            title: "PerLevelStatsMultiplier_DinoTamed_Add[i]";
+                            VerticalBox {
+                                padding: 4px;
+                                spacing: 2px;
+                                WorldFloatRow { label: "[0] Health";           value <=> root.f_pls_tamed_add_0; }
+                                WorldFloatRow { label: "[1] Stamina";          value <=> root.f_pls_tamed_add_1; }
+                                WorldFloatRow { label: "[2] Torpidity";        value <=> root.f_pls_tamed_add_2; }
+                                WorldFloatRow { label: "[3] Oxygen";           value <=> root.f_pls_tamed_add_3; }
+                                WorldFloatRow { label: "[4] Food";             value <=> root.f_pls_tamed_add_4; }
+                                WorldFloatRow { label: "[5] Water";            value <=> root.f_pls_tamed_add_5; }
+                                WorldFloatRow { label: "[6] Temperature";      value <=> root.f_pls_tamed_add_6; }
+                                WorldFloatRow { label: "[7] Weight";           value <=> root.f_pls_tamed_add_7; }
+                                WorldFloatRow { label: "[8] MeleeDamage";      value <=> root.f_pls_tamed_add_8; }
+                                WorldFloatRow { label: "[9] Speed";            value <=> root.f_pls_tamed_add_9; }
+                                WorldFloatRow { label: "[10] Fortitude";       value <=> root.f_pls_tamed_add_10; }
+                                WorldFloatRow { label: "[11] CraftingSpeed";   value <=> root.f_pls_tamed_add_11; }
+                            }
+                        }
+                        GroupBox {
+                            title: "PerLevelStatsMultiplier_DinoTamed_Affinity[i]";
+                            VerticalBox {
+                                padding: 4px;
+                                spacing: 2px;
+                                WorldFloatRow { label: "[0] Health";           value <=> root.f_pls_tamed_affinity_0; }
+                                WorldFloatRow { label: "[1] Stamina";          value <=> root.f_pls_tamed_affinity_1; }
+                                WorldFloatRow { label: "[2] Torpidity";        value <=> root.f_pls_tamed_affinity_2; }
+                                WorldFloatRow { label: "[3] Oxygen";           value <=> root.f_pls_tamed_affinity_3; }
+                                WorldFloatRow { label: "[4] Food";             value <=> root.f_pls_tamed_affinity_4; }
+                                WorldFloatRow { label: "[5] Water";            value <=> root.f_pls_tamed_affinity_5; }
+                                WorldFloatRow { label: "[6] Temperature";      value <=> root.f_pls_tamed_affinity_6; }
+                                WorldFloatRow { label: "[7] Weight";           value <=> root.f_pls_tamed_affinity_7; }
+                                WorldFloatRow { label: "[8] MeleeDamage";      value <=> root.f_pls_tamed_affinity_8; }
+                                WorldFloatRow { label: "[9] Speed";            value <=> root.f_pls_tamed_affinity_9; }
+                                WorldFloatRow { label: "[10] Fortitude";       value <=> root.f_pls_tamed_affinity_10; }
+                                WorldFloatRow { label: "[11] CraftingSpeed";   value <=> root.f_pls_tamed_affinity_11; }
+                            }
+                        }
+                        GroupBox {
+                            title: "PerLevelStatsMultiplier_DinoWild[i]";
+                            VerticalBox {
+                                padding: 4px;
+                                spacing: 2px;
+                                WorldFloatRow { label: "[0] Health";           value <=> root.f_pls_wild_0; }
+                                WorldFloatRow { label: "[1] Stamina";          value <=> root.f_pls_wild_1; }
+                                WorldFloatRow { label: "[2] Torpidity";        value <=> root.f_pls_wild_2; }
+                                WorldFloatRow { label: "[3] Oxygen";           value <=> root.f_pls_wild_3; }
+                                WorldFloatRow { label: "[4] Food";             value <=> root.f_pls_wild_4; }
+                                WorldFloatRow { label: "[5] Water";            value <=> root.f_pls_wild_5; }
+                                WorldFloatRow { label: "[6] Temperature";      value <=> root.f_pls_wild_6; }
+                                WorldFloatRow { label: "[7] Weight";           value <=> root.f_pls_wild_7; }
+                                WorldFloatRow { label: "[8] MeleeDamage";      value <=> root.f_pls_wild_8; }
+                                WorldFloatRow { label: "[9] Speed";            value <=> root.f_pls_wild_9; }
+                                WorldFloatRow { label: "[10] Fortitude";       value <=> root.f_pls_wild_10; }
+                                WorldFloatRow { label: "[11] CraftingSpeed";   value <=> root.f_pls_wild_11; }
+                            }
+                        }
+                        GroupBox {
+                            title: "PlayerBaseStatMultipliers[i]";
+                            VerticalBox {
+                                padding: 4px;
+                                spacing: 2px;
+                                WorldFloatRow { label: "[0] Health";           value <=> root.f_pls_base_0; }
+                                WorldFloatRow { label: "[1] Stamina";          value <=> root.f_pls_base_1; }
+                                WorldFloatRow { label: "[2] Torpidity";        value <=> root.f_pls_base_2; }
+                                WorldFloatRow { label: "[3] Oxygen";           value <=> root.f_pls_base_3; }
+                                WorldFloatRow { label: "[4] Food";             value <=> root.f_pls_base_4; }
+                                WorldFloatRow { label: "[5] Water";            value <=> root.f_pls_base_5; }
+                                WorldFloatRow { label: "[6] Temperature";      value <=> root.f_pls_base_6; }
+                                WorldFloatRow { label: "[7] Weight";           value <=> root.f_pls_base_7; }
+                                WorldFloatRow { label: "[8] MeleeDamage";      value <=> root.f_pls_base_8; }
+                                WorldFloatRow { label: "[9] Speed";            value <=> root.f_pls_base_9; }
+                                WorldFloatRow { label: "[10] Fortitude";       value <=> root.f_pls_base_10; }
+                                WorldFloatRow { label: "[11] CraftingSpeed";   value <=> root.f_pls_base_11; }
+                            }
+                        }
                     }
                 }
             }
