@@ -965,6 +965,8 @@ struct Labels {
     world_btn_save: String,
     world_btn_cancel: String,
     world_hint: String,
+    world_col_param: String,
+    world_col_value: String,
 }
 
 impl Labels {
@@ -1057,6 +1059,8 @@ impl Labels {
                 "Edits Game.ini and GameUserSettings.ini for the current profile. \
                  ARK only re-reads these at server start, so changes take effect on next launch."
                     .into(),
+            world_col_param: "Parameter".into(),
+            world_col_value: "Value".into(),
         }
     }
 
@@ -1150,6 +1154,8 @@ impl Labels {
                 "現在のプロファイルの Game.ini と GameUserSettings.ini を編集します。\
                  ARK は起動時にしかこれらを読み込まないため、変更は次回 Start から反映されます。"
                     .into(),
+            world_col_param: "パラメーター".into(),
+            world_col_value: "値".into(),
         }
     }
 
@@ -1256,6 +1262,8 @@ impl Labels {
             world_btn_save: self.world_btn_save.as_str().into(),
             world_btn_cancel: self.world_btn_cancel.as_str().into(),
             world_hint: self.world_hint.as_str().into(),
+            world_col_param: self.world_col_param.as_str().into(),
+            world_col_value: self.world_col_value.as_str().into(),
         }
     }
 }

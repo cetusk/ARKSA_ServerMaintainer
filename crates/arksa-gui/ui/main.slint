@@ -164,6 +164,8 @@ export struct UiLabels {
     world_btn_save: string,
     world_btn_cancel: string,
     world_hint: string,
+    world_col_param: string,
+    world_col_value: string,
 }
 
 // ─── Main window ───────────────────────────────────────────────────────────
@@ -474,9 +476,10 @@ component LabelCell inherits Rectangle {
 
     // Wide enough for ~95% of ARK SA parameter names without truncation.
     // The longest realistic key is ~45 chars (e.g.
-    // "BabyCuddleLoseImprintQualitySpeedMultiplier"), which still fits
-    // here at the default font size.
-    width: 360px;
+    // "BabyCuddleLoseImprintQualitySpeedMultiplier"); a touch wider than
+    // strictly needed so labels with the trailing "(int)" / "(string)"
+    // hint don't wrap.
+    width: 340px;
     background: ta.has-hover && root.description != ""
         ? AppTheme.accent-soft
         : transparent;
@@ -568,9 +571,14 @@ component WorldFloatRow inherits HorizontalBox {
     }
     LineEdit {
         text <=> root.value;
-        horizontal-stretch: 1;
+        // Fixed width keeps the input next to the label instead of
+        // stretching all the way to the right edge of the window.
+        width: 180px;
         input-type: text;
     }
+    // Spacer so the row's right side has empty space rather than
+    // pulling the LineEdit to the far edge.
+    Rectangle { horizontal-stretch: 1; }
 }
 
 component WorldBoolRow inherits HorizontalBox {
@@ -586,8 +594,8 @@ component WorldBoolRow inherits HorizontalBox {
     }
     CheckBox {
         checked <=> root.value;
-        horizontal-stretch: 1;
     }
+    Rectangle { horizontal-stretch: 1; }
 }
 
 /// Sidebar entry for the World Settings dialog. Highlights itself in the
@@ -937,7 +945,10 @@ export component WorldSettingsWindow inherits Window {
 
             // Left: category sidebar
             Rectangle {
-                width: 200px;
+                // Just wide enough for the longest localized category name
+                // ("Difficulty / structure" / "難易度・建造物") with a bit of
+                // breathing room. Was 200 px previously.
+                width: 170px;
                 background: Palette.alternate-background;
                 ScrollView {
                     VerticalBox {
@@ -969,6 +980,44 @@ export component WorldSettingsWindow inherits Window {
                 horizontal-stretch: 1;
                 padding: 0;
                 spacing: 0;
+
+            // Column headers — same widths as the LabelCell + LineEdit
+            // pair below so each column header lines up over its values.
+            // Hidden for the Launch flags category (16) which has a
+            // different (free-form text) layout.
+            if root.current-category != 16: HorizontalBox {
+                spacing: 8px;
+                padding: 8px;
+                Rectangle {
+                    width: 340px;
+                    height: 22px;
+                    background: AppTheme.header-bg;
+                    border-radius: 3px;
+                    Text {
+                        text: root.labels.world_col_param;
+                        x: 8px;
+                        color: AppTheme.accent;
+                        font-weight: 700;
+                        font-size: 11px;
+                        vertical-alignment: center;
+                    }
+                }
+                Rectangle {
+                    width: 180px;
+                    height: 22px;
+                    background: AppTheme.header-bg;
+                    border-radius: 3px;
+                    Text {
+                        text: root.labels.world_col_value;
+                        x: 8px;
+                        color: AppTheme.accent;
+                        font-weight: 700;
+                        font-size: 11px;
+                        vertical-alignment: center;
+                    }
+                }
+                Rectangle { horizontal-stretch: 1; }
+            }
 
             if root.current-category == 0: Rectangle {
                 background: Palette.background;
