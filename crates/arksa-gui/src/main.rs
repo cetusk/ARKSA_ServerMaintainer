@@ -514,7 +514,7 @@ fn wire_main_callbacks(
                 }
             };
             if let Some(w) = world_weak.upgrade() {
-                populate_world_settings_window(&w, &install_root);
+                populate_world_settings_window(&w, &install_root, Some(&profile_path));
                 w.set_validation_error(SharedString::default());
                 let _ = w.show();
             }
@@ -1340,7 +1340,15 @@ fn fmt_int_for_form(v: i64) -> SharedString {
 /// Apply the values from the two INIs at `install_root` to the form. Missing
 /// keys fall back to ARK's documented vanilla defaults so a brand-new
 /// profile (no Game.ini yet) shows sensible starting values.
-fn populate_world_settings_window(window: &WorldSettingsWindow, install_root: &Path) {
+///
+/// `profile_path` is also consulted to populate the Launch flags tab from
+/// the profile's `MM_Command_Val`. When None the flags textarea is left
+/// empty (Phase 8k entry point).
+fn populate_world_settings_window(
+    window: &WorldSettingsWindow,
+    install_root: &Path,
+    profile_path: Option<&Path>,
+) {
     let game = game_config::GameSettings::load_or_empty(
         game_config::game_ini_path(install_root),
     )
@@ -1633,6 +1641,18 @@ fn populate_world_settings_window(window: &WorldSettingsWindow, install_root: &P
     window.set_f_implant_suicide_cd(ui_2(ark_config::GameUserSettings::implant_suicide_cd, 28800));
     window.set_f_server_auto_force_respawn_wild_dinos_interval(u(ark_config::GameUserSettings::server_auto_force_respawn_wild_dinos_interval, 0.0));
     window.set_f_destroy_tames_over_level_clamp(gi2(game_config::GameSettings::destroy_tames_over_level_clamp, 0));
+
+    // Phase 8k — Launch flags (Profile MM_Command_Val)
+    let flags_text = profile_path
+        .and_then(|p| Profile::load(p).ok())
+        .and_then(|p| p.server_command_line())
+        .map(|cmd| {
+            let (_, flags) = launch_args::split_command_line(&cmd);
+            flags.join("\n")
+        })
+        .unwrap_or_default();
+    window.set_f_launch_flags(flags_text.as_str().into());
+    window.set_f_launch_flags_reference(launch_args::COMMON_LAUNCH_FLAGS.join("  ").into());
 }
 
 /// Reset every form field to ARK's vanilla defaults (mostly 1.0, plus the
@@ -1820,6 +1840,10 @@ fn reset_world_settings_window(window: &WorldSettingsWindow) {
     window.set_f_implant_suicide_cd(SharedString::from("28800"));
     window.set_f_server_auto_force_respawn_wild_dinos_interval(SharedString::from("0.0"));
     window.set_f_destroy_tames_over_level_clamp(zero);
+
+    // Phase 8k — Launch flags (default to common starting set)
+    window.set_f_launch_flags(SharedString::from("-log\n-NoBattlEye"));
+    window.set_f_launch_flags_reference(launch_args::COMMON_LAUNCH_FLAGS.join("  ").into());
 }
 
 /// Read all form fields, parse floats, return per-file struct values or a
@@ -2016,6 +2040,9 @@ struct WorldFormValues {
     implant_suicide_cd: i64,
     server_auto_force_respawn_wild_dinos_interval: f64,
     destroy_tames_over_level_clamp: i64,
+
+    // Phase 8k — Launch flags (saved into Profile MM_Command_Val)
+    launch_flags: String,
 }
 
 fn parse_form_float(value: SharedString, label: &str) -> Result<f64, String> {
@@ -2295,13 +2322,21 @@ fn collect_world_form(window: &WorldSettingsWindow) -> Result<WorldFormValues, S
         implant_suicide_cd: parse_form_int(window.get_f_implant_suicide_cd(), "ImplantSuicideCD")?,
         server_auto_force_respawn_wild_dinos_interval: parse_form_float(window.get_f_server_auto_force_respawn_wild_dinos_interval(), "ServerAutoForceRespawnWildDinosInterval")?,
         destroy_tames_over_level_clamp: parse_form_int(window.get_f_destroy_tames_over_level_clamp(), "DestroyTamesOverLevelClamp")?,
+        launch_flags: window.get_f_launch_flags().as_str().to_string(),
     })
 }
 
 /// Apply parsed form values to the install root's two INIs, preserving every
 /// other key that already lived there. Phase 8b corrected the routing:
 /// the bulk of multipliers now save to GameUserSettings.ini [ServerSettings].
-fn write_world_form(install_root: &Path, v: &WorldFormValues) -> Result<()> {
+///
+/// `profile_path` is also rewritten when `Some` so the Launch flags tab
+/// (Phase 8k) survives the round trip.
+fn write_world_form(
+    install_root: &Path,
+    v: &WorldFormValues,
+    profile_path: Option<&Path>,
+) -> Result<()> {
     let mut game = game_config::GameSettings::load_or_empty(
         game_config::game_ini_path(install_root),
     )?;
@@ -2500,6 +2535,20 @@ fn write_world_form(install_root: &Path, v: &WorldFormValues) -> Result<()> {
 
     game.save()?;
     gus.save()?;
+
+    // Phase 8k — Launch flags → Profile MM_Command_Val (replace flag portion).
+    if let Some(pp) = profile_path {
+        if let Ok(mut profile) = Profile::load(pp) {
+            let current = profile.server_command_line().unwrap_or_default();
+            let (head, _old_flags) = launch_args::split_command_line(&current);
+            let new_flags: Vec<String> = launch_args::parse_extra_flags(&v.launch_flags);
+            let rebuilt = launch_args::join_command_line(&head, &new_flags);
+            profile.set_server_command_line(&rebuilt);
+            profile.save()?;
+            let _ = pp; // path is captured by Profile::load above
+        }
+    }
+
     Ok(())
 }
 
@@ -3025,7 +3074,7 @@ fn wire_world_settings_callbacks(
                 Err(msg) => {
                     window.set_validation_error(SharedString::from(msg.as_str()));
                 }
-                Ok(values) => match write_world_form(&install_root, &values) {
+                Ok(values) => match write_world_form(&install_root, &values, Some(&profile_path)) {
                     Ok(()) => {
                         push_log_async(
                             &main_weak,

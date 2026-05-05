@@ -590,6 +590,10 @@ export component WorldSettingsWindow inherits Window {
     in-out property <string> f_server_auto_force_respawn_wild_dinos_interval: "0.0";
     in-out property <string> f_destroy_tames_over_level_clamp: "0";
 
+    // Phase 8k — Launch flags (saved into Profile MM_Command_Val)
+    in-out property <string> f_launch_flags: "";
+    in property <string> f_launch_flags_reference: "";
+
     callback import-clicked();
     callback reset-clicked();
     callback save-clicked();
@@ -1086,6 +1090,34 @@ export component WorldSettingsWindow inherits Window {
                         WorldFloatRow { label: "ImplantSuicideCD (sec)";                        value <=> root.f_implant_suicide_cd; }
                         WorldFloatRow { label: "ServerAutoForceRespawnWildDinosInterval";       value <=> root.f_server_auto_force_respawn_wild_dinos_interval; }
                         WorldFloatRow { label: "DestroyTamesOverLevelClamp (Game.ini, int)";    value <=> root.f_destroy_tames_over_level_clamp; }
+                    }
+                }
+            }
+
+            Tab {
+                title: root.labels.world_tab_flags;
+                VerticalBox {
+                    padding: 8px;
+                    spacing: 6px;
+                    Text {
+                        text: "Edits the `-flag` portion of the profile's MM_Command_Val. Each token starts with `-` and is whitespace-separated. The URL portion (map / ports / mods) stays untouched.";
+                        wrap: word-wrap;
+                    }
+                    TextEdit {
+                        text <=> root.f_launch_flags;
+                        wrap: word-wrap;
+                        vertical-stretch: 2;
+                    }
+                    Text {
+                        text: "Common flags reference (click into the field above and copy/paste):";
+                    }
+                    ScrollView {
+                        vertical-stretch: 1;
+                        Text {
+                            text: root.f_launch_flags_reference;
+                            wrap: word-wrap;
+                            font-family: "Consolas, monospace";
+                        }
                     }
                 }
             }

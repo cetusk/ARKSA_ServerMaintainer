@@ -160,6 +160,74 @@ pub fn parse_extra_flags(s: &str) -> Vec<String> {
     s.split_whitespace().map(str::to_string).collect()
 }
 
+/// Split an `MM_Command_Val`-style command line into the URL portion (the
+/// `ArkAscendedServer.exe MapName?listen?...` prefix and any `-mods=...`
+/// argument) and the trailing list of `-flag` tokens.
+///
+/// The URL portion is everything up to the first `-` token that is not
+/// `-mods=`. `-mods=` is part of the URL portion because it carries data, not
+/// behaviour. Everything after that lives in the returned `Vec<String>`.
+pub fn split_command_line(cmd: &str) -> (String, Vec<String>) {
+    let mut head = String::new();
+    let mut flags = Vec::new();
+    let mut iter = cmd.split_whitespace().peekable();
+    while let Some(token) = iter.next() {
+        if token.starts_with('-') && !token.starts_with("-mods=") {
+            flags.push(token.to_string());
+            // Everything else from here on is a flag too.
+            for rest in iter.by_ref() {
+                flags.push(rest.to_string());
+            }
+            break;
+        }
+        if !head.is_empty() {
+            head.push(' ');
+        }
+        head.push_str(token);
+    }
+    (head, flags)
+}
+
+/// Re-assemble `head` (URL portion) and `flags` into a single command line.
+pub fn join_command_line(head: &str, flags: &[String]) -> String {
+    let mut cmd = head.trim().to_string();
+    for flag in flags {
+        let trimmed = flag.trim();
+        if !trimmed.is_empty() {
+            cmd.push(' ');
+            cmd.push_str(trimmed);
+        }
+    }
+    cmd
+}
+
+/// Curated list of common ARK SA launch flags surfaced in the World Settings
+/// dialog so users do not have to memorise them. The order is roughly grouped:
+/// first the ones almost every server uses, then performance/dupe/event
+/// toggles. Editing the underlying text always wins — these are just hints.
+pub const COMMON_LAUNCH_FLAGS: &[&str] = &[
+    "-log",
+    "-NoBattlEye",
+    "-EnableIdlePlayerKick",
+    "-NoTransferFromFiltering",
+    "-AutoDestroyStructures",
+    "-ServerRCONOutputTribeLogs",
+    "-StasisKeepControllers",
+    "-UnstasisDinoObstructionCheck",
+    "-DisableCustomCosmetics",
+    "-RedownloadModsOnServerRestart",
+    "-ForceRespawnDinos",
+    "-ForceAllowCaveFlyers",
+    "-NoWildBabies",
+    "-NoTimeout",
+    "-FixThrallStats",
+    "-AlwaysTickDedicatedSkeletalMeshes",
+    "-disabledinonetrangescaling",
+    "-allowicefox",
+    "-EpicApp=ArkAscended",
+    "-exclusivejoin",
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -266,6 +334,38 @@ mod tests {
         assert!(
             !args.session_name.chars().any(char::is_whitespace),
             "default SessionName contains whitespace; ARK's URL parser will not survive"
+        );
+    }
+
+    #[test]
+    fn split_keeps_url_and_mods_together() {
+        let cmd = "ArkAscendedServer.exe TheIsland_WP?listen?Port=7777 \
+                   -mods=12345,67890 -log -NoBattlEye";
+        let (head, flags) = split_command_line(cmd);
+        assert_eq!(
+            head,
+            "ArkAscendedServer.exe TheIsland_WP?listen?Port=7777 -mods=12345,67890"
+        );
+        assert_eq!(flags, vec!["-log", "-NoBattlEye"]);
+    }
+
+    #[test]
+    fn split_handles_no_flags() {
+        let cmd = "ArkAscendedServer.exe TheIsland_WP?listen?Port=7777";
+        let (head, flags) = split_command_line(cmd);
+        assert_eq!(head, cmd);
+        assert!(flags.is_empty());
+    }
+
+    #[test]
+    fn round_trip_preserves_command() {
+        let cmd = "ArkAscendedServer.exe TheIsland_WP?listen?Port=7777 \
+                   -mods=12345 -log -NoBattlEye";
+        let (head, flags) = split_command_line(cmd);
+        let rebuilt = join_command_line(&head, &flags);
+        assert_eq!(
+            rebuilt,
+            "ArkAscendedServer.exe TheIsland_WP?listen?Port=7777 -mods=12345 -log -NoBattlEye"
         );
     }
 }
