@@ -511,13 +511,17 @@ component LabelCell inherits Rectangle {
 
     popup := PopupWindow {
         x: 0;
-        // Position the popup *above* the label cell with a generous fixed
-        // gap. Earlier we tried `y: -popup_body.height - 4px`, but the
-        // PopupWindow → child cyclic reference evaluates `popup_body.height`
-        // at 0, leaving the popup just 4 px above the label and overlapping
-        // it downward. A fixed -200 px reliably clears the typical 1–4 line
-        // bilingual description (≤ ~150 px tall on a 360 px-wide body).
-        y: -200px;
+        // Position the popup *above* the label cell. We can't reference
+        // `popup_body.height` (PopupWindow → child cycle resolves it to 0)
+        // so we use a fixed offset sized for the typical body height
+        // (~100–140 px on a 360 px-wide bilingual description).
+        //
+        // -140 px lands the popup so the bottom edge sits roughly at the
+        // top of the clicked label for a tall popup, and only one row up
+        // is covered for an average popup — matching the user's "1 行上
+        // が隠れる程度" request. Earlier -200 px left a noticeable gap
+        // above the label.
+        y: -140px;
         close-policy: close-on-click-outside;
         popup_body := Rectangle {
             background: Palette.alternate-background;
