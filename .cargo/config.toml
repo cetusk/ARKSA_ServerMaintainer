@@ -1,0 +1,14 @@
+# Slint generates a lot of static initialiser code per component. With our
+# enlarged WorldSettingsWindow (200+ properties, 11 tabs, 6 GroupBox stat
+# grids) the default 1 MiB Windows main-thread stack overflows during
+# component construction (`STATUS_STACK_OVERFLOW = 0xC00000FD`). Bump the
+# binary stack reservation to 8 MiB on every Windows toolchain we ship for.
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=/STACK:8388608"]
+
+[target.x86_64-pc-windows-gnu]
+rustflags = ["-C", "link-arg=-Wl,--stack,8388608"]
+
+[target.i686-pc-windows-msvc]
+rustflags = ["-C", "link-arg=/STACK:8388608"]
