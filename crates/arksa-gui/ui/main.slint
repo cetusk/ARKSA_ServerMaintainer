@@ -180,7 +180,9 @@ export component MainWindow inherits Window {
             }
         }
 
-        // Profile row
+        // Profile row — pure profile picker + per-profile actions.
+        // Splitting the previous one-row "everything goes here" layout
+        // into two stops the buttons from squashing the ComboBox.
         HorizontalBox {
             spacing: 8px;
             Text { text: root.labels.profile_label; vertical-alignment: center; }
@@ -197,16 +199,22 @@ export component MainWindow inherits Window {
                 clicked => { root.new-profile(); }
             }
             Button {
-                text: root.labels.btn_find;
-                enabled: !root.action-busy;
-                clicked => { root.open-find(); }
-            }
-            Button {
                 text: root.labels.btn_world_settings;
                 // Editing Game.ini / GameUserSettings.ini only makes sense
                 // for a real profile; greyed out otherwise.
                 enabled: !root.action-busy && root.profile-names.length > 0;
                 clicked => { root.open-world-settings(); }
+            }
+        }
+
+        // Tools row — global actions (independent of the picked profile)
+        HorizontalBox {
+            spacing: 8px;
+            alignment: end;
+            Button {
+                text: root.labels.btn_find;
+                enabled: !root.action-busy;
+                clicked => { root.open-find(); }
             }
             Button {
                 text: root.labels.btn_notifications;

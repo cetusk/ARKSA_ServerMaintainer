@@ -23,11 +23,12 @@ anyhow = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
-# Native folder/file picker, used by the Browse… and Import… buttons. Only
-# pulled in on Windows so the rest of the workspace can still be checked on
-# Linux without GTK pkg-config available.
+# Native folder/file picker (Browse…, Import…) and Win32 stderr redirect
+# at startup. Only pulled in on Windows so the rest of the workspace can
+# still be checked on Linux without GTK pkg-config available.
 [target.'cfg(target_os = "windows")'.dependencies]
 rfd = { workspace = true }
+windows = { workspace = true }
 
 [build-dependencies]
 slint-build = { workspace = true }

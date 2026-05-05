@@ -64,21 +64,22 @@ type SelectedIndex = Arc<Mutex<usize>>;
 type LogBuffer = Arc<Mutex<String>>;
 
 fn main() -> Result<()> {
-    // Route the `log` crate (used by Slint's text layout / ICU4X) through
-    // `tracing` so EnvFilter can mute the noisy ones. Default filter
-    // silences:
-    //   - icu_segmenter / icu_*  : "ICU4X data error: No segmentation
-    //     model for language: ja" — fired on every Japanese line break
-    //     because the bundled ICU4X data ships only Western locales.
-    //     Wrapping still works, just falls back to char-wrap, so we don't
-    //     need the warning.
-    //   - i_slint_core / renderer-software : downgrade to error so layout
-    //     warnings don't drown out useful output.
+    // Slint's text layout calls into ICU4X for line-break analysis and
+    // ICU4X writes "ICU4X data error: No segmentation model for language: ja"
+    // *directly to stderr via eprintln!* on every Japanese segment, because
+    // its bundled data ships only Western locales. The fallback (char-wrap)
+    // is fine for Japanese, but the spam drowns the console.
     //
-    // NOTE: the `log` → `tracing` bridge is installed *by tracing-subscriber
-    // itself* via its default `tracing-log` feature, so we must NOT also
-    // call `LogTracer::init()` here. Doing both panics with
-    // `SetLoggerError` because only one global `log` logger is allowed.
+    // EnvFilter doesn't catch this since it's not going through `log` /
+    // `tracing`. Redirect the process-level stderr handle to NUL on Windows
+    // before any GUI code runs. Skip when RUST_LOG is set so devs can still
+    // see everything.
+    redirect_stderr_to_null_unless_debug();
+
+    // Route the `log` crate output through `tracing` (the bridge is
+    // installed by tracing-subscriber's default `tracing-log` feature — do
+    // NOT also call LogTracer::init() here, only one global `log` logger
+    // can exist or `SetLoggerError` panics).
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| {
@@ -3091,6 +3092,49 @@ fn pick_folder(start_dir: Option<&Path>) -> Option<PathBuf> {
 #[cfg(not(target_os = "windows"))]
 fn pick_folder(_start_dir: Option<&Path>) -> Option<PathBuf> {
     None
+}
+
+/// Replace the process's STDERR handle with `NUL` so noisy `eprintln!`
+/// callers (notably ICU4X's "No segmentation model for language: ja"
+/// fallback warning, which fires on every Japanese line break and ignores
+/// `log` / `tracing` filters) don't drown the console.
+///
+/// Skipped when `RUST_LOG` is set so developers running with explicit log
+/// configuration still see everything.
+#[cfg(target_os = "windows")]
+fn redirect_stderr_to_null_unless_debug() {
+    if std::env::var_os("RUST_LOG").is_some() {
+        return;
+    }
+    use windows::core::w;
+    use windows::Win32::Storage::FileSystem::{
+        CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_WRITE, FILE_SHARE_READ,
+        FILE_SHARE_WRITE, OPEN_EXISTING,
+    };
+    use windows::Win32::System::Console::{SetStdHandle, STD_ERROR_HANDLE};
+
+    // SAFETY: CreateFileW + SetStdHandle are standard Win32 calls; the
+    // returned handle is owned by the OS and we hand ownership to it via
+    // SetStdHandle.
+    unsafe {
+        if let Ok(handle) = CreateFileW(
+            w!("NUL"),
+            FILE_GENERIC_WRITE.0,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            None,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL,
+            None,
+        ) {
+            let _ = SetStdHandle(STD_ERROR_HANDLE, handle);
+        }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn redirect_stderr_to_null_unless_debug() {
+    // No-op outside Windows — the warning was a Windows-renderer artefact
+    // and Linux dev builds run with the user's normal stderr anyway.
 }
 
 fn wire_world_settings_callbacks(
