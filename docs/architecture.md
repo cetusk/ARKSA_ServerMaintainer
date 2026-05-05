@@ -47,8 +47,18 @@
 | 6 | Discord webhook + Windows toast + notification settings UI | ✅ | `arksa-notify`, `arksa-gui` |
 | 7 | i18n (English + Japanese) — UiLabels struct, Rust-side translation | ✅ | `arksa-gui` |
 | 8a | World Settings dialog: 6 tabs / ~30 fields, edits Game.ini + GameUserSettings.ini, Import from file via `rfd` | ✅ | `arksa-core::game_config`, `arksa-gui` |
-| 8b | `arksa-commander` CLI | next | `arksa-commander` |
-| 9 | `arksa-updater` against GitHub Releases | | `arksa-updater` |
+| 8b | wire-up fix: route ~20 multipliers from Game.ini to GameUserSettings.ini; add PvE/PvP toggles + Ops basics | ✅ | `arksa-core::ark_config`, `arksa-gui` |
+| 8c | Breeding / Imprint tab (~11 fields) | ✅ | `arksa-core::game_config`, `arksa-gui` |
+| 8d | Loot / Spoilage tab (~15 fields) | ✅ | `arksa-core::game_config`, `arksa-gui` |
+| 8e | Stat arrays tab (6 categories × 12 stats = 72 fields) | ✅ | `arksa-core::game_config`, `arksa-gui` |
+| 8f | Combat / Structures tab (~22 fields, incl. Cryopod nerf) | ✅ | `arksa-core::{ark_config,game_config}`, `arksa-gui` |
+| 8g | XP gain breakdown tab (~14 fields) | ✅ | `arksa-core::game_config`, `arksa-gui` |
+| 8h | Cosmetic / Chat tab (14 toggles) | ✅ | `arksa-core::ark_config`, `arksa-gui` |
+| 8i | Cluster / Lists tab (16 fields incl. URL strings) | ✅ | `arksa-core::ark_config`, `arksa-gui` |
+| 8j | Stat clamps / Blueprint caps tab (11 fields) | ✅ | `arksa-core::{ark_config,game_config}`, `arksa-gui` |
+| 8k | Launch flags tab — edits Profile MM_Command_Val `-flag` portion | ✅ | `arksa-core::launch_args`, `arksa-gui` |
+| 9 | `arksa-commander` CLI | next | `arksa-commander` |
+| 10 | `arksa-updater` against GitHub Releases | | `arksa-updater` |
 | ? | Backup, scheduled restart, crash auto-restart | | `arksa-core::backup`, `arksa-gui` |
 | ? | Profile editor (full settings dialog) | | `arksa-gui` |
 
