@@ -388,6 +388,38 @@ impl GameSettings {
     );
     int_field!(limit_turrets_num, set_limit_turrets_num, "LimitTurretsNum");
     float_field!(limit_turrets_range, set_limit_turrets_range, "LimitTurretsRange");
+
+    // ── XP gain breakdown (Phase 8g) ─────────────────────────────────
+    float_field!(generic_xp_multiplier, set_generic_xp_multiplier, "GenericXPMultiplier");
+    float_field!(harvest_xp_multiplier, set_harvest_xp_multiplier, "HarvestXPMultiplier");
+    float_field!(kill_xp_multiplier, set_kill_xp_multiplier, "KillXPMultiplier");
+    float_field!(craft_xp_multiplier, set_craft_xp_multiplier, "CraftXPMultiplier");
+    float_field!(special_xp_multiplier, set_special_xp_multiplier, "SpecialXPMultiplier");
+    float_field!(
+        explorer_note_xp_multiplier,
+        set_explorer_note_xp_multiplier,
+        "ExplorerNoteXPMultiplier"
+    );
+    float_field!(boss_kill_xp_multiplier, set_boss_kill_xp_multiplier, "BossKillXPMultiplier");
+    float_field!(cave_kill_xp_multiplier, set_cave_kill_xp_multiplier, "CaveKillXPMultiplier");
+    float_field!(wild_kill_xp_multiplier, set_wild_kill_xp_multiplier, "WildKillXPMultiplier");
+    float_field!(tamed_kill_xp_multiplier, set_tamed_kill_xp_multiplier, "TamedKillXPMultiplier");
+    float_field!(
+        unclaimed_kill_xp_multiplier,
+        set_unclaimed_kill_xp_multiplier,
+        "UnclaimedKillXPMultiplier"
+    );
+    float_field!(alpha_kill_xp_multiplier, set_alpha_kill_xp_multiplier, "AlphaKillXPMultiplier");
+    int_field!(
+        override_max_experience_points_player,
+        set_override_max_experience_points_player,
+        "OverrideMaxExperiencePointsPlayer"
+    );
+    int_field!(
+        override_max_experience_points_dino,
+        set_override_max_experience_points_dino,
+        "OverrideMaxExperiencePointsDino"
+    );
 }
 
 /// Stat-index labels matching ARK's `PerLevelStatsMultiplier_*[i]` ordering.

@@ -1567,6 +1567,22 @@ fn populate_world_settings_window(window: &WorldSettingsWindow, install_root: &P
     window.set_f_cryopod_nerf_duration(u(ark_config::GameUserSettings::cryopod_nerf_duration, 0.0));
     window.set_b_allow_cryo_fridge_on_saddle(ub(ark_config::GameUserSettings::allow_cryo_fridge_on_saddle, false));
     window.set_b_disable_cryopod_fridge_requirement(ub(ark_config::GameUserSettings::disable_cryopod_fridge_requirement, false));
+
+    // Phase 8g — XP gain breakdown (Game.ini)
+    window.set_f_generic_xp_multiplier(g(game_config::GameSettings::generic_xp_multiplier, 1.0));
+    window.set_f_harvest_xp_multiplier(g(game_config::GameSettings::harvest_xp_multiplier, 1.0));
+    window.set_f_kill_xp_multiplier(g(game_config::GameSettings::kill_xp_multiplier, 1.0));
+    window.set_f_craft_xp_multiplier(g(game_config::GameSettings::craft_xp_multiplier, 1.0));
+    window.set_f_special_xp_multiplier(g(game_config::GameSettings::special_xp_multiplier, 1.0));
+    window.set_f_explorer_note_xp_multiplier(g(game_config::GameSettings::explorer_note_xp_multiplier, 1.0));
+    window.set_f_boss_kill_xp_multiplier(g(game_config::GameSettings::boss_kill_xp_multiplier, 1.0));
+    window.set_f_cave_kill_xp_multiplier(g(game_config::GameSettings::cave_kill_xp_multiplier, 1.0));
+    window.set_f_wild_kill_xp_multiplier(g(game_config::GameSettings::wild_kill_xp_multiplier, 1.0));
+    window.set_f_tamed_kill_xp_multiplier(g(game_config::GameSettings::tamed_kill_xp_multiplier, 1.0));
+    window.set_f_unclaimed_kill_xp_multiplier(g(game_config::GameSettings::unclaimed_kill_xp_multiplier, 1.0));
+    window.set_f_alpha_kill_xp_multiplier(g(game_config::GameSettings::alpha_kill_xp_multiplier, 1.0));
+    window.set_f_override_max_experience_points_player(gi2(game_config::GameSettings::override_max_experience_points_player, 0));
+    window.set_f_override_max_experience_points_dino(gi2(game_config::GameSettings::override_max_experience_points_dino, 0));
 }
 
 /// Reset every form field to ARK's vanilla defaults (mostly 1.0, plus the
@@ -1688,6 +1704,23 @@ fn reset_world_settings_window(window: &WorldSettingsWindow) {
     window.set_f_cryopod_nerf_duration(SharedString::from("0.0"));
     window.set_b_allow_cryo_fridge_on_saddle(false);
     window.set_b_disable_cryopod_fridge_requirement(false);
+
+    // Phase 8g — XP gain breakdown
+    let one_xp = SharedString::from("1.0");
+    window.set_f_generic_xp_multiplier(one_xp.clone());
+    window.set_f_harvest_xp_multiplier(one_xp.clone());
+    window.set_f_kill_xp_multiplier(one_xp.clone());
+    window.set_f_craft_xp_multiplier(one_xp.clone());
+    window.set_f_special_xp_multiplier(one_xp.clone());
+    window.set_f_explorer_note_xp_multiplier(one_xp.clone());
+    window.set_f_boss_kill_xp_multiplier(one_xp.clone());
+    window.set_f_cave_kill_xp_multiplier(one_xp.clone());
+    window.set_f_wild_kill_xp_multiplier(one_xp.clone());
+    window.set_f_tamed_kill_xp_multiplier(one_xp.clone());
+    window.set_f_unclaimed_kill_xp_multiplier(one_xp.clone());
+    window.set_f_alpha_kill_xp_multiplier(one_xp);
+    window.set_f_override_max_experience_points_player(SharedString::from("0"));
+    window.set_f_override_max_experience_points_dino(SharedString::from("0"));
 }
 
 /// Read all form fields, parse floats, return per-file struct values or a
@@ -1821,6 +1854,22 @@ struct WorldFormValues {
     cryopod_nerf_duration: f64,
     allow_cryo_fridge_on_saddle: bool,
     disable_cryopod_fridge_requirement: bool,
+
+    // Phase 8g — XP gain breakdown (Game.ini)
+    generic_xp_multiplier: f64,
+    harvest_xp_multiplier: f64,
+    kill_xp_multiplier: f64,
+    craft_xp_multiplier: f64,
+    special_xp_multiplier: f64,
+    explorer_note_xp_multiplier: f64,
+    boss_kill_xp_multiplier: f64,
+    cave_kill_xp_multiplier: f64,
+    wild_kill_xp_multiplier: f64,
+    tamed_kill_xp_multiplier: f64,
+    unclaimed_kill_xp_multiplier: f64,
+    alpha_kill_xp_multiplier: f64,
+    override_max_experience_points_player: i64,
+    override_max_experience_points_dino: i64,
 }
 
 fn parse_form_float(value: SharedString, label: &str) -> Result<f64, String> {
@@ -2045,6 +2094,20 @@ fn collect_world_form(window: &WorldSettingsWindow) -> Result<WorldFormValues, S
         cryopod_nerf_duration: parse_form_float(window.get_f_cryopod_nerf_duration(), "CryopodNerfDuration")?,
         allow_cryo_fridge_on_saddle: window.get_b_allow_cryo_fridge_on_saddle(),
         disable_cryopod_fridge_requirement: window.get_b_disable_cryopod_fridge_requirement(),
+        generic_xp_multiplier: parse_form_float(window.get_f_generic_xp_multiplier(), "GenericXPMultiplier")?,
+        harvest_xp_multiplier: parse_form_float(window.get_f_harvest_xp_multiplier(), "HarvestXPMultiplier")?,
+        kill_xp_multiplier: parse_form_float(window.get_f_kill_xp_multiplier(), "KillXPMultiplier")?,
+        craft_xp_multiplier: parse_form_float(window.get_f_craft_xp_multiplier(), "CraftXPMultiplier")?,
+        special_xp_multiplier: parse_form_float(window.get_f_special_xp_multiplier(), "SpecialXPMultiplier")?,
+        explorer_note_xp_multiplier: parse_form_float(window.get_f_explorer_note_xp_multiplier(), "ExplorerNoteXPMultiplier")?,
+        boss_kill_xp_multiplier: parse_form_float(window.get_f_boss_kill_xp_multiplier(), "BossKillXPMultiplier")?,
+        cave_kill_xp_multiplier: parse_form_float(window.get_f_cave_kill_xp_multiplier(), "CaveKillXPMultiplier")?,
+        wild_kill_xp_multiplier: parse_form_float(window.get_f_wild_kill_xp_multiplier(), "WildKillXPMultiplier")?,
+        tamed_kill_xp_multiplier: parse_form_float(window.get_f_tamed_kill_xp_multiplier(), "TamedKillXPMultiplier")?,
+        unclaimed_kill_xp_multiplier: parse_form_float(window.get_f_unclaimed_kill_xp_multiplier(), "UnclaimedKillXPMultiplier")?,
+        alpha_kill_xp_multiplier: parse_form_float(window.get_f_alpha_kill_xp_multiplier(), "AlphaKillXPMultiplier")?,
+        override_max_experience_points_player: parse_form_int(window.get_f_override_max_experience_points_player(), "OverrideMaxExperiencePointsPlayer")?,
+        override_max_experience_points_dino: parse_form_int(window.get_f_override_max_experience_points_dino(), "OverrideMaxExperiencePointsDino")?,
     })
 }
 
@@ -2184,6 +2247,22 @@ fn write_world_form(install_root: &Path, v: &WorldFormValues) -> Result<()> {
     gus.set_cryopod_nerf_duration(v.cryopod_nerf_duration);
     gus.set_allow_cryo_fridge_on_saddle(v.allow_cryo_fridge_on_saddle);
     gus.set_disable_cryopod_fridge_requirement(v.disable_cryopod_fridge_requirement);
+
+    // Phase 8g — XP gain breakdown → Game.ini
+    game.set_generic_xp_multiplier(v.generic_xp_multiplier);
+    game.set_harvest_xp_multiplier(v.harvest_xp_multiplier);
+    game.set_kill_xp_multiplier(v.kill_xp_multiplier);
+    game.set_craft_xp_multiplier(v.craft_xp_multiplier);
+    game.set_special_xp_multiplier(v.special_xp_multiplier);
+    game.set_explorer_note_xp_multiplier(v.explorer_note_xp_multiplier);
+    game.set_boss_kill_xp_multiplier(v.boss_kill_xp_multiplier);
+    game.set_cave_kill_xp_multiplier(v.cave_kill_xp_multiplier);
+    game.set_wild_kill_xp_multiplier(v.wild_kill_xp_multiplier);
+    game.set_tamed_kill_xp_multiplier(v.tamed_kill_xp_multiplier);
+    game.set_unclaimed_kill_xp_multiplier(v.unclaimed_kill_xp_multiplier);
+    game.set_alpha_kill_xp_multiplier(v.alpha_kill_xp_multiplier);
+    game.set_override_max_experience_points_player(v.override_max_experience_points_player);
+    game.set_override_max_experience_points_dino(v.override_max_experience_points_dino);
 
     game.save()?;
     gus.save()?;
@@ -2562,6 +2641,21 @@ fn import_world_settings(window: &WorldSettingsWindow, source_path: &Path) -> Re
     if let Some(v) = ub(ark_config::GameUserSettings::disable_cryopod_fridge_requirement) {
         window.set_b_disable_cryopod_fridge_requirement(v);
     }
+    // Phase 8g — XP gain breakdown
+    if let Some(v) = g(game_config::GameSettings::generic_xp_multiplier) { window.set_f_generic_xp_multiplier(fmt_float_for_form(v)); }
+    if let Some(v) = g(game_config::GameSettings::harvest_xp_multiplier) { window.set_f_harvest_xp_multiplier(fmt_float_for_form(v)); }
+    if let Some(v) = g(game_config::GameSettings::kill_xp_multiplier) { window.set_f_kill_xp_multiplier(fmt_float_for_form(v)); }
+    if let Some(v) = g(game_config::GameSettings::craft_xp_multiplier) { window.set_f_craft_xp_multiplier(fmt_float_for_form(v)); }
+    if let Some(v) = g(game_config::GameSettings::special_xp_multiplier) { window.set_f_special_xp_multiplier(fmt_float_for_form(v)); }
+    if let Some(v) = g(game_config::GameSettings::explorer_note_xp_multiplier) { window.set_f_explorer_note_xp_multiplier(fmt_float_for_form(v)); }
+    if let Some(v) = g(game_config::GameSettings::boss_kill_xp_multiplier) { window.set_f_boss_kill_xp_multiplier(fmt_float_for_form(v)); }
+    if let Some(v) = g(game_config::GameSettings::cave_kill_xp_multiplier) { window.set_f_cave_kill_xp_multiplier(fmt_float_for_form(v)); }
+    if let Some(v) = g(game_config::GameSettings::wild_kill_xp_multiplier) { window.set_f_wild_kill_xp_multiplier(fmt_float_for_form(v)); }
+    if let Some(v) = g(game_config::GameSettings::tamed_kill_xp_multiplier) { window.set_f_tamed_kill_xp_multiplier(fmt_float_for_form(v)); }
+    if let Some(v) = g(game_config::GameSettings::unclaimed_kill_xp_multiplier) { window.set_f_unclaimed_kill_xp_multiplier(fmt_float_for_form(v)); }
+    if let Some(v) = g(game_config::GameSettings::alpha_kill_xp_multiplier) { window.set_f_alpha_kill_xp_multiplier(fmt_float_for_form(v)); }
+    if let Some(v) = gi(game_config::GameSettings::override_max_experience_points_player) { window.set_f_override_max_experience_points_player(fmt_int_for_form(v)); }
+    if let Some(v) = gi(game_config::GameSettings::override_max_experience_points_dino) { window.set_f_override_max_experience_points_dino(fmt_int_for_form(v)); }
     Ok(())
 }
 

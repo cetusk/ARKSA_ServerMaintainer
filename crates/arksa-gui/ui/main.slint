@@ -527,6 +527,22 @@ export component WorldSettingsWindow inherits Window {
     in-out property <bool> b_allow_cryo_fridge_on_saddle: false;
     in-out property <bool> b_disable_cryopod_fridge_requirement: false;
 
+    // Phase 8g — XP gain breakdown
+    in-out property <string> f_generic_xp_multiplier: "1.0";
+    in-out property <string> f_harvest_xp_multiplier: "1.0";
+    in-out property <string> f_kill_xp_multiplier: "1.0";
+    in-out property <string> f_craft_xp_multiplier: "1.0";
+    in-out property <string> f_special_xp_multiplier: "1.0";
+    in-out property <string> f_explorer_note_xp_multiplier: "1.0";
+    in-out property <string> f_boss_kill_xp_multiplier: "1.0";
+    in-out property <string> f_cave_kill_xp_multiplier: "1.0";
+    in-out property <string> f_wild_kill_xp_multiplier: "1.0";
+    in-out property <string> f_tamed_kill_xp_multiplier: "1.0";
+    in-out property <string> f_unclaimed_kill_xp_multiplier: "1.0";
+    in-out property <string> f_alpha_kill_xp_multiplier: "1.0";
+    in-out property <string> f_override_max_experience_points_player: "0";
+    in-out property <string> f_override_max_experience_points_dino: "0";
+
     callback import-clicked();
     callback reset-clicked();
     callback save-clicked();
@@ -907,6 +923,30 @@ export component WorldSettingsWindow inherits Window {
                                 WorldBoolRow  { label: "DisableCryopodFridgeRequirement";       value <=> root.b_disable_cryopod_fridge_requirement; }
                             }
                         }
+                    }
+                }
+            }
+
+            Tab {
+                title: root.labels.world_tab_xp;
+                ScrollView {
+                    VerticalBox {
+                        padding: 8px;
+                        spacing: 4px;
+                        WorldFloatRow { label: "GenericXPMultiplier";                           value <=> root.f_generic_xp_multiplier; }
+                        WorldFloatRow { label: "HarvestXPMultiplier";                           value <=> root.f_harvest_xp_multiplier; }
+                        WorldFloatRow { label: "KillXPMultiplier";                              value <=> root.f_kill_xp_multiplier; }
+                        WorldFloatRow { label: "CraftXPMultiplier";                             value <=> root.f_craft_xp_multiplier; }
+                        WorldFloatRow { label: "SpecialXPMultiplier";                           value <=> root.f_special_xp_multiplier; }
+                        WorldFloatRow { label: "ExplorerNoteXPMultiplier";                      value <=> root.f_explorer_note_xp_multiplier; }
+                        WorldFloatRow { label: "BossKillXPMultiplier";                          value <=> root.f_boss_kill_xp_multiplier; }
+                        WorldFloatRow { label: "CaveKillXPMultiplier";                          value <=> root.f_cave_kill_xp_multiplier; }
+                        WorldFloatRow { label: "WildKillXPMultiplier";                          value <=> root.f_wild_kill_xp_multiplier; }
+                        WorldFloatRow { label: "TamedKillXPMultiplier";                         value <=> root.f_tamed_kill_xp_multiplier; }
+                        WorldFloatRow { label: "UnclaimedKillXPMultiplier";                     value <=> root.f_unclaimed_kill_xp_multiplier; }
+                        WorldFloatRow { label: "AlphaKillXPMultiplier";                         value <=> root.f_alpha_kill_xp_multiplier; }
+                        WorldFloatRow { label: "OverrideMaxExperiencePointsPlayer (int, 0=default)"; value <=> root.f_override_max_experience_points_player; }
+                        WorldFloatRow { label: "OverrideMaxExperiencePointsDino (int, 0=default)";   value <=> root.f_override_max_experience_points_dino; }
                     }
                 }
             }
