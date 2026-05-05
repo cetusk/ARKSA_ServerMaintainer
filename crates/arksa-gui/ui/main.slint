@@ -91,6 +91,9 @@ export struct UiLabels {
     section_setup: string,
     section_profile: string,
     section_lifecycle: string,
+    section_tools: string,
+    profile_hint: string,
+    profile_path_label: string,
     arksa_dir: string,
     btn_browse: string,
     profile_label: string,
@@ -183,6 +186,10 @@ export component MainWindow inherits Window {
     in property <UiLabels> labels;
     in property <[string]> profile-names: [];
     in-out property <int> selected-profile-index: 0;
+    /// Full filesystem path of the currently-selected profile's `.ini`.
+    /// Updated from Rust whenever the selection changes so the UI can
+    /// surface "you are about to edit *this* file".
+    in property <string> selected-profile-path: "";
     in property <ServerStatusView> status: {
         running: false,
         title: "(no profile loaded)",
@@ -218,6 +225,9 @@ export component MainWindow inherits Window {
         spacing: 8px;
 
         // ── Setup section ──────────────────────────────────────────────
+        // Tool data dir + UI language live here together with global
+        // tools that don't depend on which profile is selected
+        // (Find / Notifications).
         SectionGroup {
             title: root.labels.section_setup;
             HorizontalBox {
@@ -245,35 +255,15 @@ export component MainWindow inherits Window {
                     selected => { root.language-changed(self.current-index); }
                 }
             }
-        }
-
-        // ── Profile section ────────────────────────────────────────────
-        SectionGroup {
-            title: root.labels.section_profile;
-            HorizontalBox {
-                spacing: 8px;
-                Text { text: root.labels.profile_label; vertical-alignment: center; }
-                ComboBox {
-                    model: root.profile-names;
-                    current-index <=> root.selected-profile-index;
-                    horizontal-stretch: 1;
-                    enabled: !root.action-busy && root.profile-names.length > 0;
-                    selected => { root.profile-selected(self.current-index); }
-                }
-                Button {
-                    text: root.labels.btn_new;
-                    enabled: !root.action-busy;
-                    clicked => { root.new-profile(); }
-                }
-                Button {
-                    text: root.labels.btn_world_settings;
-                    enabled: !root.action-busy && root.profile-names.length > 0;
-                    clicked => { root.open-world-settings(); }
-                }
-            }
             HorizontalBox {
                 spacing: 8px;
                 alignment: end;
+                Text {
+                    text: root.labels.section_tools;
+                    color: AppTheme.accent;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
                 Button {
                     text: root.labels.btn_find;
                     enabled: !root.action-busy;
@@ -284,10 +274,75 @@ export component MainWindow inherits Window {
                     enabled: !root.action-busy;
                     clicked => { root.open-notifications(); }
                 }
+            }
+        }
+
+        // ── Profile section ────────────────────────────────────────────
+        // Top sub-row: pick OR create a profile (these both manage the
+        //              set of profiles, not the currently-selected one).
+        // Hint + path:  explain what the dropdown items are and where
+        //              the selected file lives on disk.
+        // Bottom sub-row: actions that operate on the *selected* profile.
+        SectionGroup {
+            title: root.labels.section_profile;
+            Text {
+                text: root.labels.profile_hint;
+                color: Palette.foreground;
+                font-size: 11px;
+                wrap: word-wrap;
+            }
+            HorizontalBox {
+                spacing: 8px;
+                Text { text: root.labels.profile_label; vertical-alignment: center; }
+                ComboBox {
+                    model: root.profile-names;
+                    current-index <=> root.selected-profile-index;
+                    // Cap width so a single profile name doesn't stretch
+                    // the dropdown across the whole window.
+                    max-width: 320px;
+                    horizontal-stretch: 1;
+                    enabled: !root.action-busy && root.profile-names.length > 0;
+                    selected => { root.profile-selected(self.current-index); }
+                }
                 Button {
-                    text: root.labels.btn_refresh;
+                    text: root.labels.btn_new;
                     enabled: !root.action-busy;
-                    clicked => { root.refresh-status(); }
+                    clicked => { root.new-profile(); }
+                }
+                // Spacer so the next thing is right-aligned.
+                Rectangle { horizontal-stretch: 1; }
+            }
+            // "→ <full path>" so the user can confirm which file backs
+            // the dropdown entry. Hidden when no profile is selected.
+            if root.selected-profile-path != "": HorizontalBox {
+                spacing: 6px;
+                padding-left: 4px;
+                Text {
+                    text: "↳";
+                    color: AppTheme.accent;
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: root.labels.profile_path_label;
+                    color: AppTheme.accent;
+                    font-size: 11px;
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: root.selected-profile-path;
+                    color: Palette.foreground;
+                    font-size: 11px;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                }
+            }
+            HorizontalBox {
+                spacing: 8px;
+                alignment: end;
+                Button {
+                    text: root.labels.btn_world_settings;
+                    enabled: !root.action-busy && root.profile-names.length > 0;
+                    clicked => { root.open-world-settings(); }
                 }
             }
         }
@@ -318,6 +373,8 @@ export component MainWindow inherits Window {
         }
 
         // ── Server status section ──────────────────────────────────────
+        // Status text auto-refreshes every 5 s; the Refresh button lets
+        // the user kick a manual poll without waiting.
         if root.profile-names.length > 0: SectionGroup {
             title: root.labels.panel_server_status;
             Text { text: root.labels.label_status + " " + root.status.title; }
@@ -325,6 +382,14 @@ export component MainWindow inherits Window {
             Text { text: root.labels.label_ports + " " + root.status.ports; }
             Text { text: root.labels.label_memory + " " + root.status.memory; }
             Text { text: root.labels.label_uptime + " " + root.status.uptime; }
+            HorizontalBox {
+                alignment: end;
+                Button {
+                    text: root.labels.btn_refresh;
+                    enabled: !root.action-busy;
+                    clicked => { root.refresh-status(); }
+                }
+            }
         }
 
         // ── Server control section ─────────────────────────────────────
@@ -431,9 +496,13 @@ component LabelCell inherits Rectangle {
 
     popup := PopupWindow {
         x: 0;
-        y: parent.height + 2px;
+        // Position the popup *above* the label cell. PopupWindow's child
+        // Rectangle determines its size, so we anchor y at -content.height
+        // minus a small gap. Slint resolves the cyclic-looking reference at
+        // layout time.
+        y: -popup_body.height - 4px;
         close-policy: close-on-click-outside;
-        Rectangle {
+        popup_body := Rectangle {
             background: Palette.alternate-background;
             border-color: AppTheme.border;
             border-width: 1px;

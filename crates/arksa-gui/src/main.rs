@@ -259,6 +259,26 @@ fn push_profiles_to_ui(window: &MainWindow, profiles: &[(String, PathBuf)]) {
         .collect();
     let model = std::rc::Rc::new(VecModel::from(names));
     window.set_profile_names(ModelRc::from(model));
+    // Also surface the selected profile's full file path so the UI can
+    // show "↳ File: D:\…\Profile\<name>.ini" under the dropdown.
+    let idx = window.get_selected_profile_index().max(0) as usize;
+    let path = profiles
+        .get(idx)
+        .map(|(_, p)| p.display().to_string())
+        .unwrap_or_default();
+    window.set_selected_profile_path(SharedString::from(path.as_str()));
+}
+
+/// Refresh just the "selected profile path" label from the current
+/// selection without re-pushing the entire profile model. Used from the
+/// `on_profile_selected` callback.
+fn push_selected_profile_path(window: &MainWindow, profiles: &ProfileList, idx: usize) {
+    let profiles = profiles.lock().unwrap();
+    let path = profiles
+        .get(idx)
+        .map(|(_, p)| p.display().to_string())
+        .unwrap_or_default();
+    window.set_selected_profile_path(SharedString::from(path.as_str()));
 }
 
 fn push_map_suggestions(dialog: &NewProfileWindow) {
@@ -324,7 +344,11 @@ fn wire_main_callbacks(
         let profiles = profiles.clone();
         let log = log.clone();
         window.on_profile_selected(move |idx| {
-            *selected.lock().unwrap() = idx.max(0) as usize;
+            let idx_usize = idx.max(0) as usize;
+            *selected.lock().unwrap() = idx_usize;
+            if let Some(w) = weak.upgrade() {
+                push_selected_profile_path(&w, &profiles, idx_usize);
+            }
             refresh_status_async(&weak, &ctx, &profiles, &selected, &log);
         });
     }
@@ -865,6 +889,9 @@ struct Labels {
     section_setup: String,
     section_profile: String,
     section_lifecycle: String,
+    section_tools: String,
+    profile_hint: String,
+    profile_path_label: String,
     arksa_dir: String,
     btn_browse: String,
     profile_label: String,
@@ -948,6 +975,12 @@ impl Labels {
             section_setup: "Setup".into(),
             section_profile: "Profile".into(),
             section_lifecycle: "Server control".into(),
+            section_tools: "Tools".into(),
+            profile_hint:
+                "Profiles are .ini files saved under <ARKSA dir>/Profile/. \
+                 The dropdown lists every profile file the tool currently sees."
+                    .into(),
+            profile_path_label: "File:".into(),
             arksa_dir: "ARKSA dir:".into(),
             btn_browse: "Browse…".into(),
             profile_label: "Profile:".into(),
@@ -1034,6 +1067,13 @@ impl Labels {
             section_setup: "セットアップ".into(),
             section_profile: "プロファイル".into(),
             section_lifecycle: "サーバー操作".into(),
+            section_tools: "ツール".into(),
+            profile_hint:
+                "プロファイルとは <ARKSA フォルダ>/Profile/ 配下に保存される \
+                 .ini ファイルです。ドロップダウンには本ツールが現在認識している \
+                 プロファイルファイルが一覧表示されます。"
+                    .into(),
+            profile_path_label: "ファイル:".into(),
             arksa_dir: "ARKSA フォルダ:".into(),
             btn_browse: "参照…".into(),
             profile_label: "プロファイル:".into(),
@@ -1143,6 +1183,9 @@ impl Labels {
             section_setup: self.section_setup.as_str().into(),
             section_profile: self.section_profile.as_str().into(),
             section_lifecycle: self.section_lifecycle.as_str().into(),
+            section_tools: self.section_tools.as_str().into(),
+            profile_hint: self.profile_hint.as_str().into(),
+            profile_path_label: self.profile_path_label.as_str().into(),
             arksa_dir: self.arksa_dir.as_str().into(),
             btn_browse: self.btn_browse.as_str().into(),
             profile_label: self.profile_label.as_str().into(),
