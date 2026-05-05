@@ -152,6 +152,10 @@ fn main() -> Result<()> {
         window.as_weak(),
     );
 
+    // Pre-fill the main-window language picker so it reflects the saved
+    // preference on launch. Mirrors how NotificationsWindow seeds its own
+    // ComboBox (notif_window.set_language_index just above).
+    window.set_language_index(language_index_for_setting(language_setting));
     wire_main_callbacks(
         &window,
         &dialog,
@@ -162,6 +166,8 @@ fn main() -> Result<()> {
         profiles.clone(),
         selected.clone(),
         log.clone(),
+        app_settings.clone(),
+        settings_path.clone(),
     );
     initial_status_refresh(&window, &ctx, &profiles, &selected, &log);
 
@@ -243,6 +249,7 @@ fn push_map_suggestions(dialog: &NewProfileWindow) {
 // ─── main window callbacks ─────────────────────────────────────────────────
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 fn wire_main_callbacks(
     window: &MainWindow,
     dialog: &NewProfileWindow,
@@ -253,7 +260,39 @@ fn wire_main_callbacks(
     profiles: ProfileList,
     selected: SelectedIndex,
     log: LogBuffer,
+    app_settings: Arc<Mutex<AppSettings>>,
+    settings_path: PathBuf,
 ) {
+    let _ = settings_path; // path is captured by AppSettings; kept in arg list for symmetry
+    {
+        // Top-bar language picker. Persists immediately and asks the user to
+        // restart for the new translations to load — mirrors the
+        // notifications-dialog flow but doesn't require diving into a
+        // settings sub-screen.
+        let weak = window.as_weak();
+        let app_settings = app_settings.clone();
+        let log = log.clone();
+        window.on_language_changed(move |idx| {
+            let new_lang = language_setting_for_index(idx);
+            let changed = {
+                let mut s = app_settings.lock().unwrap();
+                let prev = s.language();
+                s.set_language(new_lang);
+                if let Err(e) = s.save() {
+                    push_log_async(&weak, &log, &format!("Save language failed: {e:#}"));
+                    return;
+                }
+                prev != new_lang
+            };
+            if changed {
+                push_log_async(
+                    &weak,
+                    &log,
+                    "Language changed. Restart the app to apply the new translations.",
+                );
+            }
+        });
+    }
     {
         let selected = selected.clone();
         let weak = window.as_weak();
@@ -798,6 +837,7 @@ fn clamp_port(v: i32) -> u16 {
 #[derive(Clone)]
 struct Labels {
     main_window_title: String,
+    main_language_label: String,
     arksa_dir: String,
     btn_browse: String,
     profile_label: String,
@@ -877,6 +917,7 @@ impl Labels {
     fn english() -> Self {
         Self {
             main_window_title: "ARKSA Server Maintainer".into(),
+            main_language_label: "Language:".into(),
             arksa_dir: "ARKSA dir:".into(),
             btn_browse: "Browse…".into(),
             profile_label: "Profile:".into(),
@@ -959,6 +1000,7 @@ impl Labels {
     fn japanese() -> Self {
         Self {
             main_window_title: "ARKSA サーバーメンテナー".into(),
+            main_language_label: "言語:".into(),
             arksa_dir: "ARKSA フォルダ:".into(),
             btn_browse: "参照…".into(),
             profile_label: "プロファイル:".into(),
@@ -1064,6 +1106,7 @@ impl Labels {
     fn to_ui(&self) -> UiLabels {
         UiLabels {
             main_window_title: self.main_window_title.as_str().into(),
+            main_language_label: self.main_language_label.as_str().into(),
             arksa_dir: self.arksa_dir.as_str().into(),
             btn_browse: self.btn_browse.as_str().into(),
             profile_label: self.profile_label.as_str().into(),

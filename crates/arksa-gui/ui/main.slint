@@ -9,7 +9,7 @@
 
 import {
     Button, CheckBox, ComboBox, GroupBox, HorizontalBox, LineEdit,
-    ListView, ScrollView, SpinBox, StandardListView, TabWidget,
+    ListView, Palette, ScrollView, SpinBox, StandardListView, TabWidget,
     TextEdit, VerticalBox
 } from "std-widgets.slint";
 
@@ -26,6 +26,7 @@ export struct ServerStatusView {
 /// `AppSettings::language()`. Live language switching requires a restart.
 export struct UiLabels {
     main_window_title: string,
+    main_language_label: string,
     arksa_dir: string,
     btn_browse: string,
     profile_label: string,
@@ -106,6 +107,14 @@ export component MainWindow inherits Window {
     preferred-height: 680px;
     min-width: 540px;
     min-height: 440px;
+    background: Palette.background;
+
+    /// Force every Slint widget into dark mode. Done in `init` so all child
+    /// Windows that inherit the same Palette singleton (notifications, world
+    /// settings, find, new profile) follow suit without per-window code.
+    init => {
+        Palette.color-scheme = ColorScheme.dark;
+    }
 
     in property <UiLabels> labels;
     in property <[string]> profile-names: [];
@@ -122,6 +131,9 @@ export component MainWindow inherits Window {
     in property <string> install-dir: "(unknown)";
     in-out property <string> rcon-input: "";
     in property <bool> action-busy: false;
+    /// Languages dropdown content + selected index.
+    in property <[string]> language-options: ["Auto", "English", "日本語"];
+    in-out property <int> language-index: 0;
 
     callback profile-selected(int);
     callback start-server();
@@ -135,12 +147,13 @@ export component MainWindow inherits Window {
     callback open-find();
     callback open-notifications();
     callback open-world-settings();
+    callback language-changed(int);
 
     VerticalBox {
         padding: 12px;
         spacing: 10px;
 
-        // Top bar: ARKSA install dir
+        // Top bar: ARKSA install dir + language picker
         HorizontalBox {
             spacing: 8px;
             Text { text: root.labels.arksa_dir; vertical-alignment: center; }
@@ -154,6 +167,16 @@ export component MainWindow inherits Window {
                 text: root.labels.btn_browse;
                 enabled: !root.action-busy;
                 clicked => { root.browse-install-dir(); }
+            }
+            Text {
+                text: root.labels.main_language_label;
+                vertical-alignment: center;
+            }
+            ComboBox {
+                model: root.language-options;
+                current-index <=> root.language-index;
+                enabled: !root.action-busy;
+                selected => { root.language-changed(self.current-index); }
             }
         }
 
@@ -292,70 +315,121 @@ export component MainWindow inherits Window {
 
 // ─── World settings dialog ────────────────────────────────────────────────
 
-/// One labelled float row used inside the World Settings categories.
-///
-/// `label` is the literal ARK key (always English — that's what the server
-/// reads). `description` is a short bilingual hint that callers populate via
-/// a `root.lang-ja ? "..." : "..."` ternary at the call site, so the dialog
-/// can switch language without a restart.
-component WorldFloatRow inherits VerticalBox {
+/// Reusable label cell. When the row has a `description`, the label becomes
+/// clickable: a hover underline + pointer cursor signal that more info is
+/// available, and clicking the cell pops up the description in a small
+/// dialog anchored under the label.
+component LabelCell inherits Rectangle {
     in property <string> label;
     in property <string> description: "";
-    in-out property <string> value;
-    spacing: 1px;
-    padding: 0;
+
+    width: 260px;
+    background: ta.has-hover && root.description != ""
+        ? Palette.alternate-background
+        : transparent;
+    border-radius: 3px;
+
     HorizontalBox {
-        spacing: 8px;
-        padding: 0;
+        padding: 4px;
+        spacing: 4px;
         Text {
             text: root.label;
-            min-width: 320px;
             vertical-alignment: center;
-        }
-        LineEdit {
-            text <=> root.value;
+            color: Palette.foreground;
             horizontal-stretch: 1;
-            input-type: text;
+        }
+        // A subtle "ⓘ" affordance only when a description exists.
+        if root.description != "": Text {
+            text: "ⓘ";
+            color: Palette.accent-background;
+            vertical-alignment: center;
+            font-size: 13px;
         }
     }
-    if root.description != "": Text {
-        text: root.description;
-        color: #777;
-        wrap: word-wrap;
-        font-size: 11px;
+
+    ta := TouchArea {
+        enabled: root.description != "";
+        mouse-cursor: root.description != "" ? MouseCursor.pointer : MouseCursor.default;
+        clicked => { popup.show(); }
+    }
+
+    popup := PopupWindow {
+        x: 0;
+        y: parent.height + 2px;
+        close-policy: close-on-click-outside;
+        Rectangle {
+            background: Palette.alternate-background;
+            border-color: Palette.border;
+            border-width: 1px;
+            border-radius: 6px;
+            drop-shadow-blur: 8px;
+            drop-shadow-color: #00000080;
+            width: 360px;
+            VerticalLayout {
+                padding: 10px;
+                spacing: 4px;
+                Text {
+                    text: root.label;
+                    color: Palette.accent-background;
+                    font-weight: 700;
+                    wrap: word-wrap;
+                }
+                Text {
+                    text: root.description;
+                    color: Palette.foreground;
+                    wrap: word-wrap;
+                }
+            }
+        }
     }
 }
 
-component WorldBoolRow inherits VerticalBox {
+/// One labelled float row used inside the World Settings categories.
+///
+/// `label` is the literal ARK key (always English — that's what the server
+/// reads). `description` is a short bilingual hint shown as a popup when the
+/// user clicks the label. Callers set it via a
+/// `description: root.lang-ja ? "..." : "..."` ternary so the dialog can
+/// switch language without a restart.
+component WorldFloatRow inherits HorizontalBox {
+    in property <string> label;
+    in property <string> description: "";
+    in-out property <string> value;
+    spacing: 8px;
+    padding: 0;
+
+    LabelCell {
+        label: root.label;
+        description: root.description;
+    }
+    LineEdit {
+        text <=> root.value;
+        horizontal-stretch: 1;
+        input-type: text;
+    }
+}
+
+component WorldBoolRow inherits HorizontalBox {
     in property <string> label;
     in property <string> description: "";
     in-out property <bool> value;
-    spacing: 1px;
+    spacing: 8px;
     padding: 0;
-    HorizontalBox {
-        spacing: 8px;
-        padding: 0;
-        Text {
-            text: root.label;
-            min-width: 320px;
-            vertical-alignment: center;
-        }
-        CheckBox {
-            checked <=> root.value;
-            horizontal-stretch: 1;
-        }
+
+    LabelCell {
+        label: root.label;
+        description: root.description;
     }
-    if root.description != "": Text {
-        text: root.description;
-        color: #777;
-        wrap: word-wrap;
-        font-size: 11px;
+    CheckBox {
+        checked <=> root.value;
+        horizontal-stretch: 1;
     }
 }
 
 /// Sidebar entry for the World Settings dialog. Highlights itself when the
 /// `index` matches `current-index` and fires `clicked` so the parent can
-/// swap the active category.
+/// swap the active category. Colors come from `Palette` so the entry stays
+/// readable in both light and dark themes.
 component CategoryButton inherits Rectangle {
     in property <string> label;
     in property <int> index;
@@ -363,16 +437,19 @@ component CategoryButton inherits Rectangle {
     callback clicked;
 
     height: 30px;
+    border-radius: 4px;
     background: root.index == root.current-index
-        ? #4a90d9
-        : (touch.has-hover ? #e7e7e7 : transparent);
+        ? Palette.accent-background
+        : (touch.has-hover ? Palette.alternate-background : transparent);
 
     HorizontalBox {
         padding-left: 12px;
         padding-right: 8px;
         Text {
             text: root.label;
-            color: root.index == root.current-index ? white : black;
+            color: root.index == root.current-index
+                ? Palette.accent-foreground
+                : Palette.foreground;
             vertical-alignment: center;
             horizontal-stretch: 1;
         }
@@ -697,7 +774,7 @@ export component WorldSettingsWindow inherits Window {
             // Left: category sidebar
             Rectangle {
                 width: 200px;
-                background: #f5f5f5;
+                background: Palette.alternate-background;
                 ScrollView {
                     VerticalBox {
                         padding: 4px;
@@ -730,7 +807,7 @@ export component WorldSettingsWindow inherits Window {
                 spacing: 0;
 
             if root.current-category == 0: Rectangle {
-                background: white;
+                background: Palette.background;
                 ScrollView {
                     VerticalBox {
                         padding: 8px;
@@ -796,7 +873,7 @@ export component WorldSettingsWindow inherits Window {
             }
 
             if root.current-category == 1: Rectangle {
-                background: white;
+                background: Palette.background;
                 ScrollView {
                     VerticalBox {
                         padding: 8px;
@@ -827,7 +904,7 @@ export component WorldSettingsWindow inherits Window {
             }
 
             if root.current-category == 2: Rectangle {
-                background: white;
+                background: Palette.background;
                 ScrollView {
                     VerticalBox {
                         padding: 8px;
@@ -886,7 +963,7 @@ export component WorldSettingsWindow inherits Window {
             }
 
             if root.current-category == 3: Rectangle {
-                background: white;
+                background: Palette.background;
                 ScrollView {
                     VerticalBox {
                         padding: 8px;
@@ -931,7 +1008,7 @@ export component WorldSettingsWindow inherits Window {
             }
 
             if root.current-category == 4: Rectangle {
-                background: white;
+                background: Palette.background;
                 ScrollView {
                     VerticalBox {
                         padding: 8px;
@@ -969,7 +1046,7 @@ export component WorldSettingsWindow inherits Window {
             }
 
             if root.current-category == 5: Rectangle {
-                background: white;
+                background: Palette.background;
                 ScrollView {
                     VerticalBox {
                         padding: 8px;
@@ -1028,7 +1105,7 @@ export component WorldSettingsWindow inherits Window {
             }
 
             if root.current-category == 6: Rectangle {
-                background: white;
+                background: Palette.background;
                 ScrollView {
                     VerticalBox {
                         padding: 8px;
@@ -1066,7 +1143,7 @@ export component WorldSettingsWindow inherits Window {
             }
 
             if root.current-category == 7: Rectangle {
-                background: white;
+                background: Palette.background;
                 ScrollView {
                     VerticalBox {
                         padding: 8px;
@@ -1104,7 +1181,7 @@ export component WorldSettingsWindow inherits Window {
             }
 
             if root.current-category == 8: Rectangle {
-                background: white;
+                background: Palette.background;
                 ScrollView {
                     VerticalBox {
                         padding: 8px;
@@ -1191,7 +1268,7 @@ export component WorldSettingsWindow inherits Window {
             }
 
             if root.current-category == 9: Rectangle {
-                background: white;
+                background: Palette.background;
                 ScrollView {
                     VerticalBox {
                         padding: 8px;
@@ -1306,7 +1383,7 @@ export component WorldSettingsWindow inherits Window {
             }
 
             if root.current-category == 10: Rectangle {
-                background: white;
+                background: Palette.background;
                 ScrollView {
                     VerticalBox {
                         padding: 8px;
@@ -1430,7 +1507,7 @@ export component WorldSettingsWindow inherits Window {
             }
 
             if root.current-category == 11: Rectangle {
-                background: white;
+                background: Palette.background;
                 ScrollView {
                     VerticalBox {
                         padding: 8px;
@@ -1622,7 +1699,7 @@ export component WorldSettingsWindow inherits Window {
             }
 
             if root.current-category == 12: Rectangle {
-                background: white;
+                background: Palette.background;
                 ScrollView {
                     VerticalBox {
                         padding: 8px;
@@ -1730,7 +1807,7 @@ export component WorldSettingsWindow inherits Window {
             }
 
             if root.current-category == 13: Rectangle {
-                background: white;
+                background: Palette.background;
                 ScrollView {
                     VerticalBox {
                         padding: 8px;
@@ -1838,7 +1915,7 @@ export component WorldSettingsWindow inherits Window {
             }
 
             if root.current-category == 14: Rectangle {
-                background: white;
+                background: Palette.background;
                 ScrollView {
                     VerticalBox {
                         padding: 8px;
@@ -1981,7 +2058,7 @@ export component WorldSettingsWindow inherits Window {
             }
 
             if root.current-category == 15: Rectangle {
-                background: white;
+                background: Palette.background;
                 ScrollView {
                     VerticalBox {
                         padding: 8px;
@@ -2068,7 +2145,7 @@ export component WorldSettingsWindow inherits Window {
             }
 
             if root.current-category == 16: Rectangle {
-                background: white;
+                background: Palette.background;
                 VerticalBox {
                     padding: 8px;
                     spacing: 6px;
