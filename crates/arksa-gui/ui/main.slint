@@ -679,9 +679,14 @@ export component WorldSettingsWindow inherits Window {
     /// honour the same setting as the rest of the GUI.
     in property <bool> lang-ja: false;
     /// Index of the active category (sidebar selection). 0 = Rates,
-    /// 1 = Day cycle, …, 16 = Launch flags. The conditional blocks in the
-    /// content pane render based on this.
+    /// 1 = Day cycle, …, 16 = Launch flags, 17 = Mods.
+    /// **99 = virtual "Search results"** — appears in the sidebar only
+    /// while the search box has a non-empty query, and renders all 16
+    /// regular categories simultaneously so matching rows show up
+    /// regardless of which one they belong to.
     in-out property <int> current-category: 0;
+    /// Computed — search box has content?
+    property <bool> search-active: WorldSearch.query != "";
 
     // Field properties — strings for floats so we can validate / format on
     // the Rust side, bools for booleans. Each is grouped by tab.
@@ -1026,6 +1031,14 @@ export component WorldSettingsWindow inherits Window {
                 text <=> WorldSearch.query;
                 placeholder-text: root.labels.world_search_placeholder;
                 horizontal-stretch: 1;
+                edited(text) => {
+                    // Jump to the virtual "Search results" view as soon
+                    // as the user starts typing so matches from every
+                    // category show in one list.
+                    if (text != "") {
+                        root.current-category = 99;
+                    }
+                }
             }
             CheckBox {
                 text: root.labels.world_search_match_desc;
@@ -1076,6 +1089,12 @@ export component WorldSettingsWindow inherits Window {
                     VerticalBox {
                         padding: 4px;
                         spacing: 1px;
+                        if root.search-active: CategoryButton {
+                            index: 99;
+                            current-index: root.current-category;
+                            label: "🔍 " + root.labels.world_search_results;
+                            clicked => { root.current-category = 99; }
+                        }
                         CategoryButton { index: 0;  current-index: root.current-category; label: root.labels.world_tab_rates;       clicked => { root.current-category = 0;  } }
                         CategoryButton { index: 1;  current-index: root.current-category; label: root.labels.world_tab_day;         clicked => { root.current-category = 1;  } }
                         CategoryButton { index: 2;  current-index: root.current-category; label: root.labels.world_tab_player;      clicked => { root.current-category = 2;  } }
