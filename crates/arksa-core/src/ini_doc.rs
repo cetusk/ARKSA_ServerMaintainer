@@ -134,6 +134,18 @@ impl IniDoc {
         // Lazarus writes floats with a '.' decimal separator regardless of locale.
         self.set_string(section, key, format!("{value:?}"));
     }
+
+    /// Delete a single key from a section. Quietly does nothing if the
+    /// section or key is absent. Used during Save to clean up keys that
+    /// have been re-routed between INI files (e.g. the Phase 8M routing
+    /// of breeding multipliers GUS → Game.ini reverted in 8S, where
+    /// stale values left in `[ServerSettings]` would otherwise compete
+    /// with the canonical `Game.ini` value).
+    pub fn remove_key(&mut self, section: &str, key: &str) {
+        if let Some(props) = self.inner.section_mut(Some(section)) {
+            props.remove(key);
+        }
+    }
 }
 
 fn decode_text(bytes: &[u8]) -> String {
@@ -231,6 +243,29 @@ mod tests {
             Some("D:\\ARK\\ARKSA_Server")
         );
         let _ = std::fs::remove_file(tmp);
+    }
+
+    #[test]
+    fn remove_key_strips_only_the_named_key() {
+        let mut doc = IniDoc::new();
+        doc.set_f64("ServerSettings", "BabyMatureSpeedMultiplier", 6.0);
+        doc.set_f64("ServerSettings", "TamingSpeedMultiplier", 33.0);
+        doc.set_string("Other", "Untouched", "x");
+
+        doc.remove_key("ServerSettings", "BabyMatureSpeedMultiplier");
+
+        assert_eq!(
+            doc.get_f64("ServerSettings", "BabyMatureSpeedMultiplier"),
+            None
+        );
+        assert_eq!(
+            doc.get_f64("ServerSettings", "TamingSpeedMultiplier"),
+            Some(33.0)
+        );
+        assert_eq!(doc.get_string("Other", "Untouched").as_deref(), Some("x"));
+        // Removing a missing key is a no-op.
+        doc.remove_key("ServerSettings", "DoesNotExist");
+        doc.remove_key("NoSuchSection", "Anything");
     }
 
     #[test]

@@ -131,10 +131,29 @@ impl GameSettings {
         "WildDinoTorporDrainMultiplier"
     );
 
-    // ── Breeding (Game.ini-only ones; the rest were moved to GUS in 8M) ─
-    // The keys we kept here are not present in user's known-good
-    // GameUserSettings.ini, and ASA documentation lists them under the
-    // Game.ini [/Script/ShooterGame.ShooterGameMode] section.
+    // ── Breeding ─────────────────────────────────────────────────────
+    // ARK Wiki documents *all* breeding multipliers as living under
+    // Game.ini's `[/Script/ShooterGame.ShooterGameMode]` section. Phase
+    // 8M briefly moved a subset of these to GameUserSettings.ini based
+    // on a real-world config the user shared — that turned out to be
+    // a writer convention, not how the engine reads them. Phase 8S
+    // reverts the move; the GUI now writes back to Game.ini and also
+    // strips any leftover entries from `[ServerSettings]` on save.
+    float_field!(
+        mating_interval_multiplier,
+        set_mating_interval_multiplier,
+        "MatingIntervalMultiplier"
+    );
+    float_field!(
+        egg_hatch_speed_multiplier,
+        set_egg_hatch_speed_multiplier,
+        "EggHatchSpeedMultiplier"
+    );
+    float_field!(
+        baby_mature_speed_multiplier,
+        set_baby_mature_speed_multiplier,
+        "BabyMatureSpeedMultiplier"
+    );
     float_field!(
         mating_speed_multiplier,
         set_mating_speed_multiplier,
@@ -149,6 +168,36 @@ impl GameSettings {
         passive_tame_interval_multiplier,
         set_passive_tame_interval_multiplier,
         "PassiveTameIntervalMultiplier"
+    );
+    float_field!(
+        baby_food_consumption_speed_multiplier,
+        set_baby_food_consumption_speed_multiplier,
+        "BabyFoodConsumptionSpeedMultiplier"
+    );
+    float_field!(
+        baby_imprint_amount_multiplier,
+        set_baby_imprint_amount_multiplier,
+        "BabyImprintAmountMultiplier"
+    );
+    float_field!(
+        baby_imprinting_stat_scale_multiplier,
+        set_baby_imprinting_stat_scale_multiplier,
+        "BabyImprintingStatScaleMultiplier"
+    );
+    float_field!(
+        baby_cuddle_interval_multiplier,
+        set_baby_cuddle_interval_multiplier,
+        "BabyCuddleIntervalMultiplier"
+    );
+    float_field!(
+        baby_cuddle_grace_period_multiplier,
+        set_baby_cuddle_grace_period_multiplier,
+        "BabyCuddleGracePeriodMultiplier"
+    );
+    float_field!(
+        baby_cuddle_lose_imprint_quality_speed_multiplier,
+        set_baby_cuddle_lose_imprint_quality_speed_multiplier,
+        "BabyCuddleLoseImprintQualitySpeedMultiplier"
     );
     bool_field!(
         disable_dino_breeding,
@@ -180,8 +229,23 @@ impl GameSettings {
         "AllowAnyoneBabyImprintCuddle"
     );
 
-    // ── Loot / crops (Game.ini-only; SupplyCrate / Fishing / CropDecay
-    //    were moved to GUS in 8M to match real-world configs) ─────────
+    // ── Loot / crops (Phase 8S: SupplyCrate / Fishing / CropDecay
+    //    routed back to Game.ini after Phase 8M's misroute) ──────────
+    float_field!(
+        supply_crate_loot_quality_multiplier,
+        set_supply_crate_loot_quality_multiplier,
+        "SupplyCrateLootQualityMultiplier"
+    );
+    float_field!(
+        fishing_loot_quality_multiplier,
+        set_fishing_loot_quality_multiplier,
+        "FishingLootQualityMultiplier"
+    );
+    float_field!(
+        crop_decay_speed_multiplier,
+        set_crop_decay_speed_multiplier,
+        "CropDecaySpeedMultiplier"
+    );
     float_field!(
         crop_growth_speed_multiplier,
         set_crop_growth_speed_multiplier,

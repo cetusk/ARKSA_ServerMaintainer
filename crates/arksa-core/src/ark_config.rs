@@ -614,73 +614,6 @@ impl GameUserSettings {
         "AllowCrateSpawnsOnTopOfStructures"
     );
 
-    // ── Phase 8M: breeding/loot keys migrated from Game.ini → GUS ─────
-    // These were modelled in `game_config` until 8M, but real-world
-    // configs (and ASA's own writer) put them in `[ServerSettings]` of
-    // GameUserSettings.ini. Keeping them in Game.ini meant Import lost
-    // the user's existing values (and Save wrote duplicates to a file
-    // ARK ignores).
-    float_field!(
-        mating_interval_multiplier,
-        set_mating_interval_multiplier,
-        "MatingIntervalMultiplier"
-    );
-    float_field!(
-        egg_hatch_speed_multiplier,
-        set_egg_hatch_speed_multiplier,
-        "EggHatchSpeedMultiplier"
-    );
-    float_field!(
-        baby_mature_speed_multiplier,
-        set_baby_mature_speed_multiplier,
-        "BabyMatureSpeedMultiplier"
-    );
-    float_field!(
-        baby_food_consumption_speed_multiplier,
-        set_baby_food_consumption_speed_multiplier,
-        "BabyFoodConsumptionSpeedMultiplier"
-    );
-    float_field!(
-        baby_imprint_amount_multiplier,
-        set_baby_imprint_amount_multiplier,
-        "BabyImprintAmountMultiplier"
-    );
-    float_field!(
-        baby_imprinting_stat_scale_multiplier,
-        set_baby_imprinting_stat_scale_multiplier,
-        "BabyImprintingStatScaleMultiplier"
-    );
-    float_field!(
-        baby_cuddle_interval_multiplier,
-        set_baby_cuddle_interval_multiplier,
-        "BabyCuddleIntervalMultiplier"
-    );
-    float_field!(
-        baby_cuddle_grace_period_multiplier,
-        set_baby_cuddle_grace_period_multiplier,
-        "BabyCuddleGracePeriodMultiplier"
-    );
-    float_field!(
-        baby_cuddle_lose_imprint_quality_speed_multiplier,
-        set_baby_cuddle_lose_imprint_quality_speed_multiplier,
-        "BabyCuddleLoseImprintQualitySpeedMultiplier"
-    );
-    float_field!(
-        supply_crate_loot_quality_multiplier,
-        set_supply_crate_loot_quality_multiplier,
-        "SupplyCrateLootQualityMultiplier"
-    );
-    float_field!(
-        fishing_loot_quality_multiplier,
-        set_fishing_loot_quality_multiplier,
-        "FishingLootQualityMultiplier"
-    );
-    float_field!(
-        crop_decay_speed_multiplier,
-        set_crop_decay_speed_multiplier,
-        "CropDecaySpeedMultiplier"
-    );
-
     // ── Phase 8P: MOTD ([MessageOfTheDay] section, not [ServerSettings]) ─
     pub fn motd_message(&self) -> Option<String> {
         self.doc.get_string(SECTION_MESSAGE_OF_THE_DAY, "Message")
@@ -693,6 +626,37 @@ impl GameUserSettings {
     }
     pub fn set_motd_duration(&mut self, v: i64) {
         self.doc.set_i64(SECTION_MESSAGE_OF_THE_DAY, "Duration", v);
+    }
+}
+
+/// Keys that Phase 8M briefly modelled inside `[ServerSettings]` but which
+/// the ARK Wiki / engine actually reads from `Game.ini
+/// [/Script/ShooterGame.ShooterGameMode]`. Phase 8S (revert) routes them
+/// back to `Game.ini`, and on Save we strip any leftover entries from
+/// `[ServerSettings]` so a stale duplicate can't compete with the
+/// canonical Game.ini value.
+pub const LEGACY_GUS_BREEDING_LOOT_KEYS: &[&str] = &[
+    "MatingIntervalMultiplier",
+    "EggHatchSpeedMultiplier",
+    "BabyMatureSpeedMultiplier",
+    "BabyFoodConsumptionSpeedMultiplier",
+    "BabyImprintAmountMultiplier",
+    "BabyImprintingStatScaleMultiplier",
+    "BabyCuddleIntervalMultiplier",
+    "BabyCuddleGracePeriodMultiplier",
+    "BabyCuddleLoseImprintQualitySpeedMultiplier",
+    "SupplyCrateLootQualityMultiplier",
+    "FishingLootQualityMultiplier",
+    "CropDecaySpeedMultiplier",
+];
+
+impl GameUserSettings {
+    /// Strip every Phase 8M-era misrouted breeding/loot key from
+    /// `[ServerSettings]`. Idempotent.
+    pub fn cleanup_legacy_breeding_loot_keys(&mut self) {
+        for k in LEGACY_GUS_BREEDING_LOOT_KEYS {
+            self.doc.remove_key(SECTION_SERVER_SETTINGS, k);
+        }
     }
 }
 
