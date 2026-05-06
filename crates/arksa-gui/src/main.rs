@@ -985,6 +985,7 @@ struct Labels {
     world_search_label: String,
     world_search_placeholder: String,
     world_search_match_desc: String,
+    world_search_results: String,
     world_tab_mods: String,
     world_mods_hint: String,
     world_mods_footnote: String,
@@ -1086,6 +1087,7 @@ impl Labels {
             world_search_label: "Search:".into(),
             world_search_placeholder: "type to filter rows…".into(),
             world_search_match_desc: "Include description".into(),
+            world_search_results: "Search results".into(),
             world_tab_mods: "Mods".into(),
             world_mods_hint:
                 "Enter mod IDs (CurseForge Project IDs), one per line or \
@@ -1196,6 +1198,7 @@ impl Labels {
             world_search_label: "検索:".into(),
             world_search_placeholder: "入力して絞り込み…".into(),
             world_search_match_desc: "説明文も検索".into(),
+            world_search_results: "検索結果".into(),
             world_tab_mods: "MOD".into(),
             world_mods_hint:
                 "MOD ID (CurseForge の Project ID) を 1 行 1 つ、または \
@@ -1319,6 +1322,7 @@ impl Labels {
             world_search_label: self.world_search_label.as_str().into(),
             world_search_placeholder: self.world_search_placeholder.as_str().into(),
             world_search_match_desc: self.world_search_match_desc.as_str().into(),
+            world_search_results: self.world_search_results.as_str().into(),
             world_tab_mods: self.world_tab_mods.as_str().into(),
             world_mods_hint: self.world_mods_hint.as_str().into(),
             world_mods_footnote: self.world_mods_footnote.as_str().into(),

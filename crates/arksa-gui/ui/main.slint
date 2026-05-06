@@ -181,6 +181,7 @@ export struct UiLabels {
     world_search_label: string,
     world_search_placeholder: string,
     world_search_match_desc: string,
+    world_search_results: string,
     world_tab_mods: string,
     world_mods_hint: string,
     world_mods_footnote: string,
@@ -1143,12 +1144,26 @@ export component WorldSettingsWindow inherits Window {
                 Rectangle { horizontal-stretch: 1; }
             }
 
-            if root.current-category == 0: Rectangle {
+            // Single outer ScrollView wraps all category content. Lets
+            // the cat-99 "Search results" view (which renders all
+            // categories simultaneously) scroll naturally.
+            ScrollView {
+                vertical-stretch: 1;
+                VerticalBox {
+                    padding: 0;
+                    spacing: 0;
+
+            if root.current-category == 0 || root.current-category == 99: Rectangle {
                 background: Palette.background;
-                ScrollView {
                     VerticalBox {
                         padding: 8px;
                         spacing: 4px;
+                        if root.current-category == 99: Text {
+                            text: root.labels.world_tab_rates;
+                            color: AppTheme.accent;
+                            font-weight: 700;
+                            font-size: 13px;
+                        }
                         WorldFloatRow {
                             label: "XPMultiplier";
                             description: root.lang-ja
@@ -1206,15 +1221,19 @@ export component WorldSettingsWindow inherits Window {
                             value <=> root.f_baby_mature_speed_multiplier;
                         }
                     }
-                }
             }
 
-            if root.current-category == 1: Rectangle {
+            if root.current-category == 1 || root.current-category == 99: Rectangle {
                 background: Palette.background;
-                ScrollView {
                     VerticalBox {
                         padding: 8px;
                         spacing: 4px;
+                        if root.current-category == 99: Text {
+                            text: root.labels.world_tab_day;
+                            color: AppTheme.accent;
+                            font-weight: 700;
+                            font-size: 13px;
+                        }
                         WorldFloatRow {
                             label: "DayCycleSpeedScale";
                             description: root.lang-ja
@@ -1244,15 +1263,19 @@ export component WorldSettingsWindow inherits Window {
                             value <=> root.f_start_time_hour;
                         }
                     }
-                }
             }
 
-            if root.current-category == 2: Rectangle {
+            if root.current-category == 2 || root.current-category == 99: Rectangle {
                 background: Palette.background;
-                ScrollView {
                     VerticalBox {
                         padding: 8px;
                         spacing: 4px;
+                        if root.current-category == 99: Text {
+                            text: root.labels.world_tab_player;
+                            color: AppTheme.accent;
+                            font-weight: 700;
+                            font-size: 13px;
+                        }
                         WorldFloatRow {
                             label: "PlayerCharacterFoodDrainMultiplier";
                             description: root.lang-ja
@@ -1324,15 +1347,19 @@ export component WorldSettingsWindow inherits Window {
                             value <=> root.b_non_permanent_diseases;
                         }
                     }
-                }
             }
 
-            if root.current-category == 3: Rectangle {
+            if root.current-category == 3 || root.current-category == 99: Rectangle {
                 background: Palette.background;
-                ScrollView {
                     VerticalBox {
                         padding: 8px;
                         spacing: 4px;
+                        if root.current-category == 99: Text {
+                            text: root.labels.world_tab_tamed;
+                            color: AppTheme.accent;
+                            font-weight: 700;
+                            font-size: 13px;
+                        }
                         WorldFloatRow {
                             label: "DinoCharacterFoodDrainMultiplier";
                             description: root.lang-ja
@@ -1376,15 +1403,19 @@ export component WorldSettingsWindow inherits Window {
                             value <=> root.b_allow_flying_stamina_recovery;
                         }
                     }
-                }
             }
 
-            if root.current-category == 4: Rectangle {
+            if root.current-category == 4 || root.current-category == 99: Rectangle {
                 background: Palette.background;
-                ScrollView {
                     VerticalBox {
                         padding: 8px;
                         spacing: 4px;
+                        if root.current-category == 99: Text {
+                            text: root.labels.world_tab_wild;
+                            color: AppTheme.accent;
+                            font-weight: 700;
+                            font-size: 13px;
+                        }
                         WorldFloatRow {
                             label: "WildDinoCharacterFoodDrainMultiplier";
                             description: root.lang-ja
@@ -1428,15 +1459,19 @@ export component WorldSettingsWindow inherits Window {
                             value <=> root.b_allow_raid_dino_feeding;
                         }
                     }
-                }
             }
 
-            if root.current-category == 5: Rectangle {
+            if root.current-category == 5 || root.current-category == 99: Rectangle {
                 background: Palette.background;
-                ScrollView {
                     VerticalBox {
                         padding: 8px;
                         spacing: 4px;
+                        if root.current-category == 99: Text {
+                            text: root.labels.world_tab_difficulty;
+                            color: AppTheme.accent;
+                            font-weight: 700;
+                            font-size: 13px;
+                        }
                         WorldFloatRow {
                             label: "DifficultyOffset";
                             description: root.lang-ja
@@ -1487,15 +1522,19 @@ export component WorldSettingsWindow inherits Window {
                             value <=> root.b_allow_anyone_baby_imprint;
                         }
                     }
-                }
             }
 
-            if root.current-category == 6: Rectangle {
+            if root.current-category == 6 || root.current-category == 99: Rectangle {
                 background: Palette.background;
-                ScrollView {
                     VerticalBox {
                         padding: 8px;
                         spacing: 4px;
+                        if root.current-category == 99: Text {
+                            text: root.labels.world_tab_pvp;
+                            color: AppTheme.accent;
+                            font-weight: 700;
+                            font-size: 13px;
+                        }
                         WorldBoolRow {
                             label: "serverPVE";
                             description: root.lang-ja
@@ -1567,15 +1606,19 @@ export component WorldSettingsWindow inherits Window {
                             value <=> root.b_pve_allow_structures_at_supply_drops;
                         }
                     }
-                }
             }
 
-            if root.current-category == 7: Rectangle {
+            if root.current-category == 7 || root.current-category == 99: Rectangle {
                 background: Palette.background;
-                ScrollView {
                     VerticalBox {
                         padding: 8px;
                         spacing: 4px;
+                        if root.current-category == 99: Text {
+                            text: root.labels.world_tab_ops;
+                            color: AppTheme.accent;
+                            font-weight: 700;
+                            font-size: 13px;
+                        }
                         WorldFloatRow {
                             label: "MaxTamedDinos";
                             description: root.lang-ja
@@ -1605,15 +1648,19 @@ export component WorldSettingsWindow inherits Window {
                             value <=> root.f_the_max_structures_in_range;
                         }
                     }
-                }
             }
 
-            if root.current-category == 8: Rectangle {
+            if root.current-category == 8 || root.current-category == 99: Rectangle {
                 background: Palette.background;
-                ScrollView {
                     VerticalBox {
                         padding: 8px;
                         spacing: 4px;
+                        if root.current-category == 99: Text {
+                            text: root.labels.world_tab_breeding;
+                            color: AppTheme.accent;
+                            font-weight: 700;
+                            font-size: 13px;
+                        }
                         WorldFloatRow {
                             label: "MatingSpeedMultiplier";
                             description: root.lang-ja
@@ -1692,15 +1739,19 @@ export component WorldSettingsWindow inherits Window {
                             value <=> root.b_disable_dino_taming;
                         }
                     }
-                }
             }
 
-            if root.current-category == 9: Rectangle {
+            if root.current-category == 9 || root.current-category == 99: Rectangle {
                 background: Palette.background;
-                ScrollView {
                     VerticalBox {
                         padding: 8px;
                         spacing: 4px;
+                        if root.current-category == 99: Text {
+                            text: root.labels.world_tab_loot;
+                            color: AppTheme.accent;
+                            font-weight: 700;
+                            font-size: 13px;
+                        }
                         WorldFloatRow {
                             label: "SupplyCrateLootQualityMultiplier";
                             description: root.lang-ja
@@ -1814,15 +1865,19 @@ export component WorldSettingsWindow inherits Window {
                             value <=> root.f_item_stack_size_multiplier;
                         }
                     }
-                }
             }
 
-            if root.current-category == 10: Rectangle {
+            if root.current-category == 10 || root.current-category == 99: Rectangle {
                 background: Palette.background;
-                ScrollView {
                     VerticalBox {
                         padding: 8px;
                         spacing: 6px;
+                        if root.current-category == 99: Text {
+                            text: root.labels.world_tab_stats;
+                            color: AppTheme.accent;
+                            font-weight: 700;
+                            font-size: 13px;
+                        }
                         GroupBox {
                             title: "PerLevelStatsMultiplier_Player[i]";
                             VerticalBox {
@@ -1938,15 +1993,19 @@ export component WorldSettingsWindow inherits Window {
                             }
                         }
                     }
-                }
             }
 
-            if root.current-category == 11: Rectangle {
+            if root.current-category == 11 || root.current-category == 99: Rectangle {
                 background: Palette.background;
-                ScrollView {
                     VerticalBox {
                         padding: 8px;
                         spacing: 6px;
+                        if root.current-category == 99: Text {
+                            text: root.labels.world_tab_combat;
+                            color: AppTheme.accent;
+                            font-weight: 700;
+                            font-size: 13px;
+                        }
                         GroupBox {
                             title: "Combat (Game.ini)";
                             VerticalBox {
@@ -2193,15 +2252,19 @@ export component WorldSettingsWindow inherits Window {
                             }
                         }
                     }
-                }
             }
 
-            if root.current-category == 12: Rectangle {
+            if root.current-category == 12 || root.current-category == 99: Rectangle {
                 background: Palette.background;
-                ScrollView {
                     VerticalBox {
                         padding: 8px;
                         spacing: 4px;
+                        if root.current-category == 99: Text {
+                            text: root.labels.world_tab_xp;
+                            color: AppTheme.accent;
+                            font-weight: 700;
+                            font-size: 13px;
+                        }
                         WorldFloatRow {
                             label: "GenericXPMultiplier";
                             description: root.lang-ja
@@ -2301,15 +2364,19 @@ export component WorldSettingsWindow inherits Window {
                             value <=> root.f_override_max_experience_points_dino;
                         }
                     }
-                }
             }
 
-            if root.current-category == 13: Rectangle {
+            if root.current-category == 13 || root.current-category == 99: Rectangle {
                 background: Palette.background;
-                ScrollView {
                     VerticalBox {
                         padding: 8px;
                         spacing: 6px;
+                        if root.current-category == 99: Text {
+                            text: root.labels.world_tab_chat;
+                            color: AppTheme.accent;
+                            font-weight: 700;
+                            font-size: 13px;
+                        }
                         GroupBox {
                             title: "MessageOfTheDay (separate INI section)";
                             VerticalBox {
@@ -2464,15 +2531,19 @@ export component WorldSettingsWindow inherits Window {
                             value <=> root.b_use_optimized_harvesting_health;
                         }
                     }
-                }
             }
 
-            if root.current-category == 14: Rectangle {
+            if root.current-category == 14 || root.current-category == 99: Rectangle {
                 background: Palette.background;
-                ScrollView {
                     VerticalBox {
                         padding: 8px;
                         spacing: 6px;
+                        if root.current-category == 99: Text {
+                            text: root.labels.world_tab_cluster;
+                            color: AppTheme.accent;
+                            font-weight: 700;
+                            font-size: 13px;
+                        }
                         GroupBox {
                             title: "Passwords / URLs (GameUserSettings.ini)";
                             VerticalBox {
@@ -2614,15 +2685,19 @@ export component WorldSettingsWindow inherits Window {
                             }
                         }
                     }
-                }
             }
 
-            if root.current-category == 15: Rectangle {
+            if root.current-category == 15 || root.current-category == 99: Rectangle {
                 background: Palette.background;
-                ScrollView {
                     VerticalBox {
                         padding: 8px;
                         spacing: 4px;
+                        if root.current-category == 99: Text {
+                            text: root.labels.world_tab_clamps;
+                            color: AppTheme.accent;
+                            font-weight: 700;
+                            font-size: 13px;
+                        }
                         WorldFloatRow {
                             label: "MaxBlueprintDinoLevel (int, 0=disabled)";
                             description: root.lang-ja
@@ -2701,7 +2776,6 @@ export component WorldSettingsWindow inherits Window {
                             value <=> root.f_destroy_tames_over_level_clamp;
                         }
                     }
-                }
             }
 
             if root.current-category == 16: Rectangle {
@@ -2758,6 +2832,8 @@ export component WorldSettingsWindow inherits Window {
                     }
                 }
             }
+                }       // end inner VerticalBox
+            }           // end outer ScrollView
             }   // end right-pane VerticalBox
         }       // end HorizontalBox sidebar+content
 
