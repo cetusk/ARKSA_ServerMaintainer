@@ -4,7 +4,7 @@ A Rust + Slint GUI tool to maintain a personal **ARK: Survival Ascended** dedica
 
 A personal-use **re-implementation** of [ASA Server Manager (ASASM)](https://sites.google.com/view/asa-server-manager) by *Dの人*. The upstream author explicitly permits forks and re-implementations in other languages. The upstream Object Pascal source is **not redistributed** here; obtain it from the upstream distribution above if you need to cross-reference.
 
-> **Status: Phase 8a–8k — full per-profile world editor (~250 fields) + dark mode + main-window language picker.** The GUI can create a profile, auto-write `GameUserSettings.ini` so RCON works on first start, install the dedicated server via the bundled steamcmd, start/stop/restart the server, send RCON commands, search Mods/Engrams/Items/Dinos, send Discord & Windows toast notifications, switch between English / Japanese **right from the main window**, and **edit ~250 world / breeding / loot / stat / combat / XP / chat / cluster / clamp / launch-flag parameters across `Game.ini` + `GameUserSettings.ini` + the profile's `MM_Command_Val` from a left-sidebar / right-pane editor (17 categories, click-the-label popups for bilingual descriptions, file-import for reusing settings from another install)**. Real ARK SA clients have joined a server set up this way (via in-game `open <ip>:<port>`). CLI commander, self-updater (Phase 9), backups, and scheduled restarts are still pending. See [`docs/architecture.md`](./docs/architecture.md) for the full phase plan and [`docs/parameters.md`](./docs/parameters.md) for the comprehensive ARK SA parameter reference.
+> **Status: Phase 8a–8P — full per-profile world editor (~280 fields incl. MOTD) + dark mode + turquoise theme + main-window language picker.** The GUI can create a profile, auto-write `GameUserSettings.ini` so RCON works on first start, install the dedicated server via the bundled steamcmd, start/stop/restart the server, send RCON commands, search Mods/Engrams/Items/Dinos, send Discord & Windows toast notifications, switch between English / Japanese **right from the main window**, and **edit ~280 world / breeding / loot / stat / combat / XP / chat / cluster / clamp / PvP-decay / disease / Cryopod / launch-flag / MOTD parameters across `Game.ini` + `GameUserSettings.ini` (`[ServerSettings]` and `[MessageOfTheDay]`) + the profile's `MM_Command_Val` from a left-sidebar / right-pane editor (17 categories, click-the-label popups for bilingual descriptions, file-import for reusing settings from another install)**. Real ARK SA clients have joined a server set up this way (via in-game `open <ip>:<port>`) including over [playit.gg](https://playit.gg/) tunnels for friends behind CGNAT. CLI commander, self-updater (Phase 9), backups, and scheduled restarts are still pending. See [`docs/architecture.md`](./docs/architecture.md) for the full phase plan and [`docs/parameters.md`](./docs/parameters.md) for the comprehensive ARK SA parameter reference.
 
 ---
 
@@ -191,22 +191,29 @@ If `ARKSA_DIR` is not set, the tool falls back to the directory containing
 
 ## Daily operation
 
+All buttons show their full name (no `…` truncation). Sections are grouped
+into turquoise-headered `SectionGroup` panels (Setup / Profile / Server
+status / Server control / RCON / Log) so the layout is scannable at a
+glance.
+
 | Action | How |
 |---|---|
-| **Start** | GUI → *Start* button |
-| **Stop (graceful)** | GUI → *Stop (graceful)* — sends `SaveWorld` + `DoExit` over RCON, falls back to `WM_CLOSE` if RCON is down |
-| **Restart** | GUI → *Restart* — *Stop (graceful)* → 2 s wait → *Start*, with notification on each transition |
-| **Update game version** | GUI → *Install / Update server* (re-runs steamcmd; existing files are preserved) |
-| **Send arbitrary RCON command** | GUI's RCON input box → type a command → *Send* |
-| **Find a Mod / Engram / Item / Dino** | GUI → *Find…* → pick category, type substring → results show name + class/ID |
-| **Edit world / difficulty parameters** | GUI → *World Settings…* → pick a category in the left sidebar → fill in fields → *Save* (re-reads on next Start) |
-| **See what a parameter does** | In *World Settings…* click the parameter label (look for the **ⓘ** marker) — pops up a bilingual description |
-| **Reuse settings from another install** | *World Settings…* → *Import settings from file…* → pick a `Game.ini` or `GameUserSettings.ini` |
-| **Edit launch flags** | *World Settings…* → *Launch flags* category — edits the `-flag` portion of the profile's `MM_Command_Val` (URL / mods stay untouched) |
-| **Discord / toast notifications** | GUI → *Notifications…* → set webhook URL, toggle event types, *Save* |
-| **Switch UI language (EN ↔ JA)** | GUI top bar → *Language* dropdown → restart required to apply (the choice persists immediately) |
-| **Edit the raw launch line** | Edit `MM_Command_Val=` in `<ARKSA_DIR>\Profile\<file_name>.ini`, then GUI *Refresh* |
-| **Switch profile** | GUI's profile dropdown (when more than one profile exists) |
+| **Start** | GUI → *Server control* → *Start* |
+| **Stop (graceful)** | *Server control* → *Stop (graceful)* — sends `SaveWorld` + `DoExit` over RCON, falls back to `WM_CLOSE` if RCON is down |
+| **Restart** | *Server control* → *Restart server* — *Stop (graceful)* → 2 s wait → *Start*, with notification on each transition |
+| **Update game version** | *Server control* → *Install / Update server* (re-runs steamcmd; existing files are preserved) |
+| **Send arbitrary RCON command** | *RCON* section input → type a command → *Send* |
+| **Find a Mod / Engram / Item / Dino** | *Setup* → *Find data* → pick category, type substring → results show name + class/ID |
+| **Edit world / difficulty parameters** | *Profile* → *World Settings* → pick a category in the left sidebar → fill in fields → *Save* (re-reads on next Start) |
+| **See what a parameter does** | In *World Settings* click the parameter label (look for the **ⓘ** marker) — pops up a bilingual description **above** the row |
+| **Edit Message of the Day** | *World Settings* → *Cosmetic / Chat* → top *MessageOfTheDay* group (multi-line `Message` + `Duration` in seconds) |
+| **Reuse settings from another install** | *World Settings* → *Import settings from file* → pick a `Game.ini` or `GameUserSettings.ini` (the wire-up fix in Phase 8M means breeding / loot / cuddle multipliers now read from the right section) |
+| **Edit launch flags** | *World Settings* → *Launch flags* category — edits the `-flag` portion of the profile's `MM_Command_Val` (URL / mods stay untouched) |
+| **Discord / toast notifications** | *Setup* → *Notifications* → set webhook URL, toggle event types, *Save* |
+| **Switch UI language (EN ↔ JA)** | *Setup* section → *Language* dropdown → restart required to apply (the choice persists immediately) |
+| **Edit the raw launch line** | Edit `MM_Command_Val=` in `<ARKSA_DIR>\Profile\<file_name>.ini`, then GUI *Refresh status* |
+| **Switch profile** | *Profile* section dropdown — the selected profile's full file path appears under the dropdown (`↳ File: …`) so you always know which `.ini` is being edited |
+| **Refresh server status** | *Server status* → *Refresh status* (status auto-polls every 5 s anyway) |
 
 The Status panel polls `server::status` every 5 s — PID, working-set memory,
 and uptime are kept current without you doing anything.
@@ -235,21 +242,21 @@ the right. ~250 fields total across 17 categories:
 
 | Category | Notable fields | Where the values land |
 |---|---|---|
-| Rates | XP / Harvest / Taming / Mating / Hatch / Mature | `GameUserSettings.ini` (XP/harvest/taming) + `Game.ini` (breeding rates) |
-| Day cycle | Day/Night scale | `GameUserSettings.ini` |
-| Player | Food / Water / Stamina / Health / Damage / Resistance | `GameUserSettings.ini` (drain/regen/dmg) + `Game.ini` (harvesting dmg) |
-| Tamed dino | Drains / Damage / Resistance | `GameUserSettings.ini` |
-| Wild dino | Food / Stamina / Torpor / Count | `Game.ini` (food/torpor) + `GameUserSettings.ini` (stamina/count) |
+| Rates | XP / Harvest / Taming / Mating / Hatch / Mature | `GameUserSettings.ini` |
+| Day cycle | Day/Night scale, StartTimeHour | `GameUserSettings.ini` |
+| Player | Food / Water / Stamina / Health / Damage / Resistance / Oxygen swim, disease toggles | `GameUserSettings.ini` (drain/regen/dmg) + `Game.ini` (harvesting dmg) |
+| Tamed dino | Drains / Damage / Resistance / AllowFlyingStaminaRecovery | `GameUserSettings.ini` |
+| Wild dino | Food / Stamina / Torpor / Count, Raid dino food/feed | `Game.ini` (food/torpor) + `GameUserSettings.ini` (stamina/count/raid) |
 | Difficulty / structure | DifficultyOffset, Override, structure dmg/resist/repair, imprint flags | `GameUserSettings.ini` + `Game.ini` |
-| PvE / PvP | serverPVE, AllowFlyerCarryPvE, EnableCryoSicknessPVE, DisableStructureDecayPvE | `GameUserSettings.ini` |
+| PvE / PvP | serverPVE, AllowFlyerCarryPvE, EnableCryoSicknessPVE, DisableStructureDecayPvE, PreventOfflinePvP(+Interval), PvP/PvE-DinoDecay, PvEAllowStructuresAtSupplyDrops | `GameUserSettings.ini` |
 | Ops | MaxTamedDinos, KickIdle, AutoSavePeriodMinutes, TheMaxStructuresInRange | `GameUserSettings.ini` |
-| Breeding | MatingSpeed, LayEggInterval, PassiveTame, BabyImprint*, BabyCuddle*, DisableBreeding/Taming | `Game.ini` |
-| Loot / Spoilage | SupplyCrate / Fishing / Crops / Spoiling / Decomposition / Fuel / MaxFallSpeed | `Game.ini` |
+| Breeding | MatingSpeed / LayEggInterval / PassiveTame, **BabyImprint\* / BabyCuddle\* (now correctly routed to GUS in 8M)**, DisableBreeding/Taming, BabyFoodConsumption | `GameUserSettings.ini` (Imprint/Cuddle/MatingInterval/EggHatch/BabyMature) + `Game.ini` (the rest) |
+| Loot / Spoilage | **SupplyCrate / Fishing / CropDecay (now in GUS)**, CropGrowth, GlobalSpoiling/Decomposition/Corpse, ItemStackSize, MaxFallSpeed | `Game.ini` (CropGrowth + spoilage/decomposition) + `GameUserSettings.ini` (SupplyCrate/Fishing/CropDecay/ItemStackSize) |
 | Stat arrays | `PerLevelStatsMultiplier_*[0..11]` (Player / Tamed / Tamed-Add / Tamed-Affinity / Wild) + `PlayerBaseStatMultipliers[0..11]` — 6 × 12 = 72 cells | `Game.ini` |
-| Combat / Structures | DinoHarvest/TurretDmg, Speed-leveling, friendly fire, turret limits, structure pickup, Cryopod nerf | `Game.ini` + `GameUserSettings.ini` |
+| Combat / Structures | DinoHarvest/TurretDmg, Speed-leveling, friendly fire, turret limits, structure pickup, Cryopod nerf, **decay & extra (FastDecayUnsnapped, OnlyAutoDestroyCore, AutoDestroyDecayedDinos, OverrideStructurePlatformPrev, ExtraStructurePreventionVolumes, AllowMultipleAttachedC4, AllowCrateSpawnsOnTopOfStructures, PlatformSaddleBuildAreaBounds)** | `Game.ini` + `GameUserSettings.ini` |
 | XP gain | Generic / Harvest / Kill / Craft / Special / ExplorerNote / BossKill / CaveKill / WildKill / TamedKill / UnclaimedKill / AlphaKill XP, OverrideMax* | `Game.ini` |
-| Cosmetic / Chat | globalVoiceChat, ProximityChat, FloatingDamageText, ServerCrosshair, AllowThirdPerson, Hit-markers, gamma toggles | `GameUserSettings.ini` |
-| Cluster / Lists | ServerPassword, BanListURL, AdminListURL, BadWordList, CustomLiveTuning, transfer toggles, MaxPlayersInTribe | `GameUserSettings.ini` |
+| Cosmetic / Chat | **MessageOfTheDay (Phase 8P, multi-line Text + Duration; lives in `[MessageOfTheDay]` section)**, globalVoiceChat, ProximityChat, FloatingDamageText, ServerCrosshair, AllowThirdPerson, Hit-markers, gamma toggles, PreventSpawnAnimations, TribeLogDestroyedEnemyStructures, RCONServerGameLogBuffer, UseOptimizedHarvestingHealth | `GameUserSettings.ini` (`[ServerSettings]` + `[MessageOfTheDay]` for MOTD) |
+| Cluster / Lists | ServerPassword, BanListURL, AdminListURL, BadWordList, CustomLiveTuning, transfer toggles, MaxPlayersInTribe, TribeNameChangeCooldown | `GameUserSettings.ini` |
 | Clamps / Blueprints | MaxBlueprint(Dino|Item|Scout)*, MaxHexagons, ClampItemSpoiling/Stats, Implant CD, AutoForceRespawnInterval, DestroyTamesOverLevelClamp | `GameUserSettings.ini` + `Game.ini` |
 | Launch flags | Free-form text edit of `-log -NoBattlEye -EpicApp=ArkAscended …` etc. — only the `-flag` portion of `MM_Command_Val` is touched | Profile `MM_Command_Val` |
 
@@ -316,6 +323,32 @@ launch options:
 ```
 Otherwise the client refuses to connect to a non-BattlEye server.
 
+### Behind CGNAT / no router access (playit.gg, Tailscale)
+
+If you can't forward router ports — mobile / dorm / shared connection,
+or your ISP gives you a CGNAT address — there are two practical
+work-arounds. ARK SA is **UDP-only** so HTTP-based tunnels (Cloudflare
+Tunnel, ngrok free tier) don't help.
+
+**[playit.gg](https://playit.gg/)** — game-server reverse proxy with a
+free tier. Install the agent on the server PC, create a UDP tunnel,
+share the assigned `host:port` with friends. Confirmed working: friends
+on different ISPs joined a tunnel like `147.185.221.30:38080` with
+just an in-game `open 147.185.221.30:38080`. The agent process can be
+stopped between sessions and the tunnel address is preserved on the
+account, so the same address works the next day. RCON (TCP 27020) is
+intentionally **not** tunneled — admin commands can still be sent from
+the GUI's RCON panel locally on the server PC, or from a connected
+client via in-game `enablecheats <admin-password>` followed by
+commands like `saveworld`, `broadcast`, `kickplayer`.
+
+**[Tailscale](https://tailscale.com/)** (or [ZeroTier](https://www.zerotier.com/))
+— mesh VPN for a closed group of friends. Install on the server PC and
+on each player's PC, share an invite, and players connect with
+`open 100.x.y.z:7777` (the tailnet IP). No router config, works
+through CGNAT, lower latency than a relay. Tailscale Funnel is
+**HTTPS-only** and does not work for ARK.
+
 ## Compatibility & integrity fixes
 
 A bag of quirks discovered while reaching parity with upstream ASASM and
@@ -353,14 +386,31 @@ ARK SA's launch-URL parser is brittle:
 ### `[ServerSettings]` vs `Game.ini` routing
 The bulk of multipliers documented as "ServerSettings" actually accept
 both files, but the canonical home is `GameUserSettings.ini` and ARK
-sometimes prefers GUS when both contain the same key. Phase 8b corrected
-the wire-up: ~20 multipliers (`XPMultiplier`, `Player*Drain*`,
-`Dino*Drain*`, `DayCycleSpeedScale`, `Structure*Multiplier`,
-`DinoCountMultiplier`, etc.) used to be written to `Game.ini` and are
-now written to `GameUserSettings.ini`. A handful of keys
-(`PlayerHarvestingDamageMultiplier`, `WildDinoCharacterFoodDrainMultiplier`,
-`StructureDamageRepairCooldown`, breeding/imprint multipliers) genuinely
-live in `Game.ini` and stay there. See
+sometimes prefers GUS when both contain the same key. The wire-up was
+corrected in two passes:
+
+- **Phase 8b** (~20 keys) — `XPMultiplier`, `Player*Drain*`,
+  `Dino*Drain*`, `DayCycleSpeedScale`, `Structure*Multiplier`,
+  `DinoCountMultiplier`, etc. used to be written to `Game.ini` and are
+  now written to `GameUserSettings.ini`.
+- **Phase 8M** (12 keys) — confirmed by importing a real-world
+  config: `MatingIntervalMultiplier`, `EggHatchSpeedMultiplier`,
+  `BabyMatureSpeedMultiplier`, `BabyFoodConsumptionSpeedMultiplier`,
+  `BabyImprintAmountMultiplier`, `BabyImprintingStatScaleMultiplier`,
+  `BabyCuddleIntervalMultiplier`, `BabyCuddleGracePeriodMultiplier`,
+  `BabyCuddleLoseImprintQualitySpeedMultiplier`,
+  `SupplyCrateLootQualityMultiplier`, `FishingLootQualityMultiplier`,
+  `CropDecaySpeedMultiplier` were also moved from `Game.ini` to
+  `GameUserSettings.ini`. Without this fix, *Import settings from file*
+  silently lost the user's existing breeding / loot tuning when the
+  source was a real ASA config.
+
+A handful of keys (`PlayerHarvestingDamageMultiplier`,
+`WildDinoCharacterFoodDrainMultiplier`, `WildDinoTorporDrainMultiplier`,
+`StructureDamageRepairCooldown`, `MatingSpeedMultiplier`,
+`LayEggIntervalMultiplier`, `PassiveTameIntervalMultiplier`,
+`CropGrowthSpeedMultiplier`, the XP gain breakdown, and the per-stat
+arrays) genuinely live in `Game.ini` and stay there. See
 [`docs/parameters.md`](./docs/parameters.md) for the full routing table.
 
 ### INI backslash escaping (`D:\ARK\…` round-trip)
@@ -416,13 +466,24 @@ Windows main-thread stack overflows during construction with
 ### ICU4X "No segmentation model for language: ja" log spam
 Slint's text layout calls into ICU4X to choose line-break positions,
 and ICU4X's bundled data only ships Western locales. On any Japanese
-text it logs `ICU4X data error: No segmentation model for language: ja`
+text it prints `ICU4X data error: No segmentation model for language: ja`
 and falls back to char-wrap (which is fine for Japanese — there are
-no inter-word spaces to honour). The log is harmless but drowns out
-useful output. Fixed by routing `log` crate output through `tracing`
-(`tracing-log` bridge) and silencing `icu_segmenter` /
-`icu_provider` / Slint warnings in `EnvFilter`. Set `RUST_LOG=info`
-to bypass the filter and see everything again.
+no inter-word spaces to honour). The message is harmless but drowns
+out useful output.
+
+Two-layer fix:
+1. **`tracing` filter** (`EnvFilter` defaults) silences `icu_segmenter`
+   / `icu_provider` / Slint warnings if they ever go through the `log`
+   crate (`tracing-subscriber`'s default `tracing-log` feature bridges
+   them — do **not** also call `LogTracer::init()` or
+   `tracing-subscriber` panics with `SetLoggerError`).
+2. **Win32 stderr redirect**. The actual ICU4X warning bypasses `log`
+   and writes to stderr via `eprintln!` directly, so the filter alone
+   doesn't catch it. On startup we replace the process's
+   `STD_ERROR_HANDLE` with `NUL` (skipped when `RUST_LOG` is set so
+   developers can still see the output).
+
+Set `RUST_LOG=info` to bypass both filters and see everything again.
 
 ### ARK URL parser corrupting `ServerAdminPassword` (resolved by Phase 5)
 Earlier versions required the user to manually edit
@@ -489,12 +550,16 @@ and the `.pas → Rust` mapping.
 | 8i | Cluster / Lists category (16 fields incl. URL strings) | ✅ |
 | 8j | Stat clamps / Blueprint caps category (11 fields) | ✅ |
 | 8k | Launch flags editor — edits Profile `MM_Command_Val` `-flag` portion | ✅ |
-| 8+ | Sidebar layout, click-to-popup descriptions, dark mode, top-bar language picker | ✅ |
+| 8L | 27 extra GUS knobs (PvP/decay, multiplier/物量, disease/safety/craft) | ✅ |
+| 8M | Wire-up fix: 12 breeding / loot keys re-routed `Game.ini` → GUS | ✅ |
+| 8P | MOTD editor (`[MessageOfTheDay]` section: multi-line `Message` + `Duration`) | ✅ |
+| 8+ | Sidebar layout, click-to-popup descriptions, dark mode + turquoise theme, top-bar language picker, `SectionGroup` panels, sticky column headers, ScrollView wrapping, button labels expanded (no `…`) | ✅ |
 | 9 | `arksa-commander` CLI | next |
 | 10 | `arksa-updater` self-update against GitHub Releases | |
 | (?) | Backup / scheduled restart / crash auto-restart | |
 | (?) | Live language switching | |
 | (?) | Manifest-pinned steamcmd installs (per-profile) | |
+| (?) | Public address surface in Status panel (playit.gg / Tailscale IP) | |
 
 ## License
 
