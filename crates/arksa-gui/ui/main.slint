@@ -29,6 +29,17 @@ export global AppTheme {
     out property <color> on-accent: #0E2628;       // dark text on accent bg
 }
 
+/// Live-filter state for the World Settings dialog. Each row binds its
+/// `visible` to `WorldSearch.test-match(...)`, which delegates to a Rust
+/// closure (Slint 1.16 strings don't expose `.contains()` so case-
+/// insensitive substring matching has to round-trip through Rust).
+export global WorldSearch {
+    in-out property <string> query;
+    in-out property <bool> match-description;
+    /// (label, description, query, match-description) -> visible?
+    pure callback test-match(string, string, string, bool) -> bool;
+}
+
 /// Sectioned content block. Renders a turquoise-accented header bar with
 /// `title` on top and the slot's children below in a padded panel. Used
 /// across the main window so visually-distinct sections (Setup / Profile /
@@ -167,6 +178,12 @@ export struct UiLabels {
     world_col_param: string,
     world_col_value: string,
     world_col_category: string,
+    world_search_label: string,
+    world_search_placeholder: string,
+    world_search_match_desc: string,
+    world_tab_mods: string,
+    world_mods_hint: string,
+    world_mods_footnote: string,
 }
 
 // ─── Main window ───────────────────────────────────────────────────────────
@@ -565,6 +582,12 @@ component WorldFloatRow inherits HorizontalBox {
     in-out property <string> value;
     spacing: 8px;
     padding: 0;
+    // Hidden when the search box has a query that doesn't match this
+    // row's label (and optionally its description). visible: false is
+    // honoured by HorizontalBox layout so hidden rows take no space.
+    visible: WorldSearch.query == ""
+        || WorldSearch.test-match(root.label, root.description,
+                                   WorldSearch.query, WorldSearch.match-description);
 
     LabelCell {
         label: root.label;
@@ -588,6 +611,9 @@ component WorldBoolRow inherits HorizontalBox {
     in-out property <bool> value;
     spacing: 8px;
     padding: 0;
+    visible: WorldSearch.query == ""
+        || WorldSearch.test-match(root.label, root.description,
+                                   WorldSearch.query, WorldSearch.match-description);
 
     LabelCell {
         label: root.label;
@@ -949,6 +975,10 @@ export component WorldSettingsWindow inherits Window {
     in-out property <string> f_launch_flags: "";
     in property <string> f_launch_flags_reference: "";
 
+    // Phase 8R — Mod IDs (also saved into Profile MM_Command_Val as
+    // `-mods=ID,ID,...` — separate from the -flag portion).
+    in-out property <string> f_mods_csv: "";
+
     callback import-clicked();
     callback reset-clicked();
     callback save-clicked();
@@ -975,6 +1005,30 @@ export component WorldSettingsWindow inherits Window {
                 text: root.labels.world_btn_reset;
                 enabled: !root.busy;
                 clicked => { root.reset-clicked(); }
+            }
+        }
+
+        // ── Live row search ─────────────────────────────────────────────
+        // Filters rows in real time across categories. Default is name
+        // match; toggling the checkbox extends the match to the bilingual
+        // description text too.
+        HorizontalBox {
+            spacing: 8px;
+            padding: 0;
+            Text {
+                text: root.labels.world_search_label;
+                color: AppTheme.accent;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+            LineEdit {
+                text <=> WorldSearch.query;
+                placeholder-text: root.labels.world_search_placeholder;
+                horizontal-stretch: 1;
+            }
+            CheckBox {
+                text: root.labels.world_search_match_desc;
+                checked <=> WorldSearch.match-description;
             }
         }
 
@@ -1038,6 +1092,7 @@ export component WorldSettingsWindow inherits Window {
                         CategoryButton { index: 14; current-index: root.current-category; label: root.labels.world_tab_cluster;     clicked => { root.current-category = 14; } }
                         CategoryButton { index: 15; current-index: root.current-category; label: root.labels.world_tab_clamps;      clicked => { root.current-category = 15; } }
                         CategoryButton { index: 16; current-index: root.current-category; label: root.labels.world_tab_flags;       clicked => { root.current-category = 16; } }
+                        CategoryButton { index: 17; current-index: root.current-category; label: root.labels.world_tab_mods;        clicked => { root.current-category = 17; } }
                     }
                 }
                 }   // end sidebar VerticalLayout (header + ScrollView)
@@ -1051,9 +1106,10 @@ export component WorldSettingsWindow inherits Window {
 
             // Column headers — same widths as the LabelCell + LineEdit
             // pair below so each column header lines up over its values.
-            // Hidden for the Launch flags category (16) which has a
-            // different (free-form text) layout.
-            if root.current-category != 16: HorizontalBox {
+            // Hidden for the Launch flags / Mods categories (16/17)
+            // which use free-form TextEdit layouts.
+            if root.current-category != 16
+               && root.current-category != 17: HorizontalBox {
                 spacing: 8px;
                 padding: 8px;
                 Rectangle {
@@ -2676,6 +2732,29 @@ export component WorldSettingsWindow inherits Window {
                             wrap: word-wrap;
                             font-family: "Consolas, monospace";
                         }
+                    }
+                }
+            }
+
+            if root.current-category == 17: Rectangle {
+                background: Palette.background;
+                VerticalBox {
+                    padding: 8px;
+                    spacing: 6px;
+                    Text {
+                        text: root.labels.world_mods_hint;
+                        wrap: word-wrap;
+                    }
+                    TextEdit {
+                        text <=> root.f_mods_csv;
+                        wrap: word-wrap;
+                        vertical-stretch: 1;
+                    }
+                    Text {
+                        text: root.labels.world_mods_footnote;
+                        color: #888;
+                        font-size: 11px;
+                        wrap: word-wrap;
                     }
                 }
             }

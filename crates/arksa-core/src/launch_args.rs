@@ -160,6 +160,42 @@ pub fn parse_extra_flags(s: &str) -> Vec<String> {
     s.split_whitespace().map(str::to_string).collect()
 }
 
+/// Extract the mod-id list out of a `MM_Command_Val`-style command line by
+/// finding the `-mods=ID,ID,...` token. Returns an empty vec when no such
+/// token is present.
+pub fn extract_mods_from_command_line(cmd: &str) -> Vec<u64> {
+    cmd.split_whitespace()
+        .find(|t| t.starts_with("-mods="))
+        .map(|t| parse_mods_csv(&t["-mods=".len()..]))
+        .unwrap_or_default()
+}
+
+/// Drop any existing `-mods=...` token and (when `mods` is non-empty) splice
+/// in a fresh one *just before* the first `-flag` argument so the layout
+/// matches what `build_command_line` would emit. Empty `mods` strips the
+/// token entirely.
+pub fn replace_mods_in_command_line(cmd: &str, mods: &[u64]) -> String {
+    let parts: Vec<&str> = cmd
+        .split_whitespace()
+        .filter(|t| !t.starts_with("-mods="))
+        .collect();
+    if mods.is_empty() {
+        return parts.join(" ");
+    }
+    let insert_at = parts
+        .iter()
+        .position(|t| t.starts_with('-'))
+        .unwrap_or(parts.len());
+    let mods_token = format!(
+        "-mods={}",
+        mods.iter().map(|m| m.to_string()).collect::<Vec<_>>().join(",")
+    );
+    let mut rebuilt: Vec<String> = parts[..insert_at].iter().map(|s| s.to_string()).collect();
+    rebuilt.push(mods_token);
+    rebuilt.extend(parts[insert_at..].iter().map(|s| s.to_string()));
+    rebuilt.join(" ")
+}
+
 /// Split an `MM_Command_Val`-style command line into the URL portion (the
 /// `ArkAscendedServer.exe MapName?listen?...` prefix and any `-mods=...`
 /// argument) and the trailing list of `-flag` tokens.
@@ -367,5 +403,47 @@ mod tests {
             rebuilt,
             "ArkAscendedServer.exe TheIsland_WP?listen?Port=7777 -mods=12345 -log -NoBattlEye"
         );
+    }
+
+    #[test]
+    fn extract_mods_finds_csv() {
+        let cmd = "ArkAscendedServer.exe X?listen -mods=947033,883957 -log";
+        assert_eq!(
+            extract_mods_from_command_line(cmd),
+            vec![947033, 883957]
+        );
+    }
+
+    #[test]
+    fn extract_mods_returns_empty_when_absent() {
+        let cmd = "ArkAscendedServer.exe X?listen -log -NoBattlEye";
+        assert!(extract_mods_from_command_line(cmd).is_empty());
+    }
+
+    #[test]
+    fn replace_mods_swaps_existing_token() {
+        let cmd = "ArkAscendedServer.exe X?listen -mods=111 -log -NoBattlEye";
+        let out = replace_mods_in_command_line(cmd, &[947033, 883957]);
+        assert_eq!(
+            out,
+            "ArkAscendedServer.exe X?listen -mods=947033,883957 -log -NoBattlEye"
+        );
+    }
+
+    #[test]
+    fn replace_mods_inserts_when_missing() {
+        let cmd = "ArkAscendedServer.exe X?listen -log -NoBattlEye";
+        let out = replace_mods_in_command_line(cmd, &[947033]);
+        assert_eq!(
+            out,
+            "ArkAscendedServer.exe X?listen -mods=947033 -log -NoBattlEye"
+        );
+    }
+
+    #[test]
+    fn replace_mods_strips_when_empty() {
+        let cmd = "ArkAscendedServer.exe X?listen -mods=111,222 -log";
+        let out = replace_mods_in_command_line(cmd, &[]);
+        assert_eq!(out, "ArkAscendedServer.exe X?listen -log");
     }
 }

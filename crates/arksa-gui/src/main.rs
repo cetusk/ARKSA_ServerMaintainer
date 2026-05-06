@@ -167,6 +167,20 @@ fn main() -> Result<()> {
     world_window.set_labels(labels.to_ui());
     // Drive bilingual descriptions on each row from the resolved language.
     world_window.set_lang_ja(Labels::resolve_is_japanese(language_setting));
+    // Live row search — Slint 1.16 strings have no `.contains()`, so the
+    // case-insensitive substring test is computed in Rust via this
+    // pure callback. Slint reactively re-evaluates each row's `visible`
+    // when query / match-description / label / description change.
+    world_window
+        .global::<WorldSearch>()
+        .on_test_match(|label, description, query, match_description| {
+            if query.is_empty() {
+                return true;
+            }
+            let q = query.to_lowercase();
+            label.to_lowercase().contains(&q)
+                || (match_description && description.to_lowercase().contains(&q))
+        });
     wire_world_settings_callbacks(
         &world_window,
         ctx.clone(),
@@ -968,6 +982,12 @@ struct Labels {
     world_col_param: String,
     world_col_value: String,
     world_col_category: String,
+    world_search_label: String,
+    world_search_placeholder: String,
+    world_search_match_desc: String,
+    world_tab_mods: String,
+    world_mods_hint: String,
+    world_mods_footnote: String,
 }
 
 impl Labels {
@@ -1063,6 +1083,20 @@ impl Labels {
             world_col_param: "Parameter".into(),
             world_col_value: "Value".into(),
             world_col_category: "Category".into(),
+            world_search_label: "Search:".into(),
+            world_search_placeholder: "type to filter rows…".into(),
+            world_search_match_desc: "Include description".into(),
+            world_tab_mods: "Mods".into(),
+            world_mods_hint:
+                "Enter mod IDs (CurseForge Project IDs), one per line or \
+                 comma-separated. Saved into the profile's MM_Command_Val \
+                 as `-mods=ID,ID,...`. Example: 947033,883957"
+                    .into(),
+            world_mods_footnote:
+                "Mod files unpack to <Install>/ShooterGame/Mods/<id>/. \
+                 Auto-downloaded from CurseForge on first server start. \
+                 Restart the server (Stop → Start) after editing."
+                    .into(),
         }
     }
 
@@ -1159,6 +1193,20 @@ impl Labels {
             world_col_param: "パラメーター".into(),
             world_col_value: "値".into(),
             world_col_category: "カテゴリ".into(),
+            world_search_label: "検索:".into(),
+            world_search_placeholder: "入力して絞り込み…".into(),
+            world_search_match_desc: "説明文も検索".into(),
+            world_tab_mods: "MOD".into(),
+            world_mods_hint:
+                "MOD ID (CurseForge の Project ID) を 1 行 1 つ、または \
+                 カンマ区切りで入力します。プロファイルの MM_Command_Val に \
+                 `-mods=ID,ID,...` として保存されます。例: 947033,883957"
+                    .into(),
+            world_mods_footnote:
+                "MOD ファイルは <Install>/ShooterGame/Mods/<id>/ に展開されます。\
+                 サーバー初回起動時に CurseForge から自動 DL されます。\
+                 編集後はサーバーの Restart で反映してください。"
+                    .into(),
         }
     }
 
@@ -1268,6 +1316,12 @@ impl Labels {
             world_col_param: self.world_col_param.as_str().into(),
             world_col_value: self.world_col_value.as_str().into(),
             world_col_category: self.world_col_category.as_str().into(),
+            world_search_label: self.world_search_label.as_str().into(),
+            world_search_placeholder: self.world_search_placeholder.as_str().into(),
+            world_search_match_desc: self.world_search_match_desc.as_str().into(),
+            world_tab_mods: self.world_tab_mods.as_str().into(),
+            world_mods_hint: self.world_mods_hint.as_str().into(),
+            world_mods_footnote: self.world_mods_footnote.as_str().into(),
         }
     }
 }
@@ -1831,6 +1885,20 @@ fn populate_world_settings_window(
         .unwrap_or_default();
     window.set_f_launch_flags(flags_text.as_str().into());
     window.set_f_launch_flags_reference(launch_args::COMMON_LAUNCH_FLAGS.join("  ").into());
+
+    // Phase 8R — Mod IDs (Profile MM_Command_Val `-mods=` token)
+    let mods_text = profile_path
+        .and_then(|p| Profile::load(p).ok())
+        .and_then(|p| p.server_command_line())
+        .map(|cmd| {
+            launch_args::extract_mods_from_command_line(&cmd)
+                .iter()
+                .map(|m| m.to_string())
+                .collect::<Vec<_>>()
+                .join("\n")
+        })
+        .unwrap_or_default();
+    window.set_f_mods_csv(mods_text.as_str().into());
 }
 
 /// Reset every form field to ARK's vanilla defaults (mostly 1.0, plus the
@@ -2287,6 +2355,9 @@ struct WorldFormValues {
 
     // Phase 8k — Launch flags (saved into Profile MM_Command_Val)
     launch_flags: String,
+
+    // Phase 8R — Mod IDs (also saved into Profile MM_Command_Val)
+    mods: Vec<u64>,
 }
 
 fn parse_form_float(value: SharedString, label: &str) -> Result<f64, String> {
@@ -2596,6 +2667,11 @@ fn collect_world_form(window: &WorldSettingsWindow) -> Result<WorldFormValues, S
         motd_message: window.get_f_motd_message().as_str().to_string(),
         motd_duration: parse_form_int(window.get_f_motd_duration(), "MessageOfTheDay/Duration")?,
         launch_flags: window.get_f_launch_flags().as_str().to_string(),
+        // Mods textarea is whitespace-or-comma separated. Normalise to a
+        // single CSV form so parse_mods_csv can use its existing splitter.
+        mods: launch_args::parse_mods_csv(
+            &window.get_f_mods_csv().as_str().replace(['\n', ' ', '\t'], ","),
+        ),
     })
 }
 
@@ -2842,11 +2918,15 @@ fn write_world_form(
     game.save()?;
     gus.save()?;
 
-    // Phase 8k — Launch flags → Profile MM_Command_Val (replace flag portion).
+    // Phase 8k + 8R — Launch flags + Mods → Profile MM_Command_Val.
+    // Both modify different parts of the same string, so we apply mods
+    // first (they live in the URL/head portion of the line) and then
+    // re-splice the flag portion.
     if let Some(pp) = profile_path {
         if let Ok(mut profile) = Profile::load(pp) {
             let current = profile.server_command_line().unwrap_or_default();
-            let (head, _old_flags) = launch_args::split_command_line(&current);
+            let with_mods = launch_args::replace_mods_in_command_line(&current, &v.mods);
+            let (head, _old_flags) = launch_args::split_command_line(&with_mods);
             let new_flags: Vec<String> = launch_args::parse_extra_flags(&v.launch_flags);
             let rebuilt = launch_args::join_command_line(&head, &new_flags);
             profile.set_server_command_line(&rebuilt);
