@@ -1776,6 +1776,10 @@ fn populate_world_settings_window(
     window.set_f_cryopod_nerf_duration(u(ark_config::GameUserSettings::cryopod_nerf_duration, 0.0));
     window.set_b_allow_cryo_fridge_on_saddle(ub(ark_config::GameUserSettings::allow_cryo_fridge_on_saddle, false));
     window.set_b_disable_cryopod_fridge_requirement(ub(ark_config::GameUserSettings::disable_cryopod_fridge_requirement, false));
+    // Phase 8T — additional Cryopod knobs
+    window.set_f_cryopod_nerf_incoming_damage_mult_percent(u(ark_config::GameUserSettings::cryopod_nerf_incoming_damage_mult_percent, 0.0));
+    window.set_b_disable_cryopod_enemy_check(ub(ark_config::GameUserSettings::disable_cryopod_enemy_check, false));
+    window.set_f_cryopod_fridge_cooldowntime(ui_2(ark_config::GameUserSettings::cryopod_fridge_cooldowntime, 90));
 
     // Phase 8g — XP gain breakdown (Game.ini)
     window.set_f_generic_xp_multiplier(g(game_config::GameSettings::generic_xp_multiplier, 1.0));
@@ -2024,6 +2028,10 @@ fn reset_world_settings_window(window: &WorldSettingsWindow) {
     window.set_f_cryopod_nerf_duration(SharedString::from("0.0"));
     window.set_b_allow_cryo_fridge_on_saddle(false);
     window.set_b_disable_cryopod_fridge_requirement(false);
+    // Phase 8T — additional Cryopod knobs
+    window.set_f_cryopod_nerf_incoming_damage_mult_percent(SharedString::from("0.0"));
+    window.set_b_disable_cryopod_enemy_check(false);
+    window.set_f_cryopod_fridge_cooldowntime(SharedString::from("90"));
 
     // Phase 8g — XP gain breakdown
     let one_xp = SharedString::from("1.0");
@@ -2260,6 +2268,10 @@ struct WorldFormValues {
     cryopod_nerf_duration: f64,
     allow_cryo_fridge_on_saddle: bool,
     disable_cryopod_fridge_requirement: bool,
+    // Phase 8T — additional Cryopod knobs
+    cryopod_nerf_incoming_damage_mult_percent: f64,
+    disable_cryopod_enemy_check: bool,
+    cryopod_fridge_cooldowntime: i64,
 
     // Phase 8g — XP gain breakdown (Game.ini)
     generic_xp_multiplier: f64,
@@ -2586,6 +2598,9 @@ fn collect_world_form(window: &WorldSettingsWindow) -> Result<WorldFormValues, S
         cryopod_nerf_duration: parse_form_float(window.get_f_cryopod_nerf_duration(), "CryopodNerfDuration")?,
         allow_cryo_fridge_on_saddle: window.get_b_allow_cryo_fridge_on_saddle(),
         disable_cryopod_fridge_requirement: window.get_b_disable_cryopod_fridge_requirement(),
+        cryopod_nerf_incoming_damage_mult_percent: parse_form_float(window.get_f_cryopod_nerf_incoming_damage_mult_percent(), "CryopodNerfIncomingDamageMultPercent")?,
+        disable_cryopod_enemy_check: window.get_b_disable_cryopod_enemy_check(),
+        cryopod_fridge_cooldowntime: parse_form_int(window.get_f_cryopod_fridge_cooldowntime(), "CryopodFridgeCooldowntime")?,
         generic_xp_multiplier: parse_form_float(window.get_f_generic_xp_multiplier(), "GenericXPMultiplier")?,
         harvest_xp_multiplier: parse_form_float(window.get_f_harvest_xp_multiplier(), "HarvestXPMultiplier")?,
         kill_xp_multiplier: parse_form_float(window.get_f_kill_xp_multiplier(), "KillXPMultiplier")?,
@@ -2822,6 +2837,9 @@ fn write_world_form(
     gus.set_cryopod_nerf_duration(v.cryopod_nerf_duration);
     gus.set_allow_cryo_fridge_on_saddle(v.allow_cryo_fridge_on_saddle);
     gus.set_disable_cryopod_fridge_requirement(v.disable_cryopod_fridge_requirement);
+    gus.set_cryopod_nerf_incoming_damage_mult_percent(v.cryopod_nerf_incoming_damage_mult_percent);
+    gus.set_disable_cryopod_enemy_check(v.disable_cryopod_enemy_check);
+    gus.set_cryopod_fridge_cooldowntime(v.cryopod_fridge_cooldowntime);
 
     // Phase 8g — XP gain breakdown → Game.ini
     game.set_generic_xp_multiplier(v.generic_xp_multiplier);
@@ -3318,6 +3336,16 @@ fn import_world_settings(window: &WorldSettingsWindow, source_path: &Path) -> Re
     }
     if let Some(v) = ub(ark_config::GameUserSettings::disable_cryopod_fridge_requirement) {
         window.set_b_disable_cryopod_fridge_requirement(v);
+    }
+    // Phase 8T — additional Cryopod knobs
+    if let Some(v) = u(ark_config::GameUserSettings::cryopod_nerf_incoming_damage_mult_percent) {
+        window.set_f_cryopod_nerf_incoming_damage_mult_percent(fmt_float_for_form(v));
+    }
+    if let Some(v) = ub(ark_config::GameUserSettings::disable_cryopod_enemy_check) {
+        window.set_b_disable_cryopod_enemy_check(v);
+    }
+    if let Some(v) = ui_(ark_config::GameUserSettings::cryopod_fridge_cooldowntime) {
+        window.set_f_cryopod_fridge_cooldowntime(fmt_int_for_form(v));
     }
     // Phase 8g — XP gain breakdown
     if let Some(v) = g(game_config::GameSettings::generic_xp_multiplier) { window.set_f_generic_xp_multiplier(fmt_float_for_form(v)); }

@@ -878,6 +878,10 @@ export component WorldSettingsWindow inherits Window {
     in-out property <string> f_cryopod_nerf_duration: "0.0";
     in-out property <bool> b_allow_cryo_fridge_on_saddle: false;
     in-out property <bool> b_disable_cryopod_fridge_requirement: false;
+    // Phase 8T — additional Cryopod knobs
+    in-out property <string> f_cryopod_nerf_incoming_damage_mult_percent: "0.0";
+    in-out property <bool> b_disable_cryopod_enemy_check: false;
+    in-out property <string> f_cryopod_fridge_cooldowntime: "90";
 
     // Phase 8g — XP gain breakdown
     in-out property <string> f_generic_xp_multiplier: "1.0";
@@ -2204,6 +2208,27 @@ export component WorldSettingsWindow inherits Window {
                                         ? "クライオポッドに冷蔵庫を不要に。"
                                         : "Cryopods don't need a fridge.";
                                     value <=> root.b_disable_cryopod_fridge_requirement;
+                                }
+                                WorldFloatRow {
+                                    label: "CryopodNerfIncomingDamageMultPercent";
+                                    description: root.lang-ja
+                                        ? "ナーフ中の被ダメージ倍率 (%)。0 で無効。"
+                                        : "Incoming-damage multiplier during the nerf, in percent. 0 disables.";
+                                    value <=> root.f_cryopod_nerf_incoming_damage_mult_percent;
+                                }
+                                WorldBoolRow {
+                                    label: "DisableCryopodEnemyCheck";
+                                    description: root.lang-ja
+                                        ? "敵が近くにいるとクライオポッドから出せない制限を無効化。"
+                                        : "Allow releasing from a cryopod even when enemies are nearby (skips the proximity check).";
+                                    value <=> root.b_disable_cryopod_enemy_check;
+                                }
+                                WorldFloatRow {
+                                    label: "CryopodFridgeCooldowntime (sec, int)";
+                                    description: root.lang-ja
+                                        ? "クライオ冷蔵庫の出し入れクールダウン秒数 (既定 90)。"
+                                        : "Cooldown between Cryofridge in/out operations in seconds (default 90).";
+                                    value <=> root.f_cryopod_fridge_cooldowntime;
                                 }
                             }
                         }

@@ -354,6 +354,22 @@ impl GameUserSettings {
         set_disable_cryopod_fridge_requirement,
         "DisableCryopodFridgeRequirement"
     );
+    // ── Cryopod additions (Phase 8T) ─────────────────────────────────
+    float_field!(
+        cryopod_nerf_incoming_damage_mult_percent,
+        set_cryopod_nerf_incoming_damage_mult_percent,
+        "CryopodNerfIncomingDamageMultPercent"
+    );
+    bool_field!(
+        disable_cryopod_enemy_check,
+        set_disable_cryopod_enemy_check,
+        "DisableCryopodEnemyCheck"
+    );
+    int_field!(
+        cryopod_fridge_cooldowntime,
+        set_cryopod_fridge_cooldowntime,
+        "CryopodFridgeCooldowntime"
+    );
 
     // ── Cosmetic / Chat (Phase 8h) ───────────────────────────────────
     bool_field!(global_voice_chat, set_global_voice_chat, "globalVoiceChat");
