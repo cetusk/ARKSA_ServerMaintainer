@@ -4,7 +4,7 @@ A Rust + Slint GUI tool to maintain a personal **ARK: Survival Ascended** dedica
 
 A personal-use **re-implementation** of [ASA Server Manager (ASASM)](https://sites.google.com/view/asa-server-manager) by *Dの人*. The upstream author explicitly permits forks and re-implementations in other languages. The upstream Object Pascal source is **not redistributed** here; obtain it from the upstream distribution above if you need to cross-reference.
 
-> **Status: Phase 8a–8P — full per-profile world editor (~280 fields incl. MOTD) + dark mode + turquoise theme + main-window language picker.** The GUI can create a profile, auto-write `GameUserSettings.ini` so RCON works on first start, install the dedicated server via the bundled steamcmd, start/stop/restart the server, send RCON commands, search Mods/Engrams/Items/Dinos, send Discord & Windows toast notifications, switch between English / Japanese **right from the main window**, and **edit ~280 world / breeding / loot / stat / combat / XP / chat / cluster / clamp / PvP-decay / disease / Cryopod / launch-flag / MOTD parameters across `Game.ini` + `GameUserSettings.ini` (`[ServerSettings]` and `[MessageOfTheDay]`) + the profile's `MM_Command_Val` from a left-sidebar / right-pane editor (17 categories, click-the-label popups for bilingual descriptions, file-import for reusing settings from another install)**. Real ARK SA clients have joined a server set up this way (via in-game `open <ip>:<port>`) including over [playit.gg](https://playit.gg/) tunnels for friends behind CGNAT. CLI commander, self-updater (Phase 9), backups, and scheduled restarts are still pending. See [`docs/architecture.md`](./docs/architecture.md) for the full phase plan and [`docs/parameters.md`](./docs/parameters.md) for the comprehensive ARK SA parameter reference.
+> **Status: Phase 8a–8S — full per-profile world editor (~280 fields incl. MOTD + Mods) + cross-category live search + dark turquoise theme + main-window language picker.** The GUI can create a profile, auto-write `GameUserSettings.ini` so RCON works on first start, install the dedicated server via the bundled steamcmd, start/stop/restart the server, send RCON commands, search Mods/Engrams/Items/Dinos, send Discord & Windows toast notifications, switch between English / Japanese **right from the main window**, and **edit ~280 world / breeding / loot / stat / combat / XP / chat / cluster / clamp / PvP-decay / disease / Cryopod / launch-flag / mod-list / MOTD parameters across `Game.ini` + `GameUserSettings.ini` (`[ServerSettings]` and `[MessageOfTheDay]`) + the profile's `MM_Command_Val` (URL + `-mods=` + `-flags`) from a left-sidebar / right-pane editor (18 categories + a virtual *Search results* view, click-the-label popups for bilingual descriptions, file-import for reusing settings from another install)**. Real ARK SA clients have joined a server set up this way (via in-game `open <ip>:<port>`) including over [playit.gg](https://playit.gg/) UDP tunnels for friends behind CGNAT, with mods downloaded automatically via CurseForge. CLI commander, self-updater (Phase 9), backups, and scheduled restarts are still pending. See [`docs/architecture.md`](./docs/architecture.md) for the full phase plan and [`docs/parameters.md`](./docs/parameters.md) for the comprehensive ARK SA parameter reference.
 
 ---
 
@@ -206,9 +206,11 @@ glance.
 | **Find a Mod / Engram / Item / Dino** | *Setup* → *Find data* → pick category, type substring → results show name + class/ID |
 | **Edit world / difficulty parameters** | *Profile* → *World Settings* → pick a category in the left sidebar → fill in fields → *Save* (re-reads on next Start) |
 | **See what a parameter does** | In *World Settings* click the parameter label (look for the **ⓘ** marker) — pops up a bilingual description **above** the row |
+| **Find a parameter across all categories** | *World Settings* → top *Search:* box, type a substring of the parameter name — sidebar gains a virtual **🔍 Search results** category that renders matching rows from every category in one list, with the source category name shown above each group. Tick *Include description* to also match the bilingual description text. |
 | **Edit Message of the Day** | *World Settings* → *Cosmetic / Chat* → top *MessageOfTheDay* group (multi-line `Message` + `Duration` in seconds) |
-| **Reuse settings from another install** | *World Settings* → *Import settings from file* → pick a `Game.ini` or `GameUserSettings.ini` (the wire-up fix in Phase 8M means breeding / loot / cuddle multipliers now read from the right section) |
+| **Reuse settings from another install** | *World Settings* → *Import settings from file* → pick a `Game.ini` or `GameUserSettings.ini`. Phase 8b / 8M / 8S corrected the read routing so each multiplier comes from whichever INI ARK actually reads it from. |
 | **Edit launch flags** | *World Settings* → *Launch flags* category — edits the `-flag` portion of the profile's `MM_Command_Val` (URL / mods stay untouched) |
+| **Add / remove mods** | *World Settings* → *Mods* category — paste CurseForge Project IDs (one per line, or comma-separated). Saved as `-mods=ID,ID,...` in the profile's `MM_Command_Val`. The server auto-downloads them from CurseForge on first launch and clients pull them automatically when they connect. |
 | **Discord / toast notifications** | *Setup* → *Notifications* → set webhook URL, toggle event types, *Save* |
 | **Switch UI language (EN ↔ JA)** | *Setup* section → *Language* dropdown → restart required to apply (the choice persists immediately) |
 | **Edit the raw launch line** | Edit `MM_Command_Val=` in `<ARKSA_DIR>\Profile\<file_name>.ini`, then GUI *Refresh status* |
@@ -235,10 +237,11 @@ corresponding detector is implemented in a future phase.
 
 ### World Settings dialog
 
-*World Settings…* opens a left-sidebar / right-pane editor over the current
-profile's `Game.ini`, `GameUserSettings.ini`, and the `-flag` portion of
-its `MM_Command_Val`. Pick a category in the sidebar to swap the form on
-the right. ~250 fields total across 17 categories:
+*World Settings* opens a left-sidebar / right-pane editor over the current
+profile's `Game.ini`, `GameUserSettings.ini` (incl. `[MessageOfTheDay]`),
+and the `MM_Command_Val` of its INI (both the `-mods=` and `-flag`
+portions). Pick a category in the sidebar to swap the form on the right.
+~280 fields total across **18 categories + 1 virtual search view**:
 
 | Category | Notable fields | Where the values land |
 |---|---|---|
@@ -259,11 +262,24 @@ the right. ~250 fields total across 17 categories:
 | Cluster / Lists | ServerPassword, BanListURL, AdminListURL, BadWordList, CustomLiveTuning, transfer toggles, MaxPlayersInTribe, TribeNameChangeCooldown | `GameUserSettings.ini` |
 | Clamps / Blueprints | MaxBlueprint(Dino|Item|Scout)*, MaxHexagons, ClampItemSpoiling/Stats, Implant CD, AutoForceRespawnInterval, DestroyTamesOverLevelClamp | `GameUserSettings.ini` + `Game.ini` |
 | Launch flags | Free-form text edit of `-log -NoBattlEye -EpicApp=ArkAscended …` etc. — only the `-flag` portion of `MM_Command_Val` is touched | Profile `MM_Command_Val` |
+| **Mods** | CurseForge Project IDs (line- or comma-separated). Save normalises into a single `-mods=ID,ID,...` token. Empty input strips the token entirely. Server auto-downloads from CurseForge on next start; clients pull on connect. | Profile `MM_Command_Val` |
+| 🔍 *Search results* (virtual) | Appears in the sidebar only while the search box has a non-empty query. Renders matching rows from every category in one list, each group prefixed with its source category name. | (read-only — same as the underlying category) |
 
 **Bilingual click-to-popup descriptions** — most parameter labels carry
 an **ⓘ** marker. Click the label to pop up a short English / Japanese
 description (drives off the same EN / JA setting as the rest of the
 GUI). Click anywhere outside the popup to dismiss.
+
+**Live cross-category search** — type any substring into the *Search:*
+box at the top of the dialog. As soon as the box becomes non-empty the
+sidebar gains a **🔍 Search results** category and the dialog
+auto-jumps to it. The right pane then renders only rows whose label
+matches (case-insensitive), grouped under their source-category name
+in turquoise. Tick the *Include description* box next to the search
+field to extend the match to the bilingual description text — useful
+for finding parameters whose key you don't remember (e.g. typing
+`imprint` lands on every imprint-related row across Breeding,
+Difficulty, etc.).
 
 **Workflows**
 
@@ -384,34 +400,60 @@ ARK SA's launch-URL parser is brittle:
   `default_session_name_has_no_whitespace`.
 
 ### `[ServerSettings]` vs `Game.ini` routing
-The bulk of multipliers documented as "ServerSettings" actually accept
-both files, but the canonical home is `GameUserSettings.ini` and ARK
-sometimes prefers GUS when both contain the same key. The wire-up was
-corrected in two passes:
+ARK SA accepts many multipliers in either INI for legacy reasons, but
+**only one location is what the engine actually reads** for each key
+(per ARK Wiki). The GUI's routing has been corrected in three passes:
 
 - **Phase 8b** (~20 keys) — `XPMultiplier`, `Player*Drain*`,
   `Dino*Drain*`, `DayCycleSpeedScale`, `Structure*Multiplier`,
   `DinoCountMultiplier`, etc. used to be written to `Game.ini` and are
-  now written to `GameUserSettings.ini`.
-- **Phase 8M** (12 keys) — confirmed by importing a real-world
-  config: `MatingIntervalMultiplier`, `EggHatchSpeedMultiplier`,
+  now written to `GameUserSettings.ini` `[ServerSettings]`.
+- **Phase 8M** *(superseded)* — moved 12 breeding/loot keys from
+  Game.ini to GUS based on a real-world config the user shared. **This
+  was wrong** — those keys are documented as Game.ini keys and live
+  testing confirmed the engine ignores them when placed in
+  `[ServerSettings]` (Megalosaurus eggs hatched in 10 min instead of
+  the expected 1 min for `EggHatchSpeedMultiplier=100`, cuddle
+  intervals stayed at the default 8 h regardless of
+  `BabyCuddleIntervalMultiplier=0.00206`).
+- **Phase 8S** (revert + cleanup) — moves the 12 keys back to
+  `Game.ini [/Script/ShooterGame.ShooterGameMode]`:
+  `MatingIntervalMultiplier`, `EggHatchSpeedMultiplier`,
   `BabyMatureSpeedMultiplier`, `BabyFoodConsumptionSpeedMultiplier`,
   `BabyImprintAmountMultiplier`, `BabyImprintingStatScaleMultiplier`,
   `BabyCuddleIntervalMultiplier`, `BabyCuddleGracePeriodMultiplier`,
   `BabyCuddleLoseImprintQualitySpeedMultiplier`,
   `SupplyCrateLootQualityMultiplier`, `FishingLootQualityMultiplier`,
-  `CropDecaySpeedMultiplier` were also moved from `Game.ini` to
-  `GameUserSettings.ini`. Without this fix, *Import settings from file*
-  silently lost the user's existing breeding / loot tuning when the
-  source was a real ASA config.
+  `CropDecaySpeedMultiplier`. **Save also strips any leftover entry
+  for these keys from `[ServerSettings]`** via
+  `IniDoc::remove_key`, so an old Phase 8M write can't compete with
+  the canonical Game.ini value the engine reads.
 
-A handful of keys (`PlayerHarvestingDamageMultiplier`,
+A handful of other keys (`PlayerHarvestingDamageMultiplier`,
 `WildDinoCharacterFoodDrainMultiplier`, `WildDinoTorporDrainMultiplier`,
 `StructureDamageRepairCooldown`, `MatingSpeedMultiplier`,
 `LayEggIntervalMultiplier`, `PassiveTameIntervalMultiplier`,
 `CropGrowthSpeedMultiplier`, the XP gain breakdown, and the per-stat
-arrays) genuinely live in `Game.ini` and stay there. See
+arrays) have always lived in `Game.ini`. See
 [`docs/parameters.md`](./docs/parameters.md) for the full routing table.
+
+### ARK SA engine clamps on breeding multipliers (out-of-our-hands)
+Even with the correct routing, ARK SA's engine quietly clamps a few
+breeding-related multipliers. From live tests on Aberration:
+
+- `EggHatchSpeedMultiplier` saturates around **10–30×** even when set
+  to 100. Megalosaurus eggs (base 100 min) bottom out at ~5–10 min.
+- `BabyCuddleIntervalMultiplier` has an effective **floor around 5–10
+  min** between cuddle requests — values like `0.00206` (theoretical
+  ~1.7 min on a Megalosaurus) get rounded up. Combine that with a high
+  `BabyMatureSpeedMultiplier` (so the baby grows in minutes) and the
+  first cuddle request never fires before maturity.
+
+Practical advice: keep `BabyMatureSpeedMultiplier` ≤ 30× if you want
+imprinting to actually occur, and use `BabyImprintAmountMultiplier`
+≥ 100 so a single cuddle hits 100 % imprint. The "60× mature speed +
+0.001 cuddle interval + 100 imprint amount" combo from forum guides
+**does not work** in ARK SA today — it's a leftover from ASE.
 
 ### INI backslash escaping (`D:\ARK\…` round-trip)
 `rust-ini`'s default `EscapePolicy` would write
@@ -551,9 +593,11 @@ and the `.pas → Rust` mapping.
 | 8j | Stat clamps / Blueprint caps category (11 fields) | ✅ |
 | 8k | Launch flags editor — edits Profile `MM_Command_Val` `-flag` portion | ✅ |
 | 8L | 27 extra GUS knobs (PvP/decay, multiplier/物量, disease/safety/craft) | ✅ |
-| 8M | Wire-up fix: 12 breeding / loot keys re-routed `Game.ini` → GUS | ✅ |
+| 8M | Wire-up: 12 breeding / loot keys moved `Game.ini` → GUS (later reverted in 8S) | ⚠️ superseded |
 | 8P | MOTD editor (`[MessageOfTheDay]` section: multi-line `Message` + `Duration`) | ✅ |
-| 8+ | Sidebar layout, click-to-popup descriptions, dark mode + turquoise theme, top-bar language picker, `SectionGroup` panels, sticky column headers, ScrollView wrapping, button labels expanded (no `…`) | ✅ |
+| 8R | Mods category (CurseForge ID list editor) + live cross-category Search bar with virtual *Search results* sidebar entry (auto-jumps when typing, callback-driven case-insensitive substring match in Rust since Slint 1.16 has no `string.contains()`) | ✅ |
+| 8S | Phase 8M revert: 12 breeding / loot keys back to `Game.ini`. `IniDoc::remove_key` strips Phase-8M leftovers from `[ServerSettings]` on Save so duplicates can't compete | ✅ |
+| 8+ | Sidebar layout, click-to-popup descriptions (above the row), dark mode + turquoise theme, top-bar language picker, `SectionGroup` panels, sticky column headers (Category / Parameter / Value), single-ScrollView right pane, button labels expanded (no `…`) | ✅ |
 | 9 | `arksa-commander` CLI | next |
 | 10 | `arksa-updater` self-update against GitHub Releases | |
 | (?) | Backup / scheduled restart / crash auto-restart | |
