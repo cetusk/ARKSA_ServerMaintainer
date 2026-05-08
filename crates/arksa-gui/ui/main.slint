@@ -45,6 +45,12 @@ export global WorldSearch {
     /// remaining matches stack tightly. Args:
     /// (cat, query, match-description, lang-ja).
     pure callback category-has-match(int, string, bool, bool) -> bool;
+    /// Per-GroupBox variant. Categories that group their rows under
+    /// titled GroupBoxes (10 / 11 / 13 / 14) wrap each group in
+    /// `if cat != 99 || groupbox-has-match(...)` so an unrelated
+    /// GroupBox collapses when the search has no hit inside it.
+    /// Args: (cat, group-title, query, match-description, lang-ja).
+    pure callback groupbox-has-match(int, string, string, bool, bool) -> bool;
 }
 
 /// Sectioned content block. Renders a turquoise-accented header bar with
@@ -1908,7 +1914,7 @@ export component WorldSettingsWindow inherits Window {
                             font-weight: 700;
                             font-size: 13px;
                         }
-                        GroupBox {
+                        if root.current-category != 99 || WorldSearch.groupbox-has-match(10, "PerLevelStatsMultiplier_Player[i]", WorldSearch.query, WorldSearch.match-description, root.lang-ja): GroupBox {
                             title: "PerLevelStatsMultiplier_Player[i]";
                             VerticalBox {
                                 padding: 4px;
@@ -1927,7 +1933,7 @@ export component WorldSettingsWindow inherits Window {
                                 WorldFloatRow { label: "[11] CraftingSpeed";   value <=> root.f_pls_player_11; }
                             }
                         }
-                        GroupBox {
+                        if root.current-category != 99 || WorldSearch.groupbox-has-match(10, "PerLevelStatsMultiplier_DinoTamed[i]", WorldSearch.query, WorldSearch.match-description, root.lang-ja): GroupBox {
                             title: "PerLevelStatsMultiplier_DinoTamed[i]";
                             VerticalBox {
                                 padding: 4px;
@@ -1946,7 +1952,7 @@ export component WorldSettingsWindow inherits Window {
                                 WorldFloatRow { label: "[11] CraftingSpeed";   value <=> root.f_pls_tamed_11; }
                             }
                         }
-                        GroupBox {
+                        if root.current-category != 99 || WorldSearch.groupbox-has-match(10, "PerLevelStatsMultiplier_DinoTamed_Add[i]", WorldSearch.query, WorldSearch.match-description, root.lang-ja): GroupBox {
                             title: "PerLevelStatsMultiplier_DinoTamed_Add[i]";
                             VerticalBox {
                                 padding: 4px;
@@ -1965,7 +1971,7 @@ export component WorldSettingsWindow inherits Window {
                                 WorldFloatRow { label: "[11] CraftingSpeed";   value <=> root.f_pls_tamed_add_11; }
                             }
                         }
-                        GroupBox {
+                        if root.current-category != 99 || WorldSearch.groupbox-has-match(10, "PerLevelStatsMultiplier_DinoTamed_Affinity[i]", WorldSearch.query, WorldSearch.match-description, root.lang-ja): GroupBox {
                             title: "PerLevelStatsMultiplier_DinoTamed_Affinity[i]";
                             VerticalBox {
                                 padding: 4px;
@@ -1984,7 +1990,7 @@ export component WorldSettingsWindow inherits Window {
                                 WorldFloatRow { label: "[11] CraftingSpeed";   value <=> root.f_pls_tamed_affinity_11; }
                             }
                         }
-                        GroupBox {
+                        if root.current-category != 99 || WorldSearch.groupbox-has-match(10, "PerLevelStatsMultiplier_DinoWild[i]", WorldSearch.query, WorldSearch.match-description, root.lang-ja): GroupBox {
                             title: "PerLevelStatsMultiplier_DinoWild[i]";
                             VerticalBox {
                                 padding: 4px;
@@ -2003,7 +2009,7 @@ export component WorldSettingsWindow inherits Window {
                                 WorldFloatRow { label: "[11] CraftingSpeed";   value <=> root.f_pls_wild_11; }
                             }
                         }
-                        GroupBox {
+                        if root.current-category != 99 || WorldSearch.groupbox-has-match(10, "PlayerBaseStatMultipliers[i]", WorldSearch.query, WorldSearch.match-description, root.lang-ja): GroupBox {
                             title: "PlayerBaseStatMultipliers[i]";
                             VerticalBox {
                                 padding: 4px;
@@ -2036,7 +2042,7 @@ export component WorldSettingsWindow inherits Window {
                             font-weight: 700;
                             font-size: 13px;
                         }
-                        GroupBox {
+                        if root.current-category != 99 || WorldSearch.groupbox-has-match(11, "Combat (Game.ini)", WorldSearch.query, WorldSearch.match-description, root.lang-ja): GroupBox {
                             title: "Combat (Game.ini)";
                             VerticalBox {
                                 padding: 4px;
@@ -2092,7 +2098,7 @@ export component WorldSettingsWindow inherits Window {
                                 }
                             }
                         }
-                        GroupBox {
+                        if root.current-category != 99 || WorldSearch.groupbox-has-match(11, "Turret limits (Game.ini)", WorldSearch.query, WorldSearch.match-description, root.lang-ja): GroupBox {
                             title: "Turret limits (Game.ini)";
                             VerticalBox {
                                 padding: 4px;
@@ -2127,7 +2133,7 @@ export component WorldSettingsWindow inherits Window {
                                 }
                             }
                         }
-                        GroupBox {
+                        if root.current-category != 99 || WorldSearch.groupbox-has-match(11, "Structures (GameUserSettings.ini)", WorldSearch.query, WorldSearch.match-description, root.lang-ja): GroupBox {
                             title: "Structures (GameUserSettings.ini)";
                             VerticalBox {
                                 padding: 4px;
@@ -2176,7 +2182,7 @@ export component WorldSettingsWindow inherits Window {
                                 }
                             }
                         }
-                        GroupBox {
+                        if root.current-category != 99 || WorldSearch.groupbox-has-match(11, "Cryopod nerf block (GameUserSettings.ini)", WorldSearch.query, WorldSearch.match-description, root.lang-ja): GroupBox {
                             title: "Cryopod nerf block (GameUserSettings.ini)";
                             VerticalBox {
                                 padding: 4px;
@@ -2239,7 +2245,7 @@ export component WorldSettingsWindow inherits Window {
                                 }
                             }
                         }
-                        GroupBox {
+                        if root.current-category != 99 || WorldSearch.groupbox-has-match(11, "Decay & extra structure controls (GameUserSettings.ini)", WorldSearch.query, WorldSearch.match-description, root.lang-ja): GroupBox {
                             title: "Decay & extra structure controls (GameUserSettings.ini)";
                             VerticalBox {
                                 padding: 4px;
@@ -2428,7 +2434,7 @@ export component WorldSettingsWindow inherits Window {
                             font-weight: 700;
                             font-size: 13px;
                         }
-                        GroupBox {
+                        if root.current-category != 99 || WorldSearch.groupbox-has-match(13, "MessageOfTheDay (separate INI section)", WorldSearch.query, WorldSearch.match-description, root.lang-ja): GroupBox {
                             title: "MessageOfTheDay (separate INI section)";
                             VerticalBox {
                                 padding: 4px;
@@ -2595,7 +2601,7 @@ export component WorldSettingsWindow inherits Window {
                             font-weight: 700;
                             font-size: 13px;
                         }
-                        GroupBox {
+                        if root.current-category != 99 || WorldSearch.groupbox-has-match(14, "Passwords / URLs (GameUserSettings.ini)", WorldSearch.query, WorldSearch.match-description, root.lang-ja): GroupBox {
                             title: "Passwords / URLs (GameUserSettings.ini)";
                             VerticalBox {
                                 padding: 4px;
@@ -2644,7 +2650,7 @@ export component WorldSettingsWindow inherits Window {
                                 }
                             }
                         }
-                        GroupBox {
+                        if root.current-category != 99 || WorldSearch.groupbox-has-match(14, "Cross-ARK transfer (GameUserSettings.ini)", WorldSearch.query, WorldSearch.match-description, root.lang-ja): GroupBox {
                             title: "Cross-ARK transfer (GameUserSettings.ini)";
                             VerticalBox {
                                 padding: 4px;
@@ -2707,7 +2713,7 @@ export component WorldSettingsWindow inherits Window {
                                 }
                             }
                         }
-                        GroupBox {
+                        if root.current-category != 99 || WorldSearch.groupbox-has-match(14, "Tribes (GameUserSettings.ini)", WorldSearch.query, WorldSearch.match-description, root.lang-ja): GroupBox {
                             title: "Tribes (GameUserSettings.ini)";
                             VerticalBox {
                                 padding: 4px;

@@ -195,7 +195,7 @@ fn main() -> Result<()> {
             let cat_u = cat as u32;
             world_param_metadata::PARAM_METADATA
                 .iter()
-                .any(|(c, label, desc_en, desc_ja)| {
+                .any(|(c, _group, label, desc_en, desc_ja)| {
                     if *c != cat_u {
                         return false;
                     }
@@ -209,6 +209,37 @@ fn main() -> Result<()> {
                     false
                 })
         });
+    // Per-GroupBox any-match check, used to hide an empty GroupBox in cat
+    // 99 mode (e.g. when searching "Cryopod" in cat 11 we want only the
+    // "Cryopod nerf block" group to render, not Combat / Turret limits /
+    // Structures / Decay above it).
+    world_window
+        .global::<WorldSearch>()
+        .on_groupbox_has_match(
+            |cat, group_title, query, match_description, lang_ja| {
+                if query.is_empty() {
+                    return true;
+                }
+                let q = query.to_lowercase();
+                let cat_u = cat as u32;
+                let title_str = group_title.as_str();
+                world_param_metadata::PARAM_METADATA
+                    .iter()
+                    .any(|(c, group, label, desc_en, desc_ja)| {
+                        if *c != cat_u || *group != title_str {
+                            return false;
+                        }
+                        if label.to_lowercase().contains(&q) {
+                            return true;
+                        }
+                        if match_description {
+                            let desc = if lang_ja { *desc_ja } else { *desc_en };
+                            return desc.to_lowercase().contains(&q);
+                        }
+                        false
+                    })
+            },
+        );
     wire_world_settings_callbacks(
         &world_window,
         ctx.clone(),
