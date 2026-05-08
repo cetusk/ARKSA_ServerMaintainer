@@ -32,6 +32,8 @@ use tracing_subscriber::EnvFilter;
 
 slint::include_modules!();
 
+mod world_param_metadata;
+
 const POLL_INTERVAL: Duration = Duration::from_secs(5);
 /// Cap on rows rendered in the Find window. Mods can be thousands of rows;
 /// no UI ever needs more than a few hundred at a time.
@@ -180,6 +182,32 @@ fn main() -> Result<()> {
             let q = query.to_lowercase();
             label.to_lowercase().contains(&q)
                 || (match_description && description.to_lowercase().contains(&q))
+        });
+    // Per-category any-match check so the cat-99 "Search results" view
+    // can hide categories that contribute nothing to the current query.
+    world_window
+        .global::<WorldSearch>()
+        .on_category_has_match(|cat, query, match_description, lang_ja| {
+            if query.is_empty() {
+                return true;
+            }
+            let q = query.to_lowercase();
+            let cat_u = cat as u32;
+            world_param_metadata::PARAM_METADATA
+                .iter()
+                .any(|(c, label, desc_en, desc_ja)| {
+                    if *c != cat_u {
+                        return false;
+                    }
+                    if label.to_lowercase().contains(&q) {
+                        return true;
+                    }
+                    if match_description {
+                        let desc = if lang_ja { *desc_ja } else { *desc_en };
+                        return desc.to_lowercase().contains(&q);
+                    }
+                    false
+                })
         });
     wire_world_settings_callbacks(
         &world_window,

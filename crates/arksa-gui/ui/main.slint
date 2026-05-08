@@ -36,8 +36,15 @@ export global AppTheme {
 export global WorldSearch {
     in-out property <string> query;
     in-out property <bool> match-description;
-    /// (label, description, query, match-description) -> visible?
+    /// Per-row visibility: (label, description, query, match-description) -> visible?
     pure callback test-match(string, string, string, bool) -> bool;
+    /// Per-category visibility in the cat-99 "Search results" view: returns
+    /// true when at least one row in `cat` matches the query (uses a
+    /// static metadata table built at compile time from the slint
+    /// markup). When false, the whole category Rectangle hides so the
+    /// remaining matches stack tightly. Args:
+    /// (cat, query, match-description, lang-ja).
+    pure callback category-has-match(int, string, bool, bool) -> bool;
 }
 
 /// Sectioned content block. Renders a turquoise-accented header bar with
@@ -1176,7 +1183,7 @@ export component WorldSettingsWindow inherits Window {
                     padding: 0;
                     spacing: 0;
 
-            if root.current-category == 0 || root.current-category == 99: Rectangle {
+            if root.current-category == 0 || (root.current-category == 99 && WorldSearch.category-has-match(0, WorldSearch.query, WorldSearch.match-description, root.lang-ja)): Rectangle {
                 background: Palette.background;
                     VerticalBox {
                         padding: 8px;
@@ -1246,7 +1253,7 @@ export component WorldSettingsWindow inherits Window {
                     }
             }
 
-            if root.current-category == 1 || root.current-category == 99: Rectangle {
+            if root.current-category == 1 || (root.current-category == 99 && WorldSearch.category-has-match(1, WorldSearch.query, WorldSearch.match-description, root.lang-ja)): Rectangle {
                 background: Palette.background;
                     VerticalBox {
                         padding: 8px;
@@ -1288,7 +1295,7 @@ export component WorldSettingsWindow inherits Window {
                     }
             }
 
-            if root.current-category == 2 || root.current-category == 99: Rectangle {
+            if root.current-category == 2 || (root.current-category == 99 && WorldSearch.category-has-match(2, WorldSearch.query, WorldSearch.match-description, root.lang-ja)): Rectangle {
                 background: Palette.background;
                     VerticalBox {
                         padding: 8px;
@@ -1372,7 +1379,7 @@ export component WorldSettingsWindow inherits Window {
                     }
             }
 
-            if root.current-category == 3 || root.current-category == 99: Rectangle {
+            if root.current-category == 3 || (root.current-category == 99 && WorldSearch.category-has-match(3, WorldSearch.query, WorldSearch.match-description, root.lang-ja)): Rectangle {
                 background: Palette.background;
                     VerticalBox {
                         padding: 8px;
@@ -1428,7 +1435,7 @@ export component WorldSettingsWindow inherits Window {
                     }
             }
 
-            if root.current-category == 4 || root.current-category == 99: Rectangle {
+            if root.current-category == 4 || (root.current-category == 99 && WorldSearch.category-has-match(4, WorldSearch.query, WorldSearch.match-description, root.lang-ja)): Rectangle {
                 background: Palette.background;
                     VerticalBox {
                         padding: 8px;
@@ -1484,7 +1491,7 @@ export component WorldSettingsWindow inherits Window {
                     }
             }
 
-            if root.current-category == 5 || root.current-category == 99: Rectangle {
+            if root.current-category == 5 || (root.current-category == 99 && WorldSearch.category-has-match(5, WorldSearch.query, WorldSearch.match-description, root.lang-ja)): Rectangle {
                 background: Palette.background;
                     VerticalBox {
                         padding: 8px;
@@ -1547,7 +1554,7 @@ export component WorldSettingsWindow inherits Window {
                     }
             }
 
-            if root.current-category == 6 || root.current-category == 99: Rectangle {
+            if root.current-category == 6 || (root.current-category == 99 && WorldSearch.category-has-match(6, WorldSearch.query, WorldSearch.match-description, root.lang-ja)): Rectangle {
                 background: Palette.background;
                     VerticalBox {
                         padding: 8px;
@@ -1631,7 +1638,7 @@ export component WorldSettingsWindow inherits Window {
                     }
             }
 
-            if root.current-category == 7 || root.current-category == 99: Rectangle {
+            if root.current-category == 7 || (root.current-category == 99 && WorldSearch.category-has-match(7, WorldSearch.query, WorldSearch.match-description, root.lang-ja)): Rectangle {
                 background: Palette.background;
                     VerticalBox {
                         padding: 8px;
@@ -1673,7 +1680,7 @@ export component WorldSettingsWindow inherits Window {
                     }
             }
 
-            if root.current-category == 8 || root.current-category == 99: Rectangle {
+            if root.current-category == 8 || (root.current-category == 99 && WorldSearch.category-has-match(8, WorldSearch.query, WorldSearch.match-description, root.lang-ja)): Rectangle {
                 background: Palette.background;
                     VerticalBox {
                         padding: 8px;
@@ -1764,7 +1771,7 @@ export component WorldSettingsWindow inherits Window {
                     }
             }
 
-            if root.current-category == 9 || root.current-category == 99: Rectangle {
+            if root.current-category == 9 || (root.current-category == 99 && WorldSearch.category-has-match(9, WorldSearch.query, WorldSearch.match-description, root.lang-ja)): Rectangle {
                 background: Palette.background;
                     VerticalBox {
                         padding: 8px;
@@ -1890,7 +1897,7 @@ export component WorldSettingsWindow inherits Window {
                     }
             }
 
-            if root.current-category == 10 || root.current-category == 99: Rectangle {
+            if root.current-category == 10 || (root.current-category == 99 && WorldSearch.category-has-match(10, WorldSearch.query, WorldSearch.match-description, root.lang-ja)): Rectangle {
                 background: Palette.background;
                     VerticalBox {
                         padding: 8px;
@@ -2018,7 +2025,7 @@ export component WorldSettingsWindow inherits Window {
                     }
             }
 
-            if root.current-category == 11 || root.current-category == 99: Rectangle {
+            if root.current-category == 11 || (root.current-category == 99 && WorldSearch.category-has-match(11, WorldSearch.query, WorldSearch.match-description, root.lang-ja)): Rectangle {
                 background: Palette.background;
                     VerticalBox {
                         padding: 8px;
@@ -2298,7 +2305,7 @@ export component WorldSettingsWindow inherits Window {
                     }
             }
 
-            if root.current-category == 12 || root.current-category == 99: Rectangle {
+            if root.current-category == 12 || (root.current-category == 99 && WorldSearch.category-has-match(12, WorldSearch.query, WorldSearch.match-description, root.lang-ja)): Rectangle {
                 background: Palette.background;
                     VerticalBox {
                         padding: 8px;
@@ -2410,7 +2417,7 @@ export component WorldSettingsWindow inherits Window {
                     }
             }
 
-            if root.current-category == 13 || root.current-category == 99: Rectangle {
+            if root.current-category == 13 || (root.current-category == 99 && WorldSearch.category-has-match(13, WorldSearch.query, WorldSearch.match-description, root.lang-ja)): Rectangle {
                 background: Palette.background;
                     VerticalBox {
                         padding: 8px;
@@ -2577,7 +2584,7 @@ export component WorldSettingsWindow inherits Window {
                     }
             }
 
-            if root.current-category == 14 || root.current-category == 99: Rectangle {
+            if root.current-category == 14 || (root.current-category == 99 && WorldSearch.category-has-match(14, WorldSearch.query, WorldSearch.match-description, root.lang-ja)): Rectangle {
                 background: Palette.background;
                     VerticalBox {
                         padding: 8px;
@@ -2731,7 +2738,7 @@ export component WorldSettingsWindow inherits Window {
                     }
             }
 
-            if root.current-category == 15 || root.current-category == 99: Rectangle {
+            if root.current-category == 15 || (root.current-category == 99 && WorldSearch.category-has-match(15, WorldSearch.query, WorldSearch.match-description, root.lang-ja)): Rectangle {
                 background: Palette.background;
                     VerticalBox {
                         padding: 8px;
