@@ -225,6 +225,33 @@ pub fn enforce_pre_rollback_retention(
     Ok(deleted)
 }
 
+/// Delete a single snapshot zip from disk. Refuses paths that aren't
+/// inside the install root's `ARKSA_Backups\` tree so a stray click in
+/// the GUI can't be tricked into wiping arbitrary user files.
+pub fn delete_snapshot(install_root: &Path, snapshot_path: &Path) -> Result<()> {
+    let allowed_root = install_root.join("ARKSA_Backups");
+    let canonical_root = match fs::canonicalize(&allowed_root) {
+        Ok(r) => r,
+        Err(_) => allowed_root.clone(),
+    };
+    let canonical_target = match fs::canonicalize(snapshot_path) {
+        Ok(r) => r,
+        // If the file no longer exists, fall back to lexical containment
+        // so a stale UI row can still be cleaned out of the listing.
+        Err(_) => snapshot_path.to_path_buf(),
+    };
+    if !canonical_target.starts_with(&canonical_root)
+        && !snapshot_path.starts_with(&allowed_root)
+    {
+        return Err(Error::Other(format!(
+            "refusing to delete file outside the backup tree: {}",
+            snapshot_path.display(),
+        )));
+    }
+    fs::remove_file(snapshot_path)?;
+    Ok(())
+}
+
 /// Restore `SavedArks\<MapName>\` from a snapshot zip.
 ///
 /// Caller must ensure the server is stopped — extracting over a live
@@ -620,6 +647,35 @@ mod tests {
         rollback(&install, map, &snap.path).unwrap();
         assert_eq!(std::fs::read(&live).unwrap(), b"world-state");
 
+        std::fs::remove_dir_all(&install).ok();
+    }
+
+    #[test]
+    fn delete_snapshot_removes_file_inside_backup_tree() {
+        let install = unique_tmp();
+        let map = "DelMap_WP";
+        write_save_tree(&install, map);
+        let snap = create_snapshot(&install, map, DEFAULT_COMPRESSION_LEVEL).unwrap();
+        assert!(snap.path.exists());
+        delete_snapshot(&install, &snap.path).unwrap();
+        assert!(!snap.path.exists());
+        // Listing afterwards should not surface the deleted file.
+        assert!(list_snapshots(&install, map).unwrap().is_empty());
+        std::fs::remove_dir_all(&install).ok();
+    }
+
+    #[test]
+    fn delete_snapshot_refuses_paths_outside_backup_tree() {
+        let install = unique_tmp();
+        let map = "DelGuardMap_WP";
+        write_save_tree(&install, map);
+        // Attempt to delete an unrelated file via the backup helper —
+        // must be rejected, leaving the file intact.
+        let unrelated = install.join("important.txt");
+        std::fs::write(&unrelated, b"do not delete").unwrap();
+        let err = delete_snapshot(&install, &unrelated).unwrap_err();
+        assert!(format!("{err}").contains("outside the backup tree"));
+        assert!(unrelated.exists());
         std::fs::remove_dir_all(&install).ok();
     }
 

@@ -222,7 +222,12 @@ export struct UiLabels {
     backup_col_when: string,
     backup_col_size: string,
     backup_col_actions: string,
+    backup_col_select: string,
     backup_btn_rollback: string,
+    backup_btn_delete_selected: string,
+    backup_confirm_delete_title: string,
+    backup_confirm_delete_body: string,
+    backup_confirm_delete_yes: string,
     backup_empty_snapshots: string,
     backup_empty_pre_rollback: string,
     backup_warn_running: string,
@@ -3157,12 +3162,15 @@ export component NotificationsWindow inherits Window {
 
 /// One row in the snapshot list. The `path` is the canonical filesystem
 /// path to the .zip used by the rollback callback so callers don't have
-/// to round-trip through the displayable name.
+/// to round-trip through the displayable name. `selected` is per-row
+/// checkbox state; the host updates it via the toggle callbacks so the
+/// for-loop's CheckBox can both read and write the same value.
 export struct BackupSnapshotEntry {
     path: string,
     when_text: string,    // human-friendly timestamp, e.g. "2026-05-09 14:30:00"
     size_text: string,    // human-friendly size, e.g. "284.7 MB"
     is_pre_rollback: bool,
+    selected: bool,
 }
 
 export component BackupWindow inherits Window {
@@ -3205,6 +3213,17 @@ export component BackupWindow inherits Window {
     in-out property <string> pending-rollback-path: "";
     in-out property <string> pending-rollback-when: "";
 
+    /// Counters maintained by the host whenever a row checkbox toggles.
+    /// Drive the "Delete selected (N)" button label and enable state.
+    in property <int> snapshots-selected-count: 0;
+    in property <int> pre-rollbacks-selected-count: 0;
+
+    /// Pending bulk-delete confirmation. Set by the "Delete selected"
+    /// buttons; cleared by the in-dialog Cancel / Yes-delete actions.
+    /// `pending-delete-list`: 0=snapshots, 1=pre_rollbacks.
+    in-out property <int> pending-delete-list: -1;
+    in-out property <int> pending-delete-count: 0;
+
     callback save-clicked();
     callback close-clicked();
     callback take-snapshot-now();
@@ -3212,6 +3231,13 @@ export component BackupWindow inherits Window {
     /// Called after the user confirms the in-dialog rollback prompt.
     /// `path` is the snapshot zip absolute path.
     callback rollback-confirmed(string);
+    /// Per-row checkbox toggles. The host flips the row's `selected`
+    /// field in the underlying VecModel and recomputes the *-selected-
+    /// count properties.
+    callback toggle-snapshot-selected(int);
+    callback toggle-pre-rollback-selected(int);
+    /// Bulk delete confirmed. `list` matches `pending-delete-list`.
+    callback delete-selected-confirmed(int);
 
     // The bottom action row stays pinned outside the ScrollView so the
     // user can always reach Save / Close even when the snapshot lists
@@ -3384,6 +3410,55 @@ export component BackupWindow inherits Window {
             }
         }
 
+        // ── Bulk-delete confirmation (in-dialog modal-ish strip) ─────
+        // Rendered above the rollback strip so when both could in
+        // theory pop together (rare race) the destructive one is the
+        // one the user sees first.
+        if root.pending-delete-list >= 0: Rectangle {
+            background: #2a0a0a;
+            border-color: #c04040;
+            border-width: 1px;
+            border-radius: 4px;
+            VerticalBox {
+                padding: 10px;
+                spacing: 6px;
+                Text {
+                    text: root.labels.backup_confirm_delete_title;
+                    color: #ff8080;
+                    font-weight: 700;
+                }
+                Text {
+                    text: root.labels.backup_confirm_delete_body
+                          + "\n  → " + root.pending-delete-count + " "
+                          + (root.pending-delete-list == 0
+                             ? root.labels.backup_section_snapshots
+                             : root.labels.backup_section_pre_rollback);
+                    wrap: word-wrap;
+                }
+                HorizontalBox {
+                    alignment: end;
+                    spacing: 8px;
+                    Button {
+                        text: root.labels.backup_confirm_no;
+                        clicked => {
+                            root.pending-delete-list = -1;
+                            root.pending-delete-count = 0;
+                        }
+                    }
+                    Button {
+                        text: root.labels.backup_confirm_delete_yes;
+                        primary: true;
+                        enabled: !root.action-busy;
+                        clicked => {
+                            root.delete-selected-confirmed(root.pending-delete-list);
+                            root.pending-delete-list = -1;
+                            root.pending-delete-count = 0;
+                        }
+                    }
+                }
+            }
+        }
+
         // ── Rollback prompt (in-dialog modal-ish strip) ───────────────
         if root.pending-rollback-path != "": Rectangle {
             background: #2a1a00;
@@ -3443,6 +3518,7 @@ export component BackupWindow inherits Window {
                 spacing: 4px;
                 HorizontalBox {
                     spacing: 6px;
+                    Text { text: root.labels.backup_col_select; min-width: 30px; color: AppTheme.accent; }
                     Text { text: root.labels.backup_col_when; min-width: 220px; color: AppTheme.accent; }
                     Text { text: root.labels.backup_col_size; min-width: 100px; color: AppTheme.accent; }
                     Text { text: root.labels.backup_col_actions; horizontal-stretch: 1; color: AppTheme.accent; }
@@ -3453,6 +3529,12 @@ export component BackupWindow inherits Window {
                 }
                 for snap[i] in root.snapshots: HorizontalBox {
                     spacing: 6px;
+                    CheckBox {
+                        checked: snap.selected;
+                        toggled => {
+                            root.toggle-snapshot-selected(i);
+                        }
+                    }
                     Text {
                         text: snap.when_text;
                         vertical-alignment: center;
@@ -3472,6 +3554,22 @@ export component BackupWindow inherits Window {
                         }
                     }
                     Rectangle { horizontal-stretch: 1; }
+                }
+                // Bulk-delete trigger. Disabled when nothing is selected
+                // or the dialog is mid-operation. Sets the pending-delete
+                // properties so the confirmation strip below can render.
+                if root.snapshots.length > 0: HorizontalBox {
+                    alignment: end;
+                    spacing: 6px;
+                    Button {
+                        text: root.labels.backup_btn_delete_selected
+                              + " (" + root.snapshots-selected-count + ")";
+                        enabled: !root.action-busy && root.snapshots-selected-count > 0;
+                        clicked => {
+                            root.pending-delete-list = 0;
+                            root.pending-delete-count = root.snapshots-selected-count;
+                        }
+                    }
                 }
             }
         }
@@ -3483,6 +3581,12 @@ export component BackupWindow inherits Window {
                 spacing: 2px;
                 for snap[i] in root.pre-rollbacks: HorizontalBox {
                     spacing: 6px;
+                    CheckBox {
+                        checked: snap.selected;
+                        toggled => {
+                            root.toggle-pre-rollback-selected(i);
+                        }
+                    }
                     Text {
                         text: snap.when_text;
                         vertical-alignment: center;
@@ -3502,6 +3606,19 @@ export component BackupWindow inherits Window {
                         }
                     }
                     Rectangle { horizontal-stretch: 1; }
+                }
+                HorizontalBox {
+                    alignment: end;
+                    spacing: 6px;
+                    Button {
+                        text: root.labels.backup_btn_delete_selected
+                              + " (" + root.pre-rollbacks-selected-count + ")";
+                        enabled: !root.action-busy && root.pre-rollbacks-selected-count > 0;
+                        clicked => {
+                            root.pending-delete-list = 1;
+                            root.pending-delete-count = root.pre-rollbacks-selected-count;
+                        }
+                    }
                 }
             }
         }

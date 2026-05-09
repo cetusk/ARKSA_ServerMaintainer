@@ -27,7 +27,7 @@ use arksa_core::{
     steamcmd,
 };
 use arksa_notify::{NotifyConfig, NotifyContext, NotifyEvent};
-use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use tracing_subscriber::EnvFilter;
 
 slint::include_modules!();
@@ -1324,7 +1324,12 @@ struct Labels {
     backup_col_when: String,
     backup_col_size: String,
     backup_col_actions: String,
+    backup_col_select: String,
     backup_btn_rollback: String,
+    backup_btn_delete_selected: String,
+    backup_confirm_delete_title: String,
+    backup_confirm_delete_body: String,
+    backup_confirm_delete_yes: String,
     backup_empty_snapshots: String,
     backup_empty_pre_rollback: String,
     backup_warn_running: String,
@@ -1484,7 +1489,13 @@ impl Labels {
             backup_col_when: "When".into(),
             backup_col_size: "Size".into(),
             backup_col_actions: "Actions".into(),
+            backup_col_select: "Select".into(),
             backup_btn_rollback: "Roll back to this".into(),
+            backup_btn_delete_selected: "Delete selected".into(),
+            backup_confirm_delete_title: "Confirm deletion".into(),
+            backup_confirm_delete_body:
+                "The following snapshots will be permanently deleted:".into(),
+            backup_confirm_delete_yes: "Yes, delete".into(),
             backup_empty_snapshots:
                 "No snapshots yet. Click Take snapshot now or enable auto snapshots above."
                     .into(),
@@ -1657,7 +1668,13 @@ impl Labels {
             backup_col_when: "日時".into(),
             backup_col_size: "サイズ".into(),
             backup_col_actions: "操作".into(),
+            backup_col_select: "選択".into(),
             backup_btn_rollback: "この時点に巻き戻す".into(),
+            backup_btn_delete_selected: "選択を削除".into(),
+            backup_confirm_delete_title: "削除の確認".into(),
+            backup_confirm_delete_body:
+                "下記のスナップショットを完全に削除します:".into(),
+            backup_confirm_delete_yes: "はい、削除".into(),
             backup_empty_snapshots:
                 "スナップショットはまだありません。上のチェックボックスで自動取得を有効にするか、\
                  「今すぐスナップショットを作成」を押してください。".into(),
@@ -1826,7 +1843,12 @@ impl Labels {
             backup_col_when: self.backup_col_when.as_str().into(),
             backup_col_size: self.backup_col_size.as_str().into(),
             backup_col_actions: self.backup_col_actions.as_str().into(),
+            backup_col_select: self.backup_col_select.as_str().into(),
             backup_btn_rollback: self.backup_btn_rollback.as_str().into(),
+            backup_btn_delete_selected: self.backup_btn_delete_selected.as_str().into(),
+            backup_confirm_delete_title: self.backup_confirm_delete_title.as_str().into(),
+            backup_confirm_delete_body: self.backup_confirm_delete_body.as_str().into(),
+            backup_confirm_delete_yes: self.backup_confirm_delete_yes.as_str().into(),
             backup_empty_snapshots: self.backup_empty_snapshots.as_str().into(),
             backup_empty_pre_rollback: self.backup_empty_pre_rollback.as_str().into(),
             backup_warn_running: self.backup_warn_running.as_str().into(),
@@ -4589,6 +4611,13 @@ fn refresh_backup_lists_in_window(
     let pre = backup::list_pre_rollbacks(install_root, map_name).unwrap_or_default();
     window.set_snapshots(slint_snapshot_model(&snaps));
     window.set_pre_rollbacks(slint_snapshot_model(&pre));
+    // Selections always reset on refresh — `slint_snapshot_model`
+    // hands out rows with `selected: false`, so the counters must
+    // follow suit.
+    window.set_snapshots_selected_count(0);
+    window.set_pre_rollbacks_selected_count(0);
+    window.set_pending_delete_list(-1);
+    window.set_pending_delete_count(0);
 }
 
 fn slint_snapshot_model(items: &[backup::Snapshot]) -> ModelRc<BackupSnapshotEntry> {
@@ -4599,9 +4628,49 @@ fn slint_snapshot_model(items: &[backup::Snapshot]) -> ModelRc<BackupSnapshotEnt
             when_text: format_when(&s.created).into(),
             size_text: format_size_bytes(s.size_bytes).into(),
             is_pre_rollback: matches!(s.kind, backup::SnapshotKind::PreRollback),
+            // Refreshing the list always resets selections — the new
+            // model has fresh rows and per-row checkbox state from
+            // before the refresh wouldn't make sense to carry over.
+            selected: false,
         })
         .collect();
     ModelRc::new(VecModel::from(entries))
+}
+
+/// Walk a snapshot model and count how many rows have `selected = true`.
+/// Used to keep the "Delete selected (N)" button label and enable state
+/// in sync with the per-row checkbox toggles.
+fn count_selected(model: &ModelRc<BackupSnapshotEntry>) -> i32 {
+    let mut n = 0i32;
+    for i in 0..model.row_count() {
+        if let Some(entry) = model.row_data(i) {
+            if entry.selected {
+                n += 1;
+            }
+        }
+    }
+    n
+}
+
+/// Flip the `selected` field on the i-th row of either the snapshots
+/// or pre_rollback model and refresh the matching `*-selected-count`
+/// property. `is_pre_rollback = true` targets the pre_rollback list.
+fn toggle_snapshot_row(window: &BackupWindow, idx: i32, is_pre_rollback: bool) {
+    let model = if is_pre_rollback {
+        window.get_pre_rollbacks()
+    } else {
+        window.get_snapshots()
+    };
+    let i = if idx < 0 { return } else { idx as usize };
+    let Some(mut entry) = model.row_data(i) else { return };
+    entry.selected = !entry.selected;
+    model.set_row_data(i, entry);
+    let count = count_selected(&model);
+    if is_pre_rollback {
+        window.set_pre_rollbacks_selected_count(count);
+    } else {
+        window.set_snapshots_selected_count(count);
+    }
 }
 
 fn format_when(ts: &chrono::DateTime<chrono::Local>) -> String {
@@ -4815,6 +4884,105 @@ fn wire_backup_callbacks(
                     w.set_server_running(running);
                 }
             }
+        });
+    }
+    {
+        // Per-row checkbox toggle (snapshots list). The host owns the
+        // VecModel — we flip the i-th row's `selected` field, write it
+        // back, and recount so the "Delete selected (N)" button label
+        // and enable state stay in sync.
+        let weak = window.as_weak();
+        window.on_toggle_snapshot_selected(move |idx| {
+            let Some(w) = weak.upgrade() else { return };
+            toggle_snapshot_row(&w, idx, false);
+        });
+    }
+    {
+        let weak = window.as_weak();
+        window.on_toggle_pre_rollback_selected(move |idx| {
+            let Some(w) = weak.upgrade() else { return };
+            toggle_snapshot_row(&w, idx, true);
+        });
+    }
+    {
+        // Bulk delete: walks the selected rows and removes the underlying
+        // zip files. Wrapped in a worker so a slow disk doesn't freeze
+        // the UI mid-delete (common cause: USB-attached backup drive).
+        let weak = window.as_weak();
+        let main_weak = main_weak.clone();
+        let log = log.clone();
+        let ctx = ctx.clone();
+        let profiles = profiles.clone();
+        let selected = selected.clone();
+        window.on_delete_selected_confirmed(move |list| {
+            let Some(w) = weak.upgrade() else { return };
+            let Some(profile_path) = current_profile_path(&profiles, &selected) else {
+                w.set_action_message("No profile selected.".into());
+                return;
+            };
+            // 0 = snapshots, 1 = pre_rollbacks. Anything else is a
+            // stale strip — bail.
+            let model = match list {
+                0 => w.get_snapshots(),
+                1 => w.get_pre_rollbacks(),
+                _ => return,
+            };
+            let paths: Vec<PathBuf> = (0..model.row_count())
+                .filter_map(|i| model.row_data(i))
+                .filter(|e| e.selected)
+                .map(|e| PathBuf::from(e.path.as_str()))
+                .collect();
+            if paths.is_empty() {
+                return;
+            }
+            let install_dir = ctx.install_dir.clone();
+            let weak_for_worker = weak.clone();
+            let main_weak = main_weak.clone();
+            let log = log.clone();
+            w.set_action_busy(true);
+            w.set_action_message("Deleting…".into());
+            std::thread::spawn(move || {
+                let result = (|| -> Result<(PathBuf, String, usize, usize)> {
+                    let profile = Profile::load(&profile_path)?;
+                    let install_root = profile
+                        .resolved_install_path(&install_dir)
+                        .ok_or_else(|| anyhow!("Profile has no install location."))?;
+                    let map = profile
+                        .map_name()
+                        .ok_or_else(|| anyhow!("Profile has no map name."))?;
+                    let total = paths.len();
+                    let mut deleted = 0usize;
+                    for p in &paths {
+                        if backup::delete_snapshot(&install_root, p).is_ok() {
+                            deleted += 1;
+                        }
+                    }
+                    Ok((install_root, map, deleted, total))
+                })();
+                match result {
+                    Ok((install_root, map, deleted, total)) => {
+                        let msg = if deleted == total {
+                            format!("Deleted {deleted} snapshots.")
+                        } else {
+                            format!("Deleted {deleted} of {total} snapshots ({} failed).", total - deleted)
+                        };
+                        push_log_async(&main_weak, &log, &msg);
+                        let _ = weak_for_worker.upgrade_in_event_loop(move |w| {
+                            refresh_backup_lists_in_window(&w, &install_root, &map);
+                            w.set_action_busy(false);
+                            w.set_action_message(msg.into());
+                        });
+                    }
+                    Err(e) => {
+                        let msg = format!("Delete failed: {e:#}");
+                        push_log_async(&main_weak, &log, &msg);
+                        let _ = weak_for_worker.upgrade_in_event_loop(move |w| {
+                            w.set_action_busy(false);
+                            w.set_action_message(msg.into());
+                        });
+                    }
+                }
+            });
         });
     }
     {
