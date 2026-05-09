@@ -43,9 +43,13 @@ use crate::error::{Error, Result};
 /// is enough to undo a bad rollback choice.
 pub const MAX_PRE_ROLLBACK: u32 = 3;
 
-/// Deflate level 9 (zip standard, max for the deflate method). Trades a
-/// bit of CPU for the smallest output Windows Explorer can still open.
-const DEFLATE_LEVEL: i64 = 9;
+/// Default compression level when the caller doesn't specify one. 1 =
+/// Deflate level 1 (fastest), the right default for SavedArks: the
+/// engine's `.ark` blobs are already dense binary and only compress
+/// 60–70% even at level 9, while level 1 finishes ~5–10× faster.
+/// Users who want smaller files trade CPU back via the GUI's
+/// compression dropdown.
+pub const DEFAULT_COMPRESSION_LEVEL: u8 = 1;
 
 /// Filename timestamp format. Sortable lexicographically, no separators
 /// that would confuse Windows path tooling.
@@ -97,10 +101,18 @@ pub struct Snapshot {
 /// Create a periodic snapshot of `<install>\…\SavedArks\<MapName>\`,
 /// writing to `<install>\ARKSA_Backups\<MapName>\snapshot_<MapName>_<TS>.zip`.
 ///
+/// `compression_level` is `0` for STORE (no compression — file-copy
+/// speed) or `1..=9` for Deflate (1 fastest, 9 smallest). Anything out
+/// of range is clamped.
+///
 /// Returns the new snapshot. Does **not** apply retention — call
 /// [`enforce_retention`] separately so callers can decide whether to
 /// rotate (e.g. after a successful save vs. before).
-pub fn create_snapshot(install_root: &Path, map_name: &str) -> Result<Snapshot> {
+pub fn create_snapshot(
+    install_root: &Path,
+    map_name: &str,
+    compression_level: u8,
+) -> Result<Snapshot> {
     let src = savedarks_dir(install_root, map_name);
     if !src.is_dir() {
         return Err(Error::Other(format!(
@@ -120,7 +132,7 @@ pub fn create_snapshot(install_root: &Path, map_name: &str) -> Result<Snapshot> 
         ),
         "zip",
     )?;
-    write_zip_atomic(&src, &zip_path)?;
+    write_zip_atomic(&src, &zip_path, compression_level)?;
     let size_bytes = fs::metadata(&zip_path)?.len();
     Ok(Snapshot {
         path: zip_path,
@@ -133,7 +145,13 @@ pub fn create_snapshot(install_root: &Path, map_name: &str) -> Result<Snapshot> 
 /// Create an emergency `pre_rollback` snapshot. Same contents as
 /// [`create_snapshot`] but written to the `pre_rollback\` subfolder so
 /// it survives the periodic ring buffer.
-pub fn create_pre_rollback(install_root: &Path, map_name: &str) -> Result<Snapshot> {
+///
+/// Uses the same compression-level convention as [`create_snapshot`].
+pub fn create_pre_rollback(
+    install_root: &Path,
+    map_name: &str,
+    compression_level: u8,
+) -> Result<Snapshot> {
     let src = savedarks_dir(install_root, map_name);
     if !src.is_dir() {
         return Err(Error::Other(format!(
@@ -149,7 +167,7 @@ pub fn create_pre_rollback(install_root: &Path, map_name: &str) -> Result<Snapsh
         &format!("pre_rollback_{}", now.format(TS_FORMAT)),
         "zip",
     )?;
-    write_zip_atomic(&src, &zip_path)?;
+    write_zip_atomic(&src, &zip_path, compression_level)?;
     let size_bytes = fs::metadata(&zip_path)?.len();
     Ok(Snapshot {
         path: zip_path,
@@ -357,18 +375,17 @@ fn unique_path(dir: &Path, stem: &str, ext: &str) -> Result<PathBuf> {
     )))
 }
 
-/// Write `src_dir/**` into `dst_zip` with deflate level 9. Writes to
-/// `<dst_zip>.tmp` first and renames on success so a power-cut leaves
-/// only a half-finished `.tmp` rather than a corrupt `.zip`.
-fn write_zip_atomic(src_dir: &Path, dst_zip: &Path) -> Result<()> {
+/// Write `src_dir/**` into `dst_zip` at the given compression level.
+/// `0` selects STORE (no compression — file-copy speed), `1..=9`
+/// selects Deflate at that level. Writes to `<dst_zip>.tmp` first and
+/// renames on success so a power-cut leaves only a half-finished
+/// `.tmp` rather than a corrupt `.zip`.
+fn write_zip_atomic(src_dir: &Path, dst_zip: &Path, compression_level: u8) -> Result<()> {
     let tmp = with_extra_extension(dst_zip, "tmp");
     {
         let file = File::create(&tmp)?;
         let mut writer = ZipWriter::new(BufWriter::new(file));
-        let opts = SimpleFileOptions::default()
-            .compression_method(CompressionMethod::Deflated)
-            .compression_level(Some(DEFLATE_LEVEL))
-            .unix_permissions(0o644);
+        let opts = build_file_options(compression_level);
         zip_dir_recursive(src_dir, src_dir, &mut writer, opts)?;
         writer.finish().map_err(zip_to_error)?;
     }
@@ -377,6 +394,23 @@ fn write_zip_atomic(src_dir: &Path, dst_zip: &Path) -> Result<()> {
     }
     fs::rename(&tmp, dst_zip)?;
     Ok(())
+}
+
+/// Map our 0..=9 compression-level convention to the zip crate's
+/// per-file options. Out-of-range values are clamped silently (corrupt
+/// INI shouldn't break the write path).
+fn build_file_options(compression_level: u8) -> SimpleFileOptions {
+    let level = compression_level.min(9);
+    if level == 0 {
+        SimpleFileOptions::default()
+            .compression_method(CompressionMethod::Stored)
+            .unix_permissions(0o644)
+    } else {
+        SimpleFileOptions::default()
+            .compression_method(CompressionMethod::Deflated)
+            .compression_level(Some(level as i64))
+            .unix_permissions(0o644)
+    }
 }
 
 fn zip_dir_recursive<W: Write + io::Seek>(
@@ -493,7 +527,7 @@ mod tests {
         let map = "TestMap_WP";
         write_save_tree(&install, map);
 
-        let snap = create_snapshot(&install, map).unwrap();
+        let snap = create_snapshot(&install, map, DEFAULT_COMPRESSION_LEVEL).unwrap();
         assert!(snap.path.exists());
         assert_eq!(snap.kind, SnapshotKind::Periodic);
 
@@ -521,7 +555,7 @@ mod tests {
         let map = "TestMap2_WP";
         write_save_tree(&install, map);
 
-        let snap = create_pre_rollback(&install, map).unwrap();
+        let snap = create_pre_rollback(&install, map, DEFAULT_COMPRESSION_LEVEL).unwrap();
         assert_eq!(snap.kind, SnapshotKind::PreRollback);
         assert!(snap.path.starts_with(pre_rollback_dir(&install, map)));
 
@@ -568,6 +602,25 @@ mod tests {
         assert!(names[2].contains("20260101_040000"));
 
         fs::remove_dir_all(&install).ok();
+    }
+
+    #[test]
+    fn snapshot_with_no_compression_round_trips() {
+        // STORE (level 0) is the speed-priority option for users with
+        // big saves; the round-trip must preserve bytes exactly.
+        let install = unique_tmp();
+        let map = "StoreMap_WP";
+        write_save_tree(&install, map);
+
+        let snap = create_snapshot(&install, map, 0).unwrap();
+        assert!(snap.path.exists());
+        // Mutate the live save and roll back from the STORE snapshot.
+        let live = savedarks_dir(&install, map).join(format!("{map}.ark"));
+        std::fs::write(&live, b"changed").unwrap();
+        rollback(&install, map, &snap.path).unwrap();
+        assert_eq!(std::fs::read(&live).unwrap(), b"world-state");
+
+        std::fs::remove_dir_all(&install).ok();
     }
 
     #[test]

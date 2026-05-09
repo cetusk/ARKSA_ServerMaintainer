@@ -1310,6 +1310,12 @@ struct Labels {
     backup_auto_enabled: String,
     backup_label_interval: String,
     backup_label_retain: String,
+    backup_label_compression: String,
+    backup_compression_none: String,
+    backup_compression_fast: String,
+    backup_compression_balanced: String,
+    backup_compression_max: String,
+    backup_compression_hint: String,
     backup_section_manual: String,
     backup_btn_take_now: String,
     backup_btn_refresh: String,
@@ -1459,6 +1465,16 @@ impl Labels {
                 "Take periodic snapshots of SavedArks while the tool is running".into(),
             backup_label_interval: "Interval between snapshots:".into(),
             backup_label_retain: "Number of snapshots to keep:".into(),
+            backup_label_compression: "Compression:".into(),
+            backup_compression_none: "None (fastest, ~file-copy speed)".into(),
+            backup_compression_fast: "Fast (Deflate 1) — recommended".into(),
+            backup_compression_balanced: "Balanced (Deflate 6)".into(),
+            backup_compression_max: "Max (Deflate 9, smallest files)".into(),
+            backup_compression_hint:
+                "ARK .ark files compress only ~30% even at Max but Max is 5–10× slower. \
+                 Fast (default) is the best speed/size tradeoff. Use None for instant \
+                 backups when disk space isn't a concern."
+                    .into(),
             backup_section_manual: "Manual".into(),
             backup_btn_take_now: "Take snapshot now".into(),
             backup_btn_refresh: "Refresh list".into(),
@@ -1621,6 +1637,17 @@ impl Labels {
                 "本ツール稼働中に SavedArks の定期スナップショットを取得する".into(),
             backup_label_interval: "スナップショット間隔:".into(),
             backup_label_retain: "保持するスナップショット数:".into(),
+            backup_label_compression: "圧縮:".into(),
+            backup_compression_none: "なし (最速・コピーと同速)".into(),
+            backup_compression_fast: "速い (Deflate 1) — 推奨".into(),
+            backup_compression_balanced: "標準 (Deflate 6)".into(),
+            backup_compression_max: "最大 (Deflate 9, 最小サイズ)".into(),
+            backup_compression_hint:
+                "ARK の .ark ファイルは最大圧縮しても 30% 程度しか縮みませんが、\
+                 最大圧縮は 5〜10 倍遅くなります。「速い」(デフォルト) が最も良い\
+                 バランスです。ディスク容量に余裕があれば「なし」で瞬時バックアップ\
+                 も可能です。"
+                    .into(),
             backup_section_manual: "手動操作".into(),
             backup_btn_take_now: "今すぐスナップショットを作成".into(),
             backup_btn_refresh: "一覧を更新".into(),
@@ -1785,6 +1812,12 @@ impl Labels {
             backup_auto_enabled: self.backup_auto_enabled.as_str().into(),
             backup_label_interval: self.backup_label_interval.as_str().into(),
             backup_label_retain: self.backup_label_retain.as_str().into(),
+            backup_label_compression: self.backup_label_compression.as_str().into(),
+            backup_compression_none: self.backup_compression_none.as_str().into(),
+            backup_compression_fast: self.backup_compression_fast.as_str().into(),
+            backup_compression_balanced: self.backup_compression_balanced.as_str().into(),
+            backup_compression_max: self.backup_compression_max.as_str().into(),
+            backup_compression_hint: self.backup_compression_hint.as_str().into(),
             backup_section_manual: self.backup_section_manual.as_str().into(),
             backup_btn_take_now: self.backup_btn_take_now.as_str().into(),
             backup_btn_refresh: self.backup_btn_refresh.as_str().into(),
@@ -4529,6 +4562,9 @@ fn populate_backup_window(
     window.set_auto_backup_enabled(profile.auto_backup_enabled());
     window.set_interval_minutes(profile.backup_interval_minutes().to_string().into());
     window.set_retain_count(profile.backup_retain_count().to_string().into());
+    window.set_compression_index(compression_index_for_level(
+        profile.backup_compression_level(),
+    ));
     window.set_action_message(SharedString::default());
     window.set_pending_rollback_path(SharedString::default());
     window.set_pending_rollback_when(SharedString::default());
@@ -4570,6 +4606,31 @@ fn slint_snapshot_model(items: &[backup::Snapshot]) -> ModelRc<BackupSnapshotEnt
 
 fn format_when(ts: &chrono::DateTime<chrono::Local>) -> String {
     ts.format("%Y-%m-%d %H:%M:%S").to_string()
+}
+
+/// Map the BackupWindow ComboBox's `compression-index` (0..=3) to the
+/// `arksa_core::backup` numeric level (0 / 1 / 6 / 9). Anything out of
+/// range falls back to the default ("Fast" → Deflate 1).
+fn compression_level_for_index(index: i32) -> u8 {
+    match index {
+        0 => 0,                                // None (STORE)
+        1 => 1,                                // Fast (Deflate 1)
+        2 => 6,                                // Balanced (Deflate 6)
+        3 => 9,                                // Max (Deflate 9)
+        _ => backup::DEFAULT_COMPRESSION_LEVEL,
+    }
+}
+
+/// Reverse mapping for populate_backup_window. Anything outside the
+/// curated 0/1/6/9 set rounds to the closest curated level so the UI
+/// can always show a meaningful selection.
+fn compression_index_for_level(level: u8) -> i32 {
+    match level {
+        0 => 0,
+        1..=3 => 1,
+        4..=7 => 2,
+        _ => 3,
+    }
 }
 
 fn format_size_bytes(bytes: u64) -> String {
@@ -4631,11 +4692,13 @@ fn wire_backup_callbacks(
                 .trim()
                 .parse::<u32>()
                 .unwrap_or(12);
+            let level = compression_level_for_index(w.get_compression_index());
             let result = (|| -> Result<()> {
                 let mut profile = Profile::load(&profile_path)?;
                 profile.set_auto_backup_enabled(w.get_auto_backup_enabled());
                 profile.set_backup_interval_minutes(interval);
                 profile.set_backup_retain_count(retain);
+                profile.set_backup_compression_level(level);
                 profile.save()?;
                 Ok(())
             })();
@@ -4646,10 +4709,11 @@ fn wire_backup_callbacks(
                         &main_weak,
                         &log,
                         &format!(
-                            "Backup settings saved: auto={} interval={}m retain={}",
+                            "Backup settings saved: auto={} interval={}m retain={} compress={}",
                             w.get_auto_backup_enabled(),
                             interval,
-                            retain
+                            retain,
+                            level
                         ),
                     );
                 }
@@ -4692,7 +4756,8 @@ fn wire_backup_callbacks(
                         .map_name()
                         .ok_or_else(|| anyhow!("Profile has no map name."))?;
                     let retain = profile.backup_retain_count();
-                    let snap = backup::create_snapshot(&install_root, &map)?;
+                    let level = profile.backup_compression_level();
+                    let snap = backup::create_snapshot(&install_root, &map, level)?;
                     let removed =
                         backup::enforce_retention(&install_root, &map, retain)?;
                     Ok((install_root, map, snap.size_bytes, removed))
@@ -4785,9 +4850,12 @@ fn wire_backup_callbacks(
                         .map_name()
                         .ok_or_else(|| anyhow!("Profile has no map name."))?;
                     // Save current state into pre_rollback/ first so a
-                    // mistake is recoverable. enforce_pre_rollback_retention
-                    // keeps that folder bounded.
-                    let _ = backup::create_pre_rollback(&install_root, &map);
+                    // mistake is recoverable. Honour the user's
+                    // configured compression level here too — the
+                    // pre_rollback zip should be as quick to write
+                    // as the periodic ones.
+                    let level = profile.backup_compression_level();
+                    let _ = backup::create_pre_rollback(&install_root, &map, level);
                     let _ = backup::enforce_pre_rollback_retention(&install_root, &map);
                     backup::rollback(&install_root, &map, &snapshot_path)?;
                     Ok((install_root, map))
@@ -4872,6 +4940,7 @@ fn run_backup_scheduler_tick(
     }
     let interval_minutes = profile.backup_interval_minutes() as i64;
     let retain = profile.backup_retain_count();
+    let level = profile.backup_compression_level();
 
     // Decide whether enough time has elapsed since the newest snapshot.
     let snapshots = backup::list_snapshots(&install_root, &map).unwrap_or_default();
@@ -4883,7 +4952,7 @@ fn run_backup_scheduler_tick(
     if !due {
         return;
     }
-    match backup::create_snapshot(&install_root, &map) {
+    match backup::create_snapshot(&install_root, &map, level) {
         Ok(snap) => {
             let removed =
                 backup::enforce_retention(&install_root, &map, retain).unwrap_or(0);

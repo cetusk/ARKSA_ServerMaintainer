@@ -274,6 +274,27 @@ impl Profile {
             .set_i64(SECTION_GENERAL, "SE_BackupRetainCount", clamped as i64);
     }
 
+    /// Compression level used for SavedArks zip snapshots. `0` selects
+    /// STORE (no compression — file-copy speed) and `1..=9` selects
+    /// Deflate at that level (1 fastest, 9 smallest). Default 1
+    /// matches `arksa_core::backup::DEFAULT_COMPRESSION_LEVEL`: ARK
+    /// `.ark` blobs barely shrink past Deflate 6 anyway, while
+    /// Deflate 9 burns ~5–10× more CPU than Deflate 1 for marginal
+    /// gain. Existing profiles without the key get the new default.
+    pub fn backup_compression_level(&self) -> u8 {
+        let raw = self
+            .doc
+            .get_i64(SECTION_GENERAL, "SE_BackupCompressionLevel")
+            .unwrap_or(1);
+        raw.clamp(0, 9) as u8
+    }
+
+    pub fn set_backup_compression_level(&mut self, level: u8) {
+        let clamped = level.min(9);
+        self.doc
+            .set_i64(SECTION_GENERAL, "SE_BackupCompressionLevel", clamped as i64);
+    }
+
     /// Resolved absolute path to the server install directory, given the
     /// directory containing the ARKSA tool executable.
     pub fn resolved_install_path(&self, exe_dir: &Path) -> Option<PathBuf> {
@@ -456,6 +477,10 @@ Edit_ServerAdminPassword=hunter2
         assert!(!profile.auto_backup_enabled());
         assert_eq!(profile.backup_interval_minutes(), 30);
         assert_eq!(profile.backup_retain_count(), 12);
+        // Sample INI doesn't set the key → default is Deflate 1
+        // (fast). Existing profiles created before the key existed
+        // pick up this default automatically.
+        assert_eq!(profile.backup_compression_level(), 1);
     }
 
     #[test]
@@ -482,6 +507,15 @@ Edit_ServerAdminPassword=hunter2
         assert_eq!(profile.backup_interval_minutes(), 1);
         profile.set_backup_retain_count(99_999);
         assert_eq!(profile.backup_retain_count(), 1024);
+
+        // Compression level clamps to 0..=9. 0 is STORE (fastest),
+        // 9 is Deflate max. Anything higher saturates at 9.
+        profile.set_backup_compression_level(0);
+        assert_eq!(profile.backup_compression_level(), 0);
+        profile.set_backup_compression_level(6);
+        assert_eq!(profile.backup_compression_level(), 6);
+        profile.set_backup_compression_level(255);
+        assert_eq!(profile.backup_compression_level(), 9);
     }
 
     #[test]

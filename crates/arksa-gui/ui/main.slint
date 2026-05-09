@@ -208,6 +208,12 @@ export struct UiLabels {
     backup_auto_enabled: string,
     backup_label_interval: string,
     backup_label_retain: string,
+    backup_label_compression: string,
+    backup_compression_none: string,
+    backup_compression_fast: string,
+    backup_compression_balanced: string,
+    backup_compression_max: string,
+    backup_compression_hint: string,
     backup_section_manual: string,
     backup_btn_take_now: string,
     backup_btn_refresh: string,
@@ -3180,6 +3186,10 @@ export component BackupWindow inherits Window {
     in-out property <bool> auto-backup-enabled: false;
     in-out property <string> interval-minutes: "30";
     in-out property <string> retain-count: "12";
+    /// Compression-level ComboBox index: 0=None(STORE), 1=Fast(Deflate
+    /// 1), 2=Balanced(Deflate 6), 3=Max(Deflate 9). Mapping done on
+    /// the host side so this property stays a simple int.
+    in-out property <int> compression-index: 1;
 
     // Lists driven by the host. Populated whenever the dialog opens or
     // after a take-snapshot / rollback callback returns.
@@ -3316,6 +3326,35 @@ export component BackupWindow inherits Window {
                         vertical-alignment: center;
                     }
                     Rectangle { horizontal-stretch: 1; }
+                }
+                // Compression level picker. The four entries map to
+                // STORE / Deflate 1 / Deflate 6 / Deflate 9 on the
+                // Rust side. Default index 1 (Fast) — best speed /
+                // size tradeoff for ARK's binary saves.
+                HorizontalBox {
+                    spacing: 6px;
+                    Text {
+                        text: root.labels.backup_label_compression;
+                        vertical-alignment: center;
+                        min-width: 200px;
+                    }
+                    ComboBox {
+                        model: [
+                            root.labels.backup_compression_none,
+                            root.labels.backup_compression_fast,
+                            root.labels.backup_compression_balanced,
+                            root.labels.backup_compression_max,
+                        ];
+                        current-index <=> root.compression-index;
+                        min-width: 220px;
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                }
+                Text {
+                    text: root.labels.backup_compression_hint;
+                    font-size: 11px;
+                    wrap: word-wrap;
+                    color: Palette.foreground;
                 }
             }
         }
