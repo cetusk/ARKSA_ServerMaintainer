@@ -339,6 +339,27 @@ impl Profile {
         self.doc.get_string(SECTION_SERVER, "Edit_ServerPassword")
     }
 
+    /// User-supplied address that public clients use to reach the
+    /// server. Typical contents are a playit.gg tunnel hostname/port,
+    /// a Tailscale machine name, or the operator's public IP. Empty
+    /// when the profile hasn't recorded one — the GUI surfaces the
+    /// field as just an editable line that the user can copy.
+    ///
+    /// Stored as `[Server] Edit_PublicAddress` so the upstream Pascal
+    /// app's INI parser (which round-trips unknown keys) doesn't drop
+    /// it on save.
+    pub fn public_address(&self) -> Option<String> {
+        self.doc
+            .get_string(SECTION_SERVER, "Edit_PublicAddress")
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+    }
+
+    pub fn set_public_address(&mut self, address: &str) {
+        self.doc
+            .set_string(SECTION_SERVER, "Edit_PublicAddress", address.trim());
+    }
+
     // ---- [General] command line ---------------------------------------------
 
     /// Pre-assembled ARK SA server command line stored by upstream's UI as a

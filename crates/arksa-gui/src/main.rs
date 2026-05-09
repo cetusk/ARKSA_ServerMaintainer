@@ -188,6 +188,12 @@ fn main() -> Result<()> {
     window.set_labels(labels.to_ui());
     window.set_install_dir(install_dir.display().to_string().into());
     push_profiles_to_ui(&window, &profiles.lock().unwrap());
+    if !profiles.lock().unwrap().is_empty() {
+        // Seed the Connection section's public-address LineEdit from
+        // the initially-selected profile (index 0). on_profile_selected
+        // takes care of subsequent switches.
+        push_public_address_to_ui(&window, &profiles, 0);
+    }
     append_log(
         &log,
         &window,
@@ -460,6 +466,20 @@ fn push_selected_profile_path(window: &MainWindow, profiles: &ProfileList, idx: 
     window.set_selected_profile_path(SharedString::from(path.as_str()));
 }
 
+/// Read the selected profile's public address (`Edit_PublicAddress` in
+/// `[Server]`) and push it into the Connection section. Empty when the
+/// profile hasn't recorded one yet — the LineEdit shows its placeholder.
+fn push_public_address_to_ui(window: &MainWindow, profiles: &ProfileList, idx: usize) {
+    let profiles = profiles.lock().unwrap();
+    let value = profiles
+        .get(idx)
+        .and_then(|(_, p)| Profile::load(p).ok())
+        .and_then(|p| p.public_address())
+        .unwrap_or_default();
+    window.set_public_address(SharedString::from(value.as_str()));
+    window.set_public_address_status(SharedString::default());
+}
+
 fn push_map_suggestions(dialog: &NewProfileWindow) {
     let names: Vec<SharedString> = COMMON_MAPS
         .iter()
@@ -539,8 +559,85 @@ fn wire_main_callbacks(
             *selected.lock().unwrap() = idx_usize;
             if let Some(w) = weak.upgrade() {
                 push_selected_profile_path(&w, &profiles, idx_usize);
+                push_public_address_to_ui(&w, &profiles, idx_usize);
             }
             refresh_status_async(&weak, &ctx, &profiles, &selected, &log);
+        });
+    }
+    {
+        // Public-address LineEdit "accepted" (Enter pressed). Saves the
+        // value into the current profile's [Server] Edit_PublicAddress
+        // so it survives a tool restart.
+        let weak = window.as_weak();
+        let profiles = profiles.clone();
+        let selected = selected.clone();
+        let log = log.clone();
+        window.on_public_address_changed(move |new_value| {
+            let Some(w) = weak.upgrade() else { return };
+            let Some(profile_path) = current_profile_path(&profiles, &selected) else {
+                return;
+            };
+            let trimmed = new_value.as_str().trim().to_string();
+            let result = (|| -> Result<()> {
+                let mut profile = Profile::load(&profile_path)?;
+                profile.set_public_address(&trimmed);
+                profile.save()?;
+                Ok(())
+            })();
+            match result {
+                Ok(()) => {
+                    push_log_async(
+                        &weak,
+                        &log,
+                        &format!(
+                            "Public address saved: {}",
+                            if trimmed.is_empty() { "(empty)" } else { &trimmed }
+                        ),
+                    );
+                    w.set_public_address_status(SharedString::default());
+                }
+                Err(e) => {
+                    let msg = format!("Save failed: {e:#}");
+                    push_log_async(&weak, &log, &msg);
+                    w.set_public_address_status(SharedString::from(msg.as_str()));
+                }
+            }
+        });
+    }
+    {
+        // Copy the LineEdit's current text to the system clipboard via
+        // arboard. The clipboard handle is created per-click since
+        // holding it across the event loop can race other clipboard
+        // owners on Windows.
+        let weak = window.as_weak();
+        let log = log.clone();
+        let labels_handle = ctx.labels.clone();
+        window.on_copy_public_address(move || {
+            let Some(w) = weak.upgrade() else { return };
+            let value = w.get_public_address().to_string();
+            if value.trim().is_empty() {
+                return;
+            }
+            let labels = labels_handle.lock().unwrap().clone();
+            let outcome = copy_to_clipboard(&value);
+            match outcome {
+                Ok(()) => {
+                    w.set_public_address_status(SharedString::from(
+                        labels.copy_ok.as_str(),
+                    ));
+                    push_log_async(
+                        &weak,
+                        &log,
+                        &format!("Public address copied: {value}"),
+                    );
+                }
+                Err(e) => {
+                    w.set_public_address_status(SharedString::from(
+                        format!("{}: {e:#}", labels.copy_failed).as_str(),
+                    ));
+                    push_log_async(&weak, &log, &format!("Copy failed: {e:#}"));
+                }
+            }
         });
     }
     {
@@ -1224,6 +1321,14 @@ struct Labels {
     backup_unit_minutes: String,
     backup_unit_count: String,
     backup_status_busy: String,
+    // Connection / public address.
+    section_connection: String,
+    label_public_address: String,
+    public_address_placeholder: String,
+    public_address_hint: String,
+    btn_copy: String,
+    copy_ok: String,
+    copy_failed: String,
 }
 
 impl Labels {
@@ -1373,6 +1478,18 @@ impl Labels {
             backup_unit_minutes: "minutes".into(),
             backup_unit_count: "snapshots".into(),
             backup_status_busy: "Working…".into(),
+            section_connection: "Connection".into(),
+            label_public_address: "Public address:".into(),
+            public_address_placeholder:
+                "e.g. tunnel.playit.gg:12345 or 100.x.y.z".into(),
+            public_address_hint:
+                "Address other players use to connect. Free-form: a playit.gg \
+                 tunnel, a Tailscale name, or a public IP. Press Enter to save \
+                 changes, then Copy to share."
+                    .into(),
+            btn_copy: "Copy".into(),
+            copy_ok: "Copied to clipboard.".into(),
+            copy_failed: "Copy failed.".into(),
         }
     }
 
@@ -1522,6 +1639,17 @@ impl Labels {
             backup_unit_minutes: "分".into(),
             backup_unit_count: "個".into(),
             backup_status_busy: "処理中…".into(),
+            section_connection: "接続".into(),
+            label_public_address: "公開アドレス:".into(),
+            public_address_placeholder:
+                "例: tunnel.playit.gg:12345 や 100.x.y.z".into(),
+            public_address_hint:
+                "他のプレイヤーが接続に使用するアドレスです。playit.gg トンネル、\
+                 Tailscale 名、グローバル IP など自由に入力できます。Enter で保存、\
+                 「コピー」で共有用にクリップボードへ。".into(),
+            btn_copy: "コピー".into(),
+            copy_ok: "クリップボードへコピーしました。".into(),
+            copy_failed: "コピーに失敗しました。".into(),
         }
     }
 
@@ -1668,6 +1796,13 @@ impl Labels {
             backup_unit_minutes: self.backup_unit_minutes.as_str().into(),
             backup_unit_count: self.backup_unit_count.as_str().into(),
             backup_status_busy: self.backup_status_busy.as_str().into(),
+            section_connection: self.section_connection.as_str().into(),
+            label_public_address: self.label_public_address.as_str().into(),
+            public_address_placeholder: self.public_address_placeholder.as_str().into(),
+            public_address_hint: self.public_address_hint.as_str().into(),
+            btn_copy: self.btn_copy.as_str().into(),
+            copy_ok: self.copy_ok.as_str().into(),
+            copy_failed: self.copy_failed.as_str().into(),
         }
     }
 }
@@ -4330,6 +4465,26 @@ fn describe_stop(outcome: StopOutcome) -> &'static str {
         StopOutcome::GracefulWindowClose => "stopped via WM_CLOSE (RCON unavailable)",
         StopOutcome::StillRunning => "FAILED — server still running",
     }
+}
+
+/// Push `text` into the OS clipboard. The handle is created per-call
+/// because holding `arboard::Clipboard` across an event-loop hop on
+/// Windows can race other clipboard owners.
+#[cfg(target_os = "windows")]
+fn copy_to_clipboard(text: &str) -> Result<()> {
+    let mut clipboard = arboard::Clipboard::new()
+        .map_err(|e| anyhow!("open clipboard: {e}"))?;
+    clipboard
+        .set_text(text.to_string())
+        .map_err(|e| anyhow!("set clipboard text: {e}"))
+}
+
+/// On non-Windows builds (cargo check on Linux) arboard isn't pulled
+/// in. The function still has to type-check, so we just bail with an
+/// error — the GUI binary itself only ever runs on Windows.
+#[cfg(not(target_os = "windows"))]
+fn copy_to_clipboard(_text: &str) -> Result<()> {
+    Err(anyhow!("clipboard not supported on this platform"))
 }
 
 // ─── Backup / rollback ─────────────────────────────────────────────────────

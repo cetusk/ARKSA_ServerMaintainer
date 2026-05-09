@@ -229,6 +229,14 @@ export struct UiLabels {
     backup_unit_minutes: string,
     backup_unit_count: string,
     backup_status_busy: string,
+    // Connection / public address section.
+    section_connection: string,
+    label_public_address: string,
+    public_address_placeholder: string,
+    public_address_hint: string,
+    btn_copy: string,
+    copy_ok: string,
+    copy_failed: string,
 }
 
 // ─── Main window ───────────────────────────────────────────────────────────
@@ -270,6 +278,12 @@ export component MainWindow inherits Window {
     /// Languages dropdown content + selected index.
     in property <[string]> language-options: ["Auto", "English", "日本語"];
     in-out property <int> language-index: 0;
+    /// Public address that other players use to connect (playit.gg
+    /// tunnel, Tailscale name, public IP, …). Two-way bound so the
+    /// LineEdit lets the user paste/edit and the host re-populates it
+    /// when the profile selection changes.
+    in-out property <string> public-address: "";
+    in property <string> public-address-status: "";
 
     callback profile-selected(int);
     callback start-server();
@@ -285,6 +299,8 @@ export component MainWindow inherits Window {
     callback open-world-settings();
     callback open-backup();
     callback language-changed(int);
+    callback public-address-changed(string);
+    callback copy-public-address();
 
     ScrollView {
         // The overall window can be resized smaller than its contents
@@ -464,6 +480,48 @@ export component MainWindow inherits Window {
                     enabled: !root.action-busy;
                     clicked => { root.refresh-status(); }
                 }
+            }
+        }
+
+        // ── Connection section ─────────────────────────────────────────
+        // Free-form public address the operator shares with players.
+        // Typical contents: a playit.gg tunnel hostname:port, a
+        // Tailscale machine name, or a static public IP. Edits commit
+        // on Enter (`accepted`) so casual typos don't immediately
+        // overwrite the saved value, and the Copy button lifts the
+        // current text into the system clipboard.
+        if root.profile-names.length > 0: SectionGroup {
+            title: root.labels.section_connection;
+            HorizontalBox {
+                spacing: 8px;
+                Text {
+                    text: root.labels.label_public_address;
+                    vertical-alignment: center;
+                }
+                LineEdit {
+                    text <=> root.public-address;
+                    placeholder-text: root.labels.public_address_placeholder;
+                    horizontal-stretch: 1;
+                    accepted => {
+                        root.public-address-changed(self.text);
+                    }
+                }
+                Button {
+                    text: root.labels.btn_copy;
+                    enabled: root.public-address != "";
+                    clicked => { root.copy-public-address(); }
+                }
+            }
+            if root.public-address-status != "": Text {
+                text: root.public-address-status;
+                color: AppTheme.accent;
+                font-size: 11px;
+            }
+            Text {
+                text: root.labels.public_address_hint;
+                font-size: 11px;
+                wrap: word-wrap;
+                color: Palette.foreground;
             }
         }
 

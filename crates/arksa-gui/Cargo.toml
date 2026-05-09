@@ -30,6 +30,10 @@ tracing-subscriber = { workspace = true }
 [target.'cfg(target_os = "windows")'.dependencies]
 rfd = { workspace = true }
 windows = { workspace = true }
+# System clipboard for the public-address Copy button. Tiny crate,
+# Windows-only here since the rest of the binary is Windows-targetted
+# anyway and the Linux build is just for cargo check.
+arboard = { version = "3", default-features = false }
 
 [build-dependencies]
 slint-build = { workspace = true }
