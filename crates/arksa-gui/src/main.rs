@@ -58,12 +58,70 @@ const LANG_JAPANESE: i64 = 2;
 struct AppCtx {
     install_dir: PathBuf,
     notify_config: Arc<Mutex<NotifyConfig>>,
-    labels: Arc<Labels>,
+    /// Wrapped in a Mutex so the language picker can swap translations
+    /// at runtime without restarting. Background workers that cache a
+    /// snapshot of the labels (e.g. the status poller) take the lock
+    /// once at the top of their tick and use the clone — readers never
+    /// hold the lock across a Slint event-loop hop.
+    labels: Arc<Mutex<Labels>>,
 }
 
 type ProfileList = Arc<Mutex<Vec<(String, PathBuf)>>>;
 type SelectedIndex = Arc<Mutex<usize>>;
 type LogBuffer = Arc<Mutex<String>>;
+
+/// Weak handles to every visible Slint window, bundled so the live
+/// language-switch helper can fan out to all of them without each
+/// callsite spelling them out.
+#[derive(Clone)]
+struct AllWindowWeaks {
+    main: slint::Weak<MainWindow>,
+    dialog: slint::Weak<NewProfileWindow>,
+    find: slint::Weak<FindWindow>,
+    notif: slint::Weak<NotificationsWindow>,
+    world: slint::Weak<WorldSettingsWindow>,
+    backup: slint::Weak<BackupWindow>,
+}
+
+/// Swap in new translations everywhere. Called from the main top-bar
+/// language picker as well as the notifications-dialog save flow so
+/// both paths land at exactly the same outcome.
+fn apply_language_change(
+    new_lang: i64,
+    labels_handle: &Arc<Mutex<Labels>>,
+    weaks: &AllWindowWeaks,
+) {
+    let new_labels = Labels::for_language(new_lang);
+    // Swap the shared handle so background workers (status poller etc.)
+    // pick up the new strings on their next tick.
+    *labels_handle.lock().unwrap() = new_labels.clone();
+    let ui = new_labels.to_ui();
+    if let Some(w) = weaks.main.upgrade() {
+        w.set_labels(ui.clone());
+        // Re-sync the language ComboBox in case the change came from
+        // the notif dialog, not the top bar.
+        w.set_language_index(language_index_for_setting(new_lang));
+    }
+    if let Some(w) = weaks.dialog.upgrade() {
+        w.set_labels(ui.clone());
+    }
+    if let Some(w) = weaks.find.upgrade() {
+        w.set_labels(ui.clone());
+    }
+    if let Some(w) = weaks.notif.upgrade() {
+        w.set_labels(ui.clone());
+        // Same ComboBox-sync rationale.
+        w.set_language_index(language_index_for_setting(new_lang));
+    }
+    if let Some(w) = weaks.world.upgrade() {
+        w.set_labels(ui.clone());
+        // Per-row bilingual descriptions key off this flag.
+        w.set_lang_ja(Labels::resolve_is_japanese(new_lang));
+    }
+    if let Some(w) = weaks.backup.upgrade() {
+        w.set_labels(ui);
+    }
+}
 
 fn main() -> Result<()> {
     // Slint's text layout calls into ICU4X for line-break analysis and
@@ -106,17 +164,22 @@ fn main() -> Result<()> {
         AppSettings::load(&settings_path).context("load app settings INI")?;
     let notify_config = Arc::new(Mutex::new(notify_config_from_settings(&app_settings)));
 
-    // i18n labels for the current session. Live language switching requires
-    // a restart so we capture the value once here.
-    let labels = Arc::new(Labels::for_language(app_settings.language()));
+    // i18n labels for the current session. The Mutex lets the language
+    // picker swap translations at runtime — see `apply_language_change`.
+    let labels_initial = Labels::for_language(app_settings.language());
+    let labels_handle = Arc::new(Mutex::new(labels_initial.clone()));
     let language_setting = app_settings.language();
     let app_settings = Arc::new(Mutex::new(app_settings));
 
     let ctx = AppCtx {
         install_dir: install_dir.clone(),
         notify_config: notify_config.clone(),
-        labels: labels.clone(),
+        labels: labels_handle.clone(),
     };
+    // Local handle for the rest of this function — just a borrow into the
+    // Mutex'd labels, since startup runs single-threaded before the event
+    // loop spawns anything that could race.
+    let labels = labels_initial;
     let profiles: ProfileList = Arc::new(Mutex::new(scan_profiles(&install_dir)));
     let selected: SelectedIndex = Arc::new(Mutex::new(0));
     let log: LogBuffer = Arc::new(Mutex::new(String::new()));
@@ -150,19 +213,13 @@ fn main() -> Result<()> {
     refresh_find(&find_window, &find_data);
     wire_find_callbacks(&find_window, find_data.clone());
 
-    // Notification settings dialog.
+    // Notification settings dialog. Wiring is deferred until after all
+    // windows exist so the language-change helper can fan out to every
+    // window (including this one) without forward declarations.
     let notif_window = NotificationsWindow::new()?;
     notif_window.set_labels(labels.to_ui());
     notif_window.set_language_index(language_index_for_setting(language_setting));
     populate_notifications_window(&notif_window, &notify_config.lock().unwrap());
-    wire_notifications_callbacks(
-        &notif_window,
-        app_settings.clone(),
-        notify_config.clone(),
-        settings_path.clone(),
-        log.clone(),
-        window.as_weak(),
-    );
 
     // World settings dialog (Game.ini + GameUserSettings.ini editor).
     let world_window = WorldSettingsWindow::new()?;
@@ -262,6 +319,27 @@ fn main() -> Result<()> {
         window.as_weak(),
     );
 
+    // Now that every window exists, build the weak-handle bundle the
+    // language switcher needs to fan out to all of them at once.
+    let all_weaks = AllWindowWeaks {
+        main: window.as_weak(),
+        dialog: dialog.as_weak(),
+        find: find_window.as_weak(),
+        notif: notif_window.as_weak(),
+        world: world_window.as_weak(),
+        backup: backup_window.as_weak(),
+    };
+    wire_notifications_callbacks(
+        &notif_window,
+        app_settings.clone(),
+        notify_config.clone(),
+        settings_path.clone(),
+        log.clone(),
+        window.as_weak(),
+        labels_handle.clone(),
+        all_weaks.clone(),
+    );
+
     // Pre-fill the main-window language picker so it reflects the saved
     // preference on launch. Mirrors how NotificationsWindow seeds its own
     // ComboBox (notif_window.set_language_index just above).
@@ -279,6 +357,7 @@ fn main() -> Result<()> {
         log.clone(),
         app_settings.clone(),
         settings_path.clone(),
+        all_weaks.clone(),
     );
 
     // Periodic snapshot scheduler. Wakes once per minute, asks the
@@ -407,15 +486,21 @@ fn wire_main_callbacks(
     log: LogBuffer,
     app_settings: Arc<Mutex<AppSettings>>,
     settings_path: PathBuf,
+    all_weaks: AllWindowWeaks,
 ) {
+    // Just to silence unused-arg warnings while keeping the symmetric
+    // ergonomics — every other wire_*_callbacks takes its own window
+    // refs directly. We use them through `all_weaks` instead.
+    let _ = (dialog, find_window, notif_window, world_window, backup_window);
     let _ = settings_path; // path is captured by AppSettings; kept in arg list for symmetry
     {
-        // Top-bar language picker. Persists immediately and asks the user to
-        // restart for the new translations to load — mirrors the
-        // notifications-dialog flow but doesn't require diving into a
-        // settings sub-screen.
+        // Top-bar language picker. Persists the new setting then re-pushes
+        // translated UiLabels into every visible window so the user sees
+        // the switch take effect immediately — no restart needed.
         let weak = window.as_weak();
         let app_settings = app_settings.clone();
+        let labels_handle = ctx.labels.clone();
+        let weaks = all_weaks.clone();
         let log = log.clone();
         window.on_language_changed(move |idx| {
             let new_lang = language_setting_for_index(idx);
@@ -430,10 +515,15 @@ fn wire_main_callbacks(
                 prev != new_lang
             };
             if changed {
+                apply_language_change(new_lang, &labels_handle, &weaks);
                 push_log_async(
                     &weak,
                     &log,
-                    "Language changed. Restart the app to apply the new translations.",
+                    if Labels::resolve_is_japanese(new_lang) {
+                        "言語を切り替えました。"
+                    } else {
+                        "Language switched."
+                    },
                 );
             }
         });
@@ -1196,7 +1286,7 @@ impl Labels {
             notif_tray_enabled_text:
                 "Show Windows toast notifications for the events below".into(),
             notif_section_events: "Events".into(),
-            notif_section_language: "Language (requires restart)".into(),
+            notif_section_language: "Language".into(),
             notif_btn_save: "Save".into(),
             notif_btn_cancel: "Cancel".into(),
             btn_world_settings: "World Settings".into(),
@@ -1346,7 +1436,7 @@ impl Labels {
             notif_section_tray: "Windows トースト".into(),
             notif_tray_enabled_text: "下記イベントで Windows トースト通知を表示する".into(),
             notif_section_events: "イベント".into(),
-            notif_section_language: "言語 (再起動が必要)".into(),
+            notif_section_language: "言語".into(),
             notif_btn_save: "保存".into(),
             notif_btn_cancel: "キャンセル".into(),
             btn_world_settings: "ワールド設定".into(),
@@ -1652,6 +1742,8 @@ fn wire_notifications_callbacks(
     settings_path: PathBuf,
     log: LogBuffer,
     main_weak: slint::Weak<MainWindow>,
+    labels_handle: Arc<Mutex<Labels>>,
+    all_weaks: AllWindowWeaks,
 ) {
     {
         let weak = window.as_weak();
@@ -1668,6 +1760,8 @@ fn wire_notifications_callbacks(
         let log = log.clone();
         let main_weak = main_weak.clone();
         let settings_path = settings_path.clone();
+        let labels_handle = labels_handle.clone();
+        let all_weaks = all_weaks.clone();
         window.on_save_clicked(move || {
             let Some(window) = weak.upgrade() else { return };
             let new_cfg = collect_notifications_window(&window);
@@ -1694,12 +1788,13 @@ fn wire_notifications_callbacks(
             };
 
             *notify_config.lock().unwrap() = new_cfg;
-            let msg = if language_changed {
-                "Notification settings saved. Language change takes effect on next launch."
-            } else {
-                "Notification settings saved."
-            };
-            push_log_async(&main_weak, &log, msg);
+            // Re-translate every window in place so the language switch
+            // takes effect without a restart, the same way the top-bar
+            // picker does.
+            if language_changed {
+                apply_language_change(new_language, &labels_handle, &all_weaks);
+            }
+            push_log_async(&main_weak, &log, "Notification settings saved.");
             let _ = settings_path; // settings.save() reuses its bound path
             let _ = window.hide();
         });
@@ -4068,7 +4163,11 @@ fn refresh_status_async(
     let weak = weak.clone();
     let ctx = ctx.clone();
     let log = log.clone();
-    let labels = ctx.labels.clone();
+    // Snapshot the current labels so the worker doesn't hold the
+    // Mutex across a thread::spawn (or worse, across an
+    // upgrade_in_event_loop). Reading after the language picker
+    // changes simply means the next tick picks up the new strings.
+    let labels = ctx.labels.lock().unwrap().clone();
     std::thread::spawn(move || {
         let result = (|| -> Result<(ServerStatus, String, String, String)> {
             let prof = Profile::load(&profile_path)
