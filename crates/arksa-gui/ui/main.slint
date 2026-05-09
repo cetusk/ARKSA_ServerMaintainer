@@ -590,53 +590,71 @@ component LabelCell inherits Rectangle {
 /// user clicks the label. Callers set it via a
 /// `description: root.lang-ja ? "..." : "..."` ternary so the dialog can
 /// switch language without a restart.
-component WorldFloatRow inherits HorizontalBox {
+// Wrapping the inner HorizontalBox in a Rectangle lets the row's
+// outer height collapse to 0 when the search filter rejects it.
+// `visible: false` directly on a HorizontalBox child of a VerticalBox
+// in Slint 1.16 leaves a visible gap (the layout still allocates space
+// for the hidden element), so we have to drive `height` explicitly.
+component WorldFloatRow inherits Rectangle {
     in property <string> label;
     in property <string> description: "";
     in-out property <string> value;
-    spacing: 8px;
-    padding: 0;
-    // Hidden when the search box has a query that doesn't match this
-    // row's label (and optionally its description). visible: false is
-    // honoured by HorizontalBox layout so hidden rows take no space.
-    visible: WorldSearch.query == ""
+    horizontal-stretch: 1;
+    property <bool> show: WorldSearch.query == ""
         || WorldSearch.test-match(root.label, root.description,
                                    WorldSearch.query, WorldSearch.match-description);
+    height: show ? row.preferred-height : 0px;
+    clip: true;
 
-    LabelCell {
-        label: root.label;
-        description: root.description;
+    row := HorizontalBox {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        spacing: 8px;
+        padding: 0;
+        LabelCell {
+            label: root.label;
+            description: root.description;
+        }
+        LineEdit {
+            text <=> root.value;
+            // Fixed width keeps the input next to the label instead of
+            // stretching all the way to the right edge of the window.
+            width: 180px;
+            input-type: text;
+        }
+        // Spacer so the row's right side has empty space rather than
+        // pulling the LineEdit to the far edge.
+        Rectangle { horizontal-stretch: 1; }
     }
-    LineEdit {
-        text <=> root.value;
-        // Fixed width keeps the input next to the label instead of
-        // stretching all the way to the right edge of the window.
-        width: 180px;
-        input-type: text;
-    }
-    // Spacer so the row's right side has empty space rather than
-    // pulling the LineEdit to the far edge.
-    Rectangle { horizontal-stretch: 1; }
 }
 
-component WorldBoolRow inherits HorizontalBox {
+component WorldBoolRow inherits Rectangle {
     in property <string> label;
     in property <string> description: "";
     in-out property <bool> value;
-    spacing: 8px;
-    padding: 0;
-    visible: WorldSearch.query == ""
+    horizontal-stretch: 1;
+    property <bool> show: WorldSearch.query == ""
         || WorldSearch.test-match(root.label, root.description,
                                    WorldSearch.query, WorldSearch.match-description);
+    height: show ? row.preferred-height : 0px;
+    clip: true;
 
-    LabelCell {
-        label: root.label;
-        description: root.description;
+    row := HorizontalBox {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        spacing: 8px;
+        padding: 0;
+        LabelCell {
+            label: root.label;
+            description: root.description;
+        }
+        CheckBox {
+            checked <=> root.value;
+        }
+        Rectangle { horizontal-stretch: 1; }
     }
-    CheckBox {
-        checked <=> root.value;
-    }
-    Rectangle { horizontal-stretch: 1; }
 }
 
 /// Sidebar entry for the World Settings dialog. Highlights itself in the
