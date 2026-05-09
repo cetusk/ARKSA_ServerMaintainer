@@ -223,6 +223,57 @@ impl Profile {
             .set_string(SECTION_GENERAL, "CB_MapName_Text", map);
     }
 
+    // ---- [General] backup ----------------------------------------------------
+
+    /// Whether the GUI scheduler should take periodic SavedArks zip
+    /// snapshots for this profile. Upstream ASASM stores the same flag
+    /// under `[General] ChB_AutoBackup`, so loading an existing profile
+    /// keeps its previous toggle state.
+    pub fn auto_backup_enabled(&self) -> bool {
+        self.doc
+            .get_bool(SECTION_GENERAL, "ChB_AutoBackup")
+            .unwrap_or(false)
+    }
+
+    pub fn set_auto_backup_enabled(&mut self, enabled: bool) {
+        self.doc
+            .set_bool(SECTION_GENERAL, "ChB_AutoBackup", enabled);
+    }
+
+    /// Period between automatic snapshots, in minutes. Default 30 (one
+    /// per half hour) matches the planned default in `arksa-core::backup`.
+    /// Clamped to `[1, 7 * 24 * 60]` on read so a corrupt INI can't push
+    /// the scheduler into either a tight loop or "never fires".
+    pub fn backup_interval_minutes(&self) -> u32 {
+        let raw = self
+            .doc
+            .get_i64(SECTION_GENERAL, "SE_BackupIntervalMinutes")
+            .unwrap_or(30);
+        raw.clamp(1, 7 * 24 * 60) as u32
+    }
+
+    pub fn set_backup_interval_minutes(&mut self, minutes: u32) {
+        let clamped = minutes.clamp(1, 7 * 24 * 60);
+        self.doc
+            .set_i64(SECTION_GENERAL, "SE_BackupIntervalMinutes", clamped as i64);
+    }
+
+    /// Number of periodic snapshots to retain. Default 12 (12 × 0.5h =
+    /// 6h of history). Clamped to `[1, 1024]`.
+    pub fn backup_retain_count(&self) -> u32 {
+        let raw = self
+            .doc
+            .get_i64(SECTION_GENERAL, "SE_BackupRetainCount")
+            .unwrap_or(12);
+        raw.clamp(1, 1024) as u32
+    }
+
+    pub fn set_backup_retain_count(&mut self, count: u32) {
+        let clamped = count.clamp(1, 1024);
+        self.doc
+            .set_i64(SECTION_GENERAL, "SE_BackupRetainCount", clamped as i64);
+    }
+
     /// Resolved absolute path to the server install directory, given the
     /// directory containing the ARKSA tool executable.
     pub fn resolved_install_path(&self, exe_dir: &Path) -> Option<PathBuf> {
@@ -379,6 +430,37 @@ Edit_ServerAdminPassword=hunter2
         assert!(profile.rcon_enabled());
         assert_eq!(profile.admin_password().as_deref(), Some("hunter2"));
         assert!(profile.auto_restart());
+        // Sample INI has the upstream `ChB_AutoBackup=0`, so the new
+        // accessor should report disabled with default interval/retain.
+        assert!(!profile.auto_backup_enabled());
+        assert_eq!(profile.backup_interval_minutes(), 30);
+        assert_eq!(profile.backup_retain_count(), 12);
+    }
+
+    #[test]
+    fn backup_setters_round_trip_and_clamp() {
+        let mut profile = Profile {
+            path: PathBuf::from("test.ini"),
+            doc: IniDoc::new(),
+        };
+        // Defaults when no key is present.
+        assert!(!profile.auto_backup_enabled());
+        assert_eq!(profile.backup_interval_minutes(), 30);
+        assert_eq!(profile.backup_retain_count(), 12);
+
+        profile.set_auto_backup_enabled(true);
+        profile.set_backup_interval_minutes(120);
+        profile.set_backup_retain_count(48);
+        assert!(profile.auto_backup_enabled());
+        assert_eq!(profile.backup_interval_minutes(), 120);
+        assert_eq!(profile.backup_retain_count(), 48);
+
+        // Clamped on write so corrupt or malicious values can't make
+        // the scheduler spin or never fire.
+        profile.set_backup_interval_minutes(0);
+        assert_eq!(profile.backup_interval_minutes(), 1);
+        profile.set_backup_retain_count(99_999);
+        assert_eq!(profile.backup_retain_count(), 1024);
     }
 
     #[test]

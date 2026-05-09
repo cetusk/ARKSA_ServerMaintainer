@@ -18,7 +18,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context, Result};
 use arksa_core::{
-    ark_config, game_config,
+    ark_config, backup, game_config,
     gamedata, launch_args::{self, LaunchArgs, COMMON_MAPS}, modlist,
     profile::Profile,
     rcon::RconClient,
@@ -249,6 +249,19 @@ fn main() -> Result<()> {
         window.as_weak(),
     );
 
+    // Backup / rollback dialog. Shares the AppCtx so callbacks can resolve
+    // the current profile's install path on demand.
+    let backup_window = BackupWindow::new()?;
+    backup_window.set_labels(labels.to_ui());
+    wire_backup_callbacks(
+        &backup_window,
+        ctx.clone(),
+        profiles.clone(),
+        selected.clone(),
+        log.clone(),
+        window.as_weak(),
+    );
+
     // Pre-fill the main-window language picker so it reflects the saved
     // preference on launch. Mirrors how NotificationsWindow seeds its own
     // ComboBox (notif_window.set_language_index just above).
@@ -259,12 +272,26 @@ fn main() -> Result<()> {
         &find_window,
         &notif_window,
         &world_window,
+        &backup_window,
         ctx.clone(),
         profiles.clone(),
         selected.clone(),
         log.clone(),
         app_settings.clone(),
         settings_path.clone(),
+    );
+
+    // Periodic snapshot scheduler. Wakes once per minute, asks the
+    // currently-selected profile whether it wants a snapshot, and runs
+    // one if `interval_minutes` has elapsed since the newest existing
+    // snapshot. Disk-based "last snapshot time" survives tool restart
+    // and avoids needing in-memory bookkeeping per profile.
+    spawn_backup_scheduler(
+        ctx.clone(),
+        profiles.clone(),
+        selected.clone(),
+        log.clone(),
+        window.as_weak(),
     );
     initial_status_refresh(&window, &ctx, &profiles, &selected, &log);
 
@@ -373,6 +400,7 @@ fn wire_main_callbacks(
     find_window: &FindWindow,
     notif_window: &NotificationsWindow,
     world_window: &WorldSettingsWindow,
+    backup_window: &BackupWindow,
     ctx: AppCtx,
     profiles: ProfileList,
     selected: SelectedIndex,
@@ -678,6 +706,33 @@ fn wire_main_callbacks(
             if let Some(w) = world_weak.upgrade() {
                 populate_world_settings_window(&w, &install_root, Some(&profile_path));
                 w.set_validation_error(SharedString::default());
+                let _ = w.show();
+            }
+        });
+    }
+    {
+        let backup_weak = backup_window.as_weak();
+        let weak = window.as_weak();
+        let log = log.clone();
+        let ctx = ctx.clone();
+        let profiles = profiles.clone();
+        let selected = selected.clone();
+        window.on_open_backup(move || {
+            let Some(profile_path) = current_profile_path(&profiles, &selected) else {
+                push_log_async(&weak, &log, "No profile selected.");
+                return;
+            };
+            if let Some(w) = backup_weak.upgrade() {
+                if let Err(e) =
+                    populate_backup_window(&w, &profile_path, &ctx.install_dir)
+                {
+                    push_log_async(
+                        &weak,
+                        &log,
+                        &format!("Open Backup dialog failed: {e:#}"),
+                    );
+                    return;
+                }
                 let _ = w.show();
             }
         });
@@ -1048,6 +1103,37 @@ struct Labels {
     world_tab_mods: String,
     world_mods_hint: String,
     world_mods_footnote: String,
+    // Backup / rollback dialog.
+    btn_backup: String,
+    backup_window_title: String,
+    backup_section_paths: String,
+    backup_label_savedarks: String,
+    backup_label_target: String,
+    backup_section_settings: String,
+    backup_auto_enabled: String,
+    backup_label_interval: String,
+    backup_label_retain: String,
+    backup_section_manual: String,
+    backup_btn_take_now: String,
+    backup_btn_refresh: String,
+    backup_section_snapshots: String,
+    backup_section_pre_rollback: String,
+    backup_col_when: String,
+    backup_col_size: String,
+    backup_col_actions: String,
+    backup_btn_rollback: String,
+    backup_empty_snapshots: String,
+    backup_empty_pre_rollback: String,
+    backup_warn_running: String,
+    backup_confirm_rollback_title: String,
+    backup_confirm_rollback_body: String,
+    backup_confirm_yes: String,
+    backup_confirm_no: String,
+    backup_btn_save: String,
+    backup_btn_close: String,
+    backup_unit_minutes: String,
+    backup_unit_count: String,
+    backup_status_busy: String,
 }
 
 impl Labels {
@@ -1158,6 +1244,45 @@ impl Labels {
                  Auto-downloaded from CurseForge on first server start. \
                  Restart the server (Stop → Start) after editing."
                     .into(),
+            btn_backup: "Backup / Rollback".into(),
+            backup_window_title: "Backup / Rollback".into(),
+            backup_section_paths: "Paths".into(),
+            backup_label_savedarks: "SavedArks:".into(),
+            backup_label_target: "Backup folder:".into(),
+            backup_section_settings: "Periodic snapshot settings".into(),
+            backup_auto_enabled:
+                "Take periodic snapshots of SavedArks while the tool is running".into(),
+            backup_label_interval: "Interval between snapshots:".into(),
+            backup_label_retain: "Number of snapshots to keep:".into(),
+            backup_section_manual: "Manual".into(),
+            backup_btn_take_now: "Take snapshot now".into(),
+            backup_btn_refresh: "Refresh list".into(),
+            backup_section_snapshots: "Snapshots (newest first)".into(),
+            backup_section_pre_rollback:
+                "Pre-rollback snapshots (auto-saved before each rollback)".into(),
+            backup_col_when: "When".into(),
+            backup_col_size: "Size".into(),
+            backup_col_actions: "Actions".into(),
+            backup_btn_rollback: "Roll back to this".into(),
+            backup_empty_snapshots:
+                "No snapshots yet. Click Take snapshot now or enable auto snapshots above."
+                    .into(),
+            backup_empty_pre_rollback: "No pre-rollback snapshots.".into(),
+            backup_warn_running:
+                "⚠ Server is running. Stop the server first — extracting over a live save \
+                 will race the engine writer and corrupt the world.".into(),
+            backup_confirm_rollback_title: "Confirm rollback".into(),
+            backup_confirm_rollback_body:
+                "Replace the current SavedArks with the snapshot below? \
+                 The current state will be auto-saved into pre_rollback/ first."
+                    .into(),
+            backup_confirm_yes: "Yes, roll back".into(),
+            backup_confirm_no: "Cancel".into(),
+            backup_btn_save: "Save settings".into(),
+            backup_btn_close: "Close".into(),
+            backup_unit_minutes: "minutes".into(),
+            backup_unit_count: "snapshots".into(),
+            backup_status_busy: "Working…".into(),
         }
     }
 
@@ -1269,6 +1394,44 @@ impl Labels {
                  サーバー初回起動時に CurseForge から自動 DL されます。\
                  編集後はサーバーの Restart で反映してください。"
                     .into(),
+            btn_backup: "バックアップ／ロールバック".into(),
+            backup_window_title: "バックアップ／ロールバック".into(),
+            backup_section_paths: "パス".into(),
+            backup_label_savedarks: "SavedArks:".into(),
+            backup_label_target: "保存先フォルダ:".into(),
+            backup_section_settings: "定期スナップショット設定".into(),
+            backup_auto_enabled:
+                "本ツール稼働中に SavedArks の定期スナップショットを取得する".into(),
+            backup_label_interval: "スナップショット間隔:".into(),
+            backup_label_retain: "保持するスナップショット数:".into(),
+            backup_section_manual: "手動操作".into(),
+            backup_btn_take_now: "今すぐスナップショットを作成".into(),
+            backup_btn_refresh: "一覧を更新".into(),
+            backup_section_snapshots: "スナップショット (新しい順)".into(),
+            backup_section_pre_rollback:
+                "ロールバック前自動退避 (各ロールバック直前に自動作成)".into(),
+            backup_col_when: "日時".into(),
+            backup_col_size: "サイズ".into(),
+            backup_col_actions: "操作".into(),
+            backup_btn_rollback: "この時点に巻き戻す".into(),
+            backup_empty_snapshots:
+                "スナップショットはまだありません。上のチェックボックスで自動取得を有効にするか、\
+                 「今すぐスナップショットを作成」を押してください。".into(),
+            backup_empty_pre_rollback: "ロールバック前退避はまだありません。".into(),
+            backup_warn_running:
+                "⚠ サーバーが起動中です。先に停止してください — 起動中に展開するとエンジンの \
+                 書き込みと競合してワールドが破損します。".into(),
+            backup_confirm_rollback_title: "ロールバックの確認".into(),
+            backup_confirm_rollback_body:
+                "下記のスナップショットで現在の SavedArks を置き換えます。\
+                 現在の状態は pre_rollback/ に自動退避されます。実行しますか？".into(),
+            backup_confirm_yes: "はい、巻き戻す".into(),
+            backup_confirm_no: "キャンセル".into(),
+            backup_btn_save: "設定を保存".into(),
+            backup_btn_close: "閉じる".into(),
+            backup_unit_minutes: "分".into(),
+            backup_unit_count: "個".into(),
+            backup_status_busy: "処理中…".into(),
         }
     }
 
@@ -1385,6 +1548,36 @@ impl Labels {
             world_tab_mods: self.world_tab_mods.as_str().into(),
             world_mods_hint: self.world_mods_hint.as_str().into(),
             world_mods_footnote: self.world_mods_footnote.as_str().into(),
+            btn_backup: self.btn_backup.as_str().into(),
+            backup_window_title: self.backup_window_title.as_str().into(),
+            backup_section_paths: self.backup_section_paths.as_str().into(),
+            backup_label_savedarks: self.backup_label_savedarks.as_str().into(),
+            backup_label_target: self.backup_label_target.as_str().into(),
+            backup_section_settings: self.backup_section_settings.as_str().into(),
+            backup_auto_enabled: self.backup_auto_enabled.as_str().into(),
+            backup_label_interval: self.backup_label_interval.as_str().into(),
+            backup_label_retain: self.backup_label_retain.as_str().into(),
+            backup_section_manual: self.backup_section_manual.as_str().into(),
+            backup_btn_take_now: self.backup_btn_take_now.as_str().into(),
+            backup_btn_refresh: self.backup_btn_refresh.as_str().into(),
+            backup_section_snapshots: self.backup_section_snapshots.as_str().into(),
+            backup_section_pre_rollback: self.backup_section_pre_rollback.as_str().into(),
+            backup_col_when: self.backup_col_when.as_str().into(),
+            backup_col_size: self.backup_col_size.as_str().into(),
+            backup_col_actions: self.backup_col_actions.as_str().into(),
+            backup_btn_rollback: self.backup_btn_rollback.as_str().into(),
+            backup_empty_snapshots: self.backup_empty_snapshots.as_str().into(),
+            backup_empty_pre_rollback: self.backup_empty_pre_rollback.as_str().into(),
+            backup_warn_running: self.backup_warn_running.as_str().into(),
+            backup_confirm_rollback_title: self.backup_confirm_rollback_title.as_str().into(),
+            backup_confirm_rollback_body: self.backup_confirm_rollback_body.as_str().into(),
+            backup_confirm_yes: self.backup_confirm_yes.as_str().into(),
+            backup_confirm_no: self.backup_confirm_no.as_str().into(),
+            backup_btn_save: self.backup_btn_save.as_str().into(),
+            backup_btn_close: self.backup_btn_close.as_str().into(),
+            backup_unit_minutes: self.backup_unit_minutes.as_str().into(),
+            backup_unit_count: self.backup_unit_count.as_str().into(),
+            backup_status_busy: self.backup_status_busy.as_str().into(),
         }
     }
 }
@@ -4037,5 +4230,411 @@ fn describe_stop(outcome: StopOutcome) -> &'static str {
         StopOutcome::GracefulRcon => "stopped via RCON SaveWorld + DoExit",
         StopOutcome::GracefulWindowClose => "stopped via WM_CLOSE (RCON unavailable)",
         StopOutcome::StillRunning => "FAILED — server still running",
+    }
+}
+
+// ─── Backup / rollback ─────────────────────────────────────────────────────
+
+/// Load the currently-selected profile into the dialog. Sets paths, the
+/// auto-backup toggle, interval / retain values, refreshes the snapshot
+/// lists, and clears any leftover confirm prompt.
+fn populate_backup_window(
+    window: &BackupWindow,
+    profile_path: &Path,
+    exe_dir: &Path,
+) -> Result<()> {
+    let profile = Profile::load(profile_path)
+        .with_context(|| format!("load {}", profile_path.display()))?;
+    let install_root = profile
+        .resolved_install_path(exe_dir)
+        .ok_or_else(|| anyhow!("Profile has no install location."))?;
+    let map_name = profile
+        .map_name()
+        .unwrap_or_else(|| "(unknown map)".into());
+    let display_name = profile
+        .display_name()
+        .unwrap_or_else(|| "(unnamed profile)".into());
+
+    let savedarks = backup::savedarks_dir(&install_root, &map_name);
+    let backup_root = backup::backup_root(&install_root, &map_name);
+
+    window.set_profile_display_name(display_name.into());
+    window.set_map_name(map_name.clone().into());
+    window.set_savedarks_path(savedarks.display().to_string().into());
+    window.set_backup_path(backup_root.display().to_string().into());
+    window.set_auto_backup_enabled(profile.auto_backup_enabled());
+    window.set_interval_minutes(profile.backup_interval_minutes().to_string().into());
+    window.set_retain_count(profile.backup_retain_count().to_string().into());
+    window.set_action_message(SharedString::default());
+    window.set_pending_rollback_path(SharedString::default());
+    window.set_pending_rollback_when(SharedString::default());
+
+    // Server-running check feeds the in-dialog warning when rolling back.
+    let now = current_unix_time();
+    let running = server::status(&profile, exe_dir, now)
+        .map(|s| s.running)
+        .unwrap_or(false);
+    window.set_server_running(running);
+
+    refresh_backup_lists_in_window(window, &install_root, &map_name);
+    Ok(())
+}
+
+fn refresh_backup_lists_in_window(
+    window: &BackupWindow,
+    install_root: &Path,
+    map_name: &str,
+) {
+    let snaps = backup::list_snapshots(install_root, map_name).unwrap_or_default();
+    let pre = backup::list_pre_rollbacks(install_root, map_name).unwrap_or_default();
+    window.set_snapshots(slint_snapshot_model(&snaps));
+    window.set_pre_rollbacks(slint_snapshot_model(&pre));
+}
+
+fn slint_snapshot_model(items: &[backup::Snapshot]) -> ModelRc<BackupSnapshotEntry> {
+    let entries: Vec<BackupSnapshotEntry> = items
+        .iter()
+        .map(|s| BackupSnapshotEntry {
+            path: s.path.display().to_string().into(),
+            when_text: format_when(&s.created).into(),
+            size_text: format_size_bytes(s.size_bytes).into(),
+            is_pre_rollback: matches!(s.kind, backup::SnapshotKind::PreRollback),
+        })
+        .collect();
+    ModelRc::new(VecModel::from(entries))
+}
+
+fn format_when(ts: &chrono::DateTime<chrono::Local>) -> String {
+    ts.format("%Y-%m-%d %H:%M:%S").to_string()
+}
+
+fn format_size_bytes(bytes: u64) -> String {
+    const KIB: f64 = 1024.0;
+    const MIB: f64 = 1024.0 * KIB;
+    const GIB: f64 = 1024.0 * MIB;
+    let b = bytes as f64;
+    if b >= GIB {
+        format!("{:.2} GiB", b / GIB)
+    } else if b >= MIB {
+        format!("{:.1} MiB", b / MIB)
+    } else if b >= KIB {
+        format!("{:.0} KiB", b / KIB)
+    } else {
+        format!("{bytes} B")
+    }
+}
+
+fn wire_backup_callbacks(
+    window: &BackupWindow,
+    ctx: AppCtx,
+    profiles: ProfileList,
+    selected: SelectedIndex,
+    log: LogBuffer,
+    main_weak: slint::Weak<MainWindow>,
+) {
+    {
+        let weak = window.as_weak();
+        window.on_close_clicked(move || {
+            if let Some(w) = weak.upgrade() {
+                let _ = w.hide();
+            }
+        });
+    }
+    {
+        // Save the editable settings (auto-toggle, interval, retain) into
+        // the current profile's INI. Validation is intentionally lenient
+        // — out-of-range numbers get clamped on the Profile setter side.
+        let weak = window.as_weak();
+        let main_weak = main_weak.clone();
+        let log = log.clone();
+        let profiles = profiles.clone();
+        let selected = selected.clone();
+        window.on_save_clicked(move || {
+            let Some(w) = weak.upgrade() else { return };
+            let Some(profile_path) = current_profile_path(&profiles, &selected) else {
+                w.set_action_message("No profile selected.".into());
+                return;
+            };
+            let interval = w
+                .get_interval_minutes()
+                .as_str()
+                .trim()
+                .parse::<u32>()
+                .unwrap_or(30);
+            let retain = w
+                .get_retain_count()
+                .as_str()
+                .trim()
+                .parse::<u32>()
+                .unwrap_or(12);
+            let result = (|| -> Result<()> {
+                let mut profile = Profile::load(&profile_path)?;
+                profile.set_auto_backup_enabled(w.get_auto_backup_enabled());
+                profile.set_backup_interval_minutes(interval);
+                profile.set_backup_retain_count(retain);
+                profile.save()?;
+                Ok(())
+            })();
+            match result {
+                Ok(()) => {
+                    w.set_action_message("Settings saved.".into());
+                    push_log_async(
+                        &main_weak,
+                        &log,
+                        &format!(
+                            "Backup settings saved: auto={} interval={}m retain={}",
+                            w.get_auto_backup_enabled(),
+                            interval,
+                            retain
+                        ),
+                    );
+                }
+                Err(e) => {
+                    let msg = format!("Save failed: {e:#}");
+                    w.set_action_message(msg.clone().into());
+                    push_log_async(&main_weak, &log, &msg);
+                }
+            }
+        });
+    }
+    {
+        // Manual snapshot. Runs on a worker thread because deflate of a
+        // multi-GB SavedArks tree is CPU-bound and would freeze the UI.
+        let weak = window.as_weak();
+        let main_weak = main_weak.clone();
+        let log = log.clone();
+        let ctx = ctx.clone();
+        let profiles = profiles.clone();
+        let selected = selected.clone();
+        window.on_take_snapshot_now(move || {
+            let Some(w) = weak.upgrade() else { return };
+            let Some(profile_path) = current_profile_path(&profiles, &selected) else {
+                w.set_action_message("No profile selected.".into());
+                return;
+            };
+            let install_dir = ctx.install_dir.clone();
+            let weak_for_worker = weak.clone();
+            let main_weak = main_weak.clone();
+            let log = log.clone();
+            w.set_action_busy(true);
+            w.set_action_message("Taking snapshot…".into());
+            std::thread::spawn(move || {
+                let result = (|| -> Result<(PathBuf, String, u64, u32)> {
+                    let profile = Profile::load(&profile_path)?;
+                    let install_root = profile
+                        .resolved_install_path(&install_dir)
+                        .ok_or_else(|| anyhow!("Profile has no install location."))?;
+                    let map = profile
+                        .map_name()
+                        .ok_or_else(|| anyhow!("Profile has no map name."))?;
+                    let retain = profile.backup_retain_count();
+                    let snap = backup::create_snapshot(&install_root, &map)?;
+                    let removed =
+                        backup::enforce_retention(&install_root, &map, retain)?;
+                    Ok((install_root, map, snap.size_bytes, removed))
+                })();
+                match result {
+                    Ok((install_root, map, size, removed)) => {
+                        let msg = format!(
+                            "Snapshot taken: {} ({} pruned)",
+                            format_size_bytes(size),
+                            removed,
+                        );
+                        push_log_async(&main_weak, &log, &msg);
+                        let _ = weak_for_worker.upgrade_in_event_loop(move |w| {
+                            refresh_backup_lists_in_window(&w, &install_root, &map);
+                            w.set_action_busy(false);
+                            w.set_action_message(msg.into());
+                        });
+                    }
+                    Err(e) => {
+                        let msg = format!("Snapshot failed: {e:#}");
+                        push_log_async(&main_weak, &log, &msg);
+                        let _ = weak_for_worker.upgrade_in_event_loop(move |w| {
+                            w.set_action_busy(false);
+                            w.set_action_message(msg.into());
+                        });
+                    }
+                }
+            });
+        });
+    }
+    {
+        // Refresh snapshot lists without taking a new snapshot. Useful
+        // after the user manually drops a file into the backup folder.
+        let weak = window.as_weak();
+        let ctx = ctx.clone();
+        let profiles = profiles.clone();
+        let selected = selected.clone();
+        window.on_refresh_clicked(move || {
+            let Some(w) = weak.upgrade() else { return };
+            let Some(profile_path) = current_profile_path(&profiles, &selected) else {
+                return;
+            };
+            if let Ok(profile) = Profile::load(&profile_path) {
+                if let (Some(root), Some(map)) = (
+                    profile.resolved_install_path(&ctx.install_dir),
+                    profile.map_name(),
+                ) {
+                    refresh_backup_lists_in_window(&w, &root, &map);
+                    // Also re-check server-running so the rollback warning
+                    // tracks reality.
+                    let now = current_unix_time();
+                    let running = server::status(&profile, &ctx.install_dir, now)
+                        .map(|s| s.running)
+                        .unwrap_or(false);
+                    w.set_server_running(running);
+                }
+            }
+        });
+    }
+    {
+        // Rollback flow. The Slint side gates this behind a confirm
+        // strip, so by the time we're called the user has explicitly
+        // approved the destructive operation.
+        let weak = window.as_weak();
+        let main_weak = main_weak.clone();
+        let log = log.clone();
+        let ctx = ctx.clone();
+        let profiles = profiles.clone();
+        let selected = selected.clone();
+        window.on_rollback_confirmed(move |snapshot_path_str| {
+            let Some(w) = weak.upgrade() else { return };
+            let Some(profile_path) = current_profile_path(&profiles, &selected) else {
+                w.set_action_message("No profile selected.".into());
+                return;
+            };
+            let install_dir = ctx.install_dir.clone();
+            let snapshot_path = PathBuf::from(snapshot_path_str.as_str());
+            let weak_for_worker = weak.clone();
+            let main_weak = main_weak.clone();
+            let log = log.clone();
+            w.set_action_busy(true);
+            w.set_action_message("Rolling back…".into());
+            std::thread::spawn(move || {
+                let result = (|| -> Result<(PathBuf, String)> {
+                    let profile = Profile::load(&profile_path)?;
+                    let install_root = profile
+                        .resolved_install_path(&install_dir)
+                        .ok_or_else(|| anyhow!("Profile has no install location."))?;
+                    let map = profile
+                        .map_name()
+                        .ok_or_else(|| anyhow!("Profile has no map name."))?;
+                    // Save current state into pre_rollback/ first so a
+                    // mistake is recoverable. enforce_pre_rollback_retention
+                    // keeps that folder bounded.
+                    let _ = backup::create_pre_rollback(&install_root, &map);
+                    let _ = backup::enforce_pre_rollback_retention(&install_root, &map);
+                    backup::rollback(&install_root, &map, &snapshot_path)?;
+                    Ok((install_root, map))
+                })();
+                match result {
+                    Ok((install_root, map)) => {
+                        let msg = format!(
+                            "Rolled back to {}",
+                            snapshot_path
+                                .file_name()
+                                .map(|s| s.to_string_lossy().into_owned())
+                                .unwrap_or_default()
+                        );
+                        push_log_async(&main_weak, &log, &msg);
+                        let _ = weak_for_worker.upgrade_in_event_loop(move |w| {
+                            refresh_backup_lists_in_window(&w, &install_root, &map);
+                            w.set_action_busy(false);
+                            w.set_action_message(msg.into());
+                        });
+                    }
+                    Err(e) => {
+                        let msg = format!("Rollback failed: {e:#}");
+                        push_log_async(&main_weak, &log, &msg);
+                        let _ = weak_for_worker.upgrade_in_event_loop(move |w| {
+                            w.set_action_busy(false);
+                            w.set_action_message(msg.into());
+                        });
+                    }
+                }
+            });
+        });
+    }
+}
+
+/// Background scheduler: every minute, looks at the currently-selected
+/// profile, and if `auto_backup_enabled && elapsed >= interval` since the
+/// newest existing snapshot, takes one + applies retention.
+///
+/// Uses on-disk timestamps as the "last snapshot" marker so the schedule
+/// survives tool restarts and per-profile bookkeeping isn't needed.
+fn spawn_backup_scheduler(
+    ctx: AppCtx,
+    profiles: ProfileList,
+    selected: SelectedIndex,
+    log: LogBuffer,
+    main_weak: slint::Weak<MainWindow>,
+) {
+    std::thread::spawn(move || {
+        // Stagger the first wake by 30s so a freshly-launched tool
+        // doesn't immediately fight the engine for disk during the
+        // user's first server start.
+        std::thread::sleep(Duration::from_secs(30));
+        loop {
+            run_backup_scheduler_tick(&ctx, &profiles, &selected, &log, &main_weak);
+            std::thread::sleep(Duration::from_secs(60));
+        }
+    });
+}
+
+fn run_backup_scheduler_tick(
+    ctx: &AppCtx,
+    profiles: &ProfileList,
+    selected: &SelectedIndex,
+    log: &LogBuffer,
+    main_weak: &slint::Weak<MainWindow>,
+) {
+    let Some(profile_path) = current_profile_path(profiles, selected) else {
+        return;
+    };
+    let Ok(profile) = Profile::load(&profile_path) else {
+        return;
+    };
+    if !profile.auto_backup_enabled() {
+        return;
+    }
+    let Some(install_root) = profile.resolved_install_path(&ctx.install_dir) else {
+        return;
+    };
+    let Some(map) = profile.map_name() else { return };
+    if !backup::savedarks_exists(&install_root, &map) {
+        return;
+    }
+    let interval_minutes = profile.backup_interval_minutes() as i64;
+    let retain = profile.backup_retain_count();
+
+    // Decide whether enough time has elapsed since the newest snapshot.
+    let snapshots = backup::list_snapshots(&install_root, &map).unwrap_or_default();
+    let now = chrono::Local::now();
+    let due = match snapshots.first() {
+        Some(s) => (now - s.created).num_minutes() >= interval_minutes,
+        None => true,
+    };
+    if !due {
+        return;
+    }
+    match backup::create_snapshot(&install_root, &map) {
+        Ok(snap) => {
+            let removed =
+                backup::enforce_retention(&install_root, &map, retain).unwrap_or(0);
+            push_log_async(
+                main_weak,
+                log,
+                &format!(
+                    "Auto snapshot: {} ({} pruned)",
+                    format_size_bytes(snap.size_bytes),
+                    removed
+                ),
+            );
+        }
+        Err(e) => {
+            push_log_async(main_weak, log, &format!("Auto snapshot failed: {e:#}"));
+        }
     }
 }

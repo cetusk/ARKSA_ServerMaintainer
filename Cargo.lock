@@ -184,6 +184,7 @@ dependencies = [
  "anyhow",
  "arksa-core",
  "arksa-notify",
+ "chrono",
  "rfd",
  "slint",
  "slint-build",
