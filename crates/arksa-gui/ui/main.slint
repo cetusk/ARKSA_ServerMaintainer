@@ -3203,9 +3203,19 @@ export component BackupWindow inherits Window {
     /// `path` is the snapshot zip absolute path.
     callback rollback-confirmed(string);
 
+    // The bottom action row stays pinned outside the ScrollView so the
+    // user can always reach Save / Close even when the snapshot lists
+    // overflow the viewport. The scrollable region holds everything
+    // above (paths / settings / manual / lists / pre_rollback).
     VerticalBox {
         padding: 12px;
         spacing: 10px;
+
+        ScrollView {
+            vertical-stretch: 1;
+            VerticalBox {
+                padding: 0;
+                spacing: 10px;
 
         // ── Context header ────────────────────────────────────────────
         GroupBox {
@@ -3384,49 +3394,45 @@ export component BackupWindow inherits Window {
         }
 
         // ── Snapshot list ────────────────────────────────────────────
+        // The outer ScrollView wrapping the dialog body handles
+        // overflow, so this section flows naturally — no inner
+        // ScrollView (nested scrolls trap the wheel and confuse the
+        // user when both compete for the same input).
         GroupBox {
             title: root.labels.backup_section_snapshots;
-            vertical-stretch: 1;
             VerticalBox {
                 spacing: 4px;
-                // Column header row.
                 HorizontalBox {
                     spacing: 6px;
                     Text { text: root.labels.backup_col_when; min-width: 220px; color: AppTheme.accent; }
                     Text { text: root.labels.backup_col_size; min-width: 100px; color: AppTheme.accent; }
                     Text { text: root.labels.backup_col_actions; horizontal-stretch: 1; color: AppTheme.accent; }
                 }
-                ScrollView {
-                    vertical-stretch: 1;
-                    VerticalBox {
-                        spacing: 2px;
-                        if root.snapshots.length == 0: Text {
-                            text: root.labels.backup_empty_snapshots;
-                            font-size: 11px;
-                        }
-                        for snap[i] in root.snapshots: HorizontalBox {
-                            spacing: 6px;
-                            Text {
-                                text: snap.when_text;
-                                vertical-alignment: center;
-                                min-width: 220px;
-                            }
-                            Text {
-                                text: snap.size_text;
-                                vertical-alignment: center;
-                                min-width: 100px;
-                            }
-                            Button {
-                                text: root.labels.backup_btn_rollback;
-                                enabled: !root.action-busy;
-                                clicked => {
-                                    root.pending-rollback-path = snap.path;
-                                    root.pending-rollback-when = snap.when_text;
-                                }
-                            }
-                            Rectangle { horizontal-stretch: 1; }
+                if root.snapshots.length == 0: Text {
+                    text: root.labels.backup_empty_snapshots;
+                    font-size: 11px;
+                }
+                for snap[i] in root.snapshots: HorizontalBox {
+                    spacing: 6px;
+                    Text {
+                        text: snap.when_text;
+                        vertical-alignment: center;
+                        min-width: 220px;
+                    }
+                    Text {
+                        text: snap.size_text;
+                        vertical-alignment: center;
+                        min-width: 100px;
+                    }
+                    Button {
+                        text: root.labels.backup_btn_rollback;
+                        enabled: !root.action-busy;
+                        clicked => {
+                            root.pending-rollback-path = snap.path;
+                            root.pending-rollback-when = snap.when_text;
                         }
                     }
+                    Rectangle { horizontal-stretch: 1; }
                 }
             }
         }
@@ -3460,8 +3466,10 @@ export component BackupWindow inherits Window {
                 }
             }
         }
+            }   // ── end inner VerticalBox inside ScrollView ──
+        }       // ── end ScrollView ─────────────────────────────
 
-        // ── Bottom actions ───────────────────────────────────────────
+        // ── Bottom actions (pinned outside ScrollView) ──────────────
         HorizontalBox {
             alignment: end;
             spacing: 8px;

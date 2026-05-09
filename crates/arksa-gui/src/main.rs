@@ -121,6 +121,16 @@ fn apply_language_change(
     if let Some(w) = weaks.backup.upgrade() {
         w.set_labels(ui);
     }
+    // The Server Status panel's `title` field is rendered with a
+    // pre-translated string ("Running (PID X)" / "停止中"), built by
+    // refresh_status_async from the labels snapshot it took at the top
+    // of its tick. After a language switch the next 5 s tick would
+    // pick up the new strings, but the user shouldn't have to wait —
+    // re-fire the refresh callback here so the title flips
+    // synchronously with everything else.
+    if let Some(w) = weaks.main.upgrade() {
+        w.invoke_refresh_status();
+    }
 }
 
 fn main() -> Result<()> {
