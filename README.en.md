@@ -6,7 +6,11 @@ A Rust + Slint GUI tool to maintain a personal **ARK: Survival Ascended** dedica
 
 A personal-use **re-implementation** of [ASA Server Manager (ASASM)](https://sites.google.com/view/asa-server-manager) by *Dの人*. The upstream author explicitly permits forks and re-implementations in other languages. The upstream Object Pascal source is **not redistributed** here; obtain it from the upstream distribution above if you need to cross-reference.
 
-> **Status: Phase 8a–8S — full per-profile world editor (~280 fields incl. MOTD + Mods) + cross-category live search + dark turquoise theme + main-window language picker.** The GUI can create a profile, auto-write `GameUserSettings.ini` so RCON works on first start, install the dedicated server via the bundled steamcmd, start/stop/restart the server, send RCON commands, search Mods/Engrams/Items/Dinos, send Discord & Windows toast notifications, switch between English / Japanese **right from the main window**, and **edit ~280 world / breeding / loot / stat / combat / XP / chat / cluster / clamp / PvP-decay / disease / Cryopod / launch-flag / mod-list / MOTD parameters across `Game.ini` + `GameUserSettings.ini` (`[ServerSettings]` and `[MessageOfTheDay]`) + the profile's `MM_Command_Val` (URL + `-mods=` + `-flags`) from a left-sidebar / right-pane editor (18 categories + a virtual *Search results* view, click-the-label popups for bilingual descriptions, file-import for reusing settings from another install)**. Real ARK SA clients have joined a server set up this way (via in-game `open <ip>:<port>`) including over [playit.gg](https://playit.gg/) UDP tunnels for friends behind CGNAT, with mods downloaded automatically via CurseForge. CLI commander, self-updater (Phase 9), backups, and scheduled restarts are still pending. See [`docs/architecture.md`](./docs/architecture.md) for the full phase plan and [`docs/parameters.md`](./docs/parameters.md) for the comprehensive ARK SA parameter reference.
+> **Status: Phase 8a–8U + Phase 11–13 — full per-profile world editor (~280 fields) + backup / rollback + live language switch + playit.gg public-address UI.**
+> The GUI can create a profile, auto-write `GameUserSettings.ini` so RCON works on first start, install the dedicated server via the bundled steamcmd, start/stop/restart the server, send RCON commands, search Mods/Engrams/Items/Dinos, send Discord & Windows toast notifications, **live-switch English / Japanese (no restart — all six windows + status text re-translate in place)**, and **edit ~280 world / breeding / loot / stat / combat / XP / chat / cluster / clamp / PvP-decay / disease / Cryopod / launch-flag / mod-list / MOTD parameters across `Game.ini` + `GameUserSettings.ini` (`[ServerSettings]` and `[MessageOfTheDay]`) + the profile's `MM_Command_Val` (URL + `-mods=` + `-flags`) from a left-sidebar / right-pane editor (18 categories + a virtual *Search results* view, click-the-label popups for bilingual descriptions, file-import for reusing settings from another install)**.
+> **SavedArks zip snapshots** every T minutes keeping the latest N (defaults: 30 min / 12, with a compression-level picker None / Fast / Balanced / Max — default Deflate 1) plus **one-click rollback** from the GUI: `.ark` / `.arktribe` / `.arkprofile` are restored together for time-consistent state, and a pre-rollback auto-save protects against mistakes (3 generations kept).
+> **Public-address line edit + clipboard copy button** in the Profile section — share a playit.gg tunnel / Tailscale name / public IP with friends in one click.
+> Real ARK SA clients have joined a server set up this way (via in-game `open <ip>:<port>`) including over [playit.gg](https://playit.gg/) UDP tunnels for friends behind CGNAT, with mods downloaded automatically via CurseForge. CLI commander, self-updater (Phase 9), and scheduled restarts are still pending. See [`docs/architecture.md`](./docs/architecture.md) for the full phase plan and [`docs/parameters.md`](./docs/parameters.md) for the comprehensive ARK SA parameter reference.
 
 ---
 
@@ -545,21 +549,14 @@ Wildcard's matchmaking is slow / unreliable for small personal servers.
 **Workaround:** connect via in-game console (`open <ip>:<port>`). See
 [Connecting from the ARK SA client](#connecting-from-the-ark-sa-client).
 
-### 2. Live language switching is not supported
-The Language dropdown on the main window writes the choice to
-`AppSettings` immediately, but the actual UI labels are sampled from the
-language setting once at startup. Restart the GUI to apply a language
-change. The bilingual descriptions inside *World Settings…* honour the
-setting at dialog open time.
-
-### 3. NewProfileWindow internals are still English-only
+### 2. NewProfileWindow internals are still English-only
 The Quickstart's *New Profile* dialog has many internal field labels (game
 port, query port, mods, etc.) that are not yet wired through the i18n
 labels struct. Section/window titles and buttons are translated, but the
 in-form field labels stay in English regardless of language setting. Will
 be filled in incrementally.
 
-### 4. Stat arrays tab has no per-cell description popups
+### 3. Stat arrays tab has no per-cell description popups
 The 72 stat-array cells (Player / Tamed / Tamed-Add / Tamed-Affinity /
 Wild × Health / Stamina / … / CraftingSpeed) skip the click-to-popup
 description because the labels (`[3] Oxygen` etc.) are already
@@ -599,13 +596,17 @@ and the `.pas → Rust` mapping.
 | 8P | MOTD editor (`[MessageOfTheDay]` section: multi-line `Message` + `Duration`) | ✅ |
 | 8R | Mods category (CurseForge ID list editor) + live cross-category Search bar with virtual *Search results* sidebar entry (auto-jumps when typing, callback-driven case-insensitive substring match in Rust since Slint 1.16 has no `string.contains()`) | ✅ |
 | 8S | Phase 8M revert: 12 breeding / loot keys back to `Game.ini`. `IniDoc::remove_key` strips Phase-8M leftovers from `[ServerSettings]` on Save so duplicates can't compete | ✅ |
+| 8T | Three additional Cryopod keys: `CryopodNerfIncomingDamageMultPercent`, `DisableCryopodEnemyCheck`, `CryopodFridgeCooldowntime` | ✅ |
+| 8U | Search filter row layout fix (worked around Slint 1.16's behaviour where `inherits HorizontalBox` + `visible:false` does not release layout space; switched to `inherits Rectangle` + `height:0`) | ✅ |
 | 8+ | Sidebar layout, click-to-popup descriptions (above the row), dark mode + turquoise theme, top-bar language picker, `SectionGroup` panels, sticky column headers (Category / Parameter / Value), single-ScrollView right pane, button labels expanded (no `…`) | ✅ |
+| 11 | Backup / Rollback (full set): `arksa-core::backup` (zip snapshot + atomic write + staging-swap rollback + zip-slip defence), BackupWindow single-screen (settings / manual / list / pre_rollback / confirm strip + outer scroll), auto scheduler (60 s wake, disk-mtime based, survives tool restart), 4-level compression picker (STORE / Deflate 1/6/9, default Deflate 1) | ✅ |
+| 12 | Live language switching (no restart): all six windows re-translated via `AllWindowWeaks`, Server Status text resynced via `invoke_refresh_status`, symmetric across the main top-bar picker and the notifications dialog picker | ✅ |
+| 13 | Public address surface (playit.gg / Tailscale): Connection section just under Profile, stored as `[Server] Edit_PublicAddress` (upstream-INI-compatible), `arboard` clipboard copy, follows profile selection automatically | ✅ |
 | 9 | `arksa-commander` CLI | next |
 | 10 | `arksa-updater` self-update against GitHub Releases | |
-| (?) | Backup / scheduled restart / crash auto-restart | |
-| (?) | Live language switching | |
+| (?) | Scheduled restart / crash auto-restart | |
 | (?) | Manifest-pinned steamcmd installs (per-profile) | |
-| (?) | Public address surface in Status panel (playit.gg / Tailscale IP) | |
+| (?) | playit-cli direct integration to auto-fetch the tunnel address | |
 
 ## License
 
