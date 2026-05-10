@@ -198,6 +198,11 @@ export struct UiLabels {
     world_tab_mods: string,
     world_mods_hint: string,
     world_mods_footnote: string,
+    // MOD configs category — per-MOD INI section editor.
+    world_tab_mod_configs: string,
+    world_mod_configs_hint: string,
+    world_mod_configs_empty: string,
+    world_mod_configs_section_disabled: string,
     // Backup / rollback dialog labels.
     btn_backup: string,
     backup_window_title: string,
@@ -1126,6 +1131,22 @@ export component WorldSettingsWindow inherits Window {
     // `-mods=ID,ID,...` — separate from the -flag portion).
     in-out property <string> f_mods_csv: "";
 
+    // ─── Per-MOD config (category 18) ──────────────────────────────
+    // Each block here mirrors a `ModConfigSchema` from
+    // arksa_core::mod_configs. The `*_enabled` flag is set by the host
+    // from the profile's mod list — when false, the panel is hidden so
+    // toggling the mod off can't accidentally write its keys (the keys
+    // already on disk stay put for re-enable).
+    //
+    // Return The Beacons (Project ID 933576) — `[RTB]` section in
+    // GameUserSettings.ini.
+    in property <bool> mod_rtb_enabled: false;
+    in-out property <bool> mod_rtb_enable_beacon_ui: true;
+    in-out property <string> mod_rtb_player_beam_color: "#fe019a";
+    in-out property <string> mod_rtb_dino_beam_color: "#0cf7dc";
+    in-out property <bool> mod_rtb_enable_gui_keybind: true;
+    in-out property <bool> mod_rtb_enable_pause_menu_button: true;
+
     callback import-clicked();
     callback reset-clicked();
     callback save-clicked();
@@ -1254,6 +1275,7 @@ export component WorldSettingsWindow inherits Window {
                         CategoryButton { index: 15; current-index: root.current-category; label: root.labels.world_tab_clamps;      clicked => { root.current-category = 15; } }
                         CategoryButton { index: 16; current-index: root.current-category; label: root.labels.world_tab_flags;       clicked => { root.current-category = 16; } }
                         CategoryButton { index: 17; current-index: root.current-category; label: root.labels.world_tab_mods;        clicked => { root.current-category = 17; } }
+                        CategoryButton { index: 18; current-index: root.current-category; label: root.labels.world_tab_mod_configs; clicked => { root.current-category = 18; } }
                     }
                 }
                 }   // end sidebar VerticalLayout (header + ScrollView)
@@ -3010,6 +3032,76 @@ export component WorldSettingsWindow inherits Window {
                         color: #888;
                         font-size: 11px;
                         wrap: word-wrap;
+                    }
+                }
+            }
+
+            // ── Category 18: per-MOD config (out-of-band INI sections) ──
+            // Kept deliberately separate from the main world categories so
+            // toggling a mod off can never bleed its keys into the regular
+            // settings flow. Each mod's GroupBox is rendered only when the
+            // host says the mod is enabled in MM_Command_Val. When
+            // disabled, the panel hides but the keys stay on disk so the
+            // mod's prior configuration comes back if it's re-enabled.
+            if root.current-category == 18: Rectangle {
+                background: Palette.background;
+                VerticalBox {
+                    padding: 8px;
+                    spacing: 8px;
+                    Text {
+                        text: root.labels.world_mod_configs_hint;
+                        wrap: word-wrap;
+                        font-size: 11px;
+                        color: AppTheme.accent;
+                    }
+                    if !root.mod_rtb_enabled: Text {
+                        text: root.labels.world_mod_configs_empty;
+                        wrap: word-wrap;
+                    }
+                    if root.mod_rtb_enabled: GroupBox {
+                        title: "Return The Beacons (RTB) — #933576";
+                        VerticalBox {
+                            spacing: 4px;
+                            WorldBoolRow {
+                                label: "EnableBeaconUI";
+                                description: root.lang-ja
+                                    ? "ゲーム内のプレイヤー単位設定 UI 全体の有効/無効。"
+                                    : "Enable the in-game per-player Settings UI as a whole.";
+                                value <=> root.mod_rtb_enable_beacon_ui;
+                            }
+                            // WorldFloatRow's `value` is `string` and the
+                            // LineEdit takes free-form text, so reuse it
+                            // for hex colours rather than adding a new
+                            // component just for two fields.
+                            WorldFloatRow {
+                                label: "PlayerBeamColor";
+                                description: root.lang-ja
+                                    ? "プレイヤー死亡ビームの既定色 (#RRGGBB hex)。"
+                                    : "Default colour of the player death beam (#RRGGBB hex).";
+                                value <=> root.mod_rtb_player_beam_color;
+                            }
+                            WorldFloatRow {
+                                label: "DinoBeamColor";
+                                description: root.lang-ja
+                                    ? "恐竜死亡ビームの既定色 (#RRGGBB hex)。"
+                                    : "Default colour of the dino death beam (#RRGGBB hex).";
+                                value <=> root.mod_rtb_dino_beam_color;
+                            }
+                            WorldBoolRow {
+                                label: "EnableGUIKeybind";
+                                description: root.lang-ja
+                                    ? "UI を開く Shift+Drag (パッドは LT+上) キーバインドの有効/無効。"
+                                    : "Enable the Shift+Drag (or Left Trigger + Up DPad) keybind to open the UI.";
+                                value <=> root.mod_rtb_enable_gui_keybind;
+                            }
+                            WorldBoolRow {
+                                label: "EnablePauseMenuButton";
+                                description: root.lang-ja
+                                    ? "ポーズ (Escape) メニューに RTB ボタンを表示。"
+                                    : "Show the RTB button in the in-game pause / escape menu.";
+                                value <=> root.mod_rtb_enable_pause_menu_button;
+                            }
+                        }
                     }
                 }
             }

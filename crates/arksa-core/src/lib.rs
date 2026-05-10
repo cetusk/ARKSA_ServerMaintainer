@@ -11,6 +11,7 @@ pub mod game_config;
 pub mod gamedata;
 pub mod ini_doc;
 pub mod launch_args;
+pub mod mod_configs;
 pub mod modlist;
 pub mod process;
 pub mod profile;

@@ -19,7 +19,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use anyhow::{anyhow, Context, Result};
 use arksa_core::{
     ark_config, backup, game_config,
-    gamedata, launch_args::{self, LaunchArgs, COMMON_MAPS}, modlist,
+    gamedata, launch_args::{self, LaunchArgs, COMMON_MAPS},
+    mod_configs, modlist,
     profile::Profile,
     rcon::RconClient,
     server::{self, ServerStatus, StopOptions, StopOutcome},
@@ -1300,6 +1301,10 @@ struct Labels {
     world_tab_mods: String,
     world_mods_hint: String,
     world_mods_footnote: String,
+    world_tab_mod_configs: String,
+    world_mod_configs_hint: String,
+    world_mod_configs_empty: String,
+    world_mod_configs_section_disabled: String,
     // Backup / rollback dialog.
     btn_backup: String,
     backup_window_title: String,
@@ -1460,6 +1465,19 @@ impl Labels {
                  Auto-downloaded from CurseForge on first server start. \
                  Restart the server (Stop → Start) after editing."
                     .into(),
+            world_tab_mod_configs: "MOD config".into(),
+            world_mod_configs_hint:
+                "Per-MOD INI sections (e.g. [RTB] in GameUserSettings.ini). \
+                 Each panel below is shown only when the corresponding MOD \
+                 ID is in the profile's mod list — disabling a MOD hides \
+                 its panel but leaves its keys on disk so re-enabling \
+                 restores the previous configuration."
+                    .into(),
+            world_mod_configs_empty:
+                "No supported MODs are currently enabled. Add a MOD ID in \
+                 the Mods tab to see its config panel here.".into(),
+            world_mod_configs_section_disabled:
+                "(MOD not enabled in this profile)".into(),
             btn_backup: "Backup / Rollback".into(),
             backup_window_title: "Backup / Rollback".into(),
             backup_section_paths: "Paths".into(),
@@ -1638,6 +1656,18 @@ impl Labels {
                  サーバー初回起動時に CurseForge から自動 DL されます。\
                  編集後はサーバーの Restart で反映してください。"
                     .into(),
+            world_tab_mod_configs: "MOD 設定".into(),
+            world_mod_configs_hint:
+                "MOD 単位の INI セクション (例: GameUserSettings.ini の [RTB])。\
+                 各パネルは該当 MOD ID がプロファイルの MOD リストにある時のみ\
+                 表示され、MOD を外すとパネルは非表示になりますがディスク上の\
+                 キー値は保持されます (再有効化で前回の設定が戻ります)。"
+                    .into(),
+            world_mod_configs_empty:
+                "対応 MOD は現在有効化されていません。Mods タブで MOD ID を\
+                 追加するとここに設定パネルが現れます。".into(),
+            world_mod_configs_section_disabled:
+                "(このプロファイルでは MOD 未有効化)".into(),
             btn_backup: "バックアップ／ロールバック".into(),
             backup_window_title: "バックアップ／ロールバック".into(),
             backup_section_paths: "パス".into(),
@@ -1820,6 +1850,11 @@ impl Labels {
             world_tab_mods: self.world_tab_mods.as_str().into(),
             world_mods_hint: self.world_mods_hint.as_str().into(),
             world_mods_footnote: self.world_mods_footnote.as_str().into(),
+            world_tab_mod_configs: self.world_tab_mod_configs.as_str().into(),
+            world_mod_configs_hint: self.world_mod_configs_hint.as_str().into(),
+            world_mod_configs_empty: self.world_mod_configs_empty.as_str().into(),
+            world_mod_configs_section_disabled:
+                self.world_mod_configs_section_disabled.as_str().into(),
             btn_backup: self.btn_backup.as_str().into(),
             backup_window_title: self.backup_window_title.as_str().into(),
             backup_section_paths: self.backup_section_paths.as_str().into(),
@@ -2442,18 +2477,53 @@ fn populate_world_settings_window(
     window.set_f_launch_flags_reference(launch_args::COMMON_LAUNCH_FLAGS.join("  ").into());
 
     // Phase 8R — Mod IDs (Profile MM_Command_Val `-mods=` token)
-    let mods_text = profile_path
+    let enabled_mods: Vec<u64> = profile_path
         .and_then(|p| Profile::load(p).ok())
         .and_then(|p| p.server_command_line())
-        .map(|cmd| {
-            launch_args::extract_mods_from_command_line(&cmd)
-                .iter()
-                .map(|m| m.to_string())
-                .collect::<Vec<_>>()
-                .join("\n")
-        })
+        .map(|cmd| launch_args::extract_mods_from_command_line(&cmd))
         .unwrap_or_default();
+    let mods_text = enabled_mods
+        .iter()
+        .map(|m| m.to_string())
+        .collect::<Vec<_>>()
+        .join("\n");
     window.set_f_mods_csv(mods_text.as_str().into());
+
+    // Per-MOD config panels (category 18). Visibility for each panel
+    // tracks whether the matching mod ID is in the profile's mod
+    // list. The values themselves come from the mod's INI section
+    // (or the schema defaults if the section isn't there yet) so the
+    // panel always shows something coherent even before the user has
+    // ever started the server with the mod active.
+    let rtb_enabled = enabled_mods
+        .contains(&mod_configs::RTB_SCHEMA.project_id);
+    window.set_mod_rtb_enabled(rtb_enabled);
+    let rtb_values =
+        mod_configs::read_all(install_root, &mod_configs::RTB_SCHEMA).unwrap_or_else(|_| {
+            mod_configs::RTB_SCHEMA
+                .fields
+                .iter()
+                .map(|f| f.default.to_string())
+                .collect()
+        });
+    if rtb_values.len() == mod_configs::RTB_SCHEMA.fields.len() {
+        window.set_mod_rtb_enable_beacon_ui(parse_mod_bool(&rtb_values[0], true));
+        window.set_mod_rtb_player_beam_color(rtb_values[1].as_str().into());
+        window.set_mod_rtb_dino_beam_color(rtb_values[2].as_str().into());
+        window.set_mod_rtb_enable_gui_keybind(parse_mod_bool(&rtb_values[3], true));
+        window.set_mod_rtb_enable_pause_menu_button(parse_mod_bool(&rtb_values[4], true));
+    }
+}
+
+/// Parse a MOD-config bool string ("True" / "False" / "1" / "0" / etc.)
+/// into a Rust bool. Falls back to `default` for anything unrecognised
+/// so corrupt INI doesn't dump the user's UI into a confusing state.
+fn parse_mod_bool(raw: &str, default: bool) -> bool {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "true" | "1" | "yes" | "on" => true,
+        "false" | "0" | "no" | "off" => false,
+        _ => default,
+    }
 }
 
 /// Reset every form field to ARK's vanilla defaults (mostly 1.0, plus the
@@ -2682,6 +2752,16 @@ fn reset_world_settings_window(window: &WorldSettingsWindow) {
     // Phase 8k — Launch flags (default to common starting set)
     window.set_f_launch_flags(SharedString::from("-log\n-NoBattlEye"));
     window.set_f_launch_flags_reference(launch_args::COMMON_LAUNCH_FLAGS.join("  ").into());
+
+    // Per-MOD config (category 18) — restore each mod's schema defaults.
+    // The enabled flag is intentionally NOT reset here: visibility tracks
+    // the profile's mod list, not the form, and is re-derived by
+    // populate_world_settings_window when the dialog opens.
+    window.set_mod_rtb_enable_beacon_ui(true);
+    window.set_mod_rtb_player_beam_color(SharedString::from("#fe019a"));
+    window.set_mod_rtb_dino_beam_color(SharedString::from("#0cf7dc"));
+    window.set_mod_rtb_enable_gui_keybind(true);
+    window.set_mod_rtb_enable_pause_menu_button(true);
 }
 
 /// Read all form fields, parse floats, return per-file struct values or a
@@ -2921,6 +3001,14 @@ struct WorldFormValues {
 
     // Phase 8R — Mod IDs (also saved into Profile MM_Command_Val)
     mods: Vec<u64>,
+
+    // Per-MOD config sections (category 18). Values are stored as raw
+    // strings because each schema field has its own type — the
+    // `mod_configs` writer normalises them to the on-disk
+    // representation. None means the panel was not visible (mod not
+    // enabled in profile) so the writer should leave that section
+    // alone instead of clobbering on-disk state with stale values.
+    mod_rtb: Option<Vec<String>>,
 }
 
 fn parse_form_float(value: SharedString, label: &str) -> Result<f64, String> {
@@ -3238,6 +3326,24 @@ fn collect_world_form(window: &WorldSettingsWindow) -> Result<WorldFormValues, S
         mods: launch_args::parse_mods_csv(
             &window.get_f_mods_csv().as_str().replace(['\n', ' ', '\t'], ","),
         ),
+        // Per-MOD config: only collect values when the mod is currently
+        // enabled in the profile. When the panel is hidden (mod_*_enabled
+        // == false), pass None so the writer skips that section and
+        // leaves any prior on-disk values intact.
+        mod_rtb: if window.get_mod_rtb_enabled() {
+            Some(vec![
+                if window.get_mod_rtb_enable_beacon_ui() { "True" } else { "False" }
+                    .to_string(),
+                window.get_mod_rtb_player_beam_color().as_str().to_string(),
+                window.get_mod_rtb_dino_beam_color().as_str().to_string(),
+                if window.get_mod_rtb_enable_gui_keybind() { "True" } else { "False" }
+                    .to_string(),
+                if window.get_mod_rtb_enable_pause_menu_button() { "True" } else { "False" }
+                    .to_string(),
+            ])
+        } else {
+            None
+        },
     })
 }
 
@@ -3491,6 +3597,15 @@ fn write_world_form(
 
     game.save()?;
     gus.save()?;
+
+    // Per-MOD config sections. Written via the mod_configs writer
+    // (which knows the section name + INI file per schema) and only
+    // when the mod was actually visible in the UI — see WorldFormValues
+    // for why we skip writes for hidden panels (avoids stomping
+    // on-disk values with stale UI defaults).
+    if let Some(values) = &v.mod_rtb {
+        mod_configs::write_all(install_root, &mod_configs::RTB_SCHEMA, values)?;
+    }
 
     // Phase 8k + 8R — Launch flags + Mods → Profile MM_Command_Val.
     // Both modify different parts of the same string, so we apply mods
