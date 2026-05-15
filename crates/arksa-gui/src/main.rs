@@ -1332,6 +1332,20 @@ struct Labels {
     backup_col_select: String,
     backup_btn_rollback: String,
     backup_btn_delete_selected: String,
+    backup_btn_select_all: String,
+    backup_btn_deselect_all: String,
+    backup_section_list: String,
+    backup_subtab_auto: String,
+    backup_subtab_manual: String,
+    backup_subtab_pre_rollback: String,
+    backup_meta_kind_label: String,
+    backup_meta_source_label: String,
+    backup_badge_related: String,
+    backup_badge_detail_title: String,
+    backup_btn_restore_from_pre: String,
+    backup_btn_close_detail: String,
+    backup_col_sort_asc: String,
+    backup_col_sort_desc: String,
     backup_confirm_delete_title: String,
     backup_confirm_delete_body: String,
     backup_confirm_delete_yes: String,
@@ -1510,6 +1524,20 @@ impl Labels {
             backup_col_select: "Select".into(),
             backup_btn_rollback: "Roll back to this".into(),
             backup_btn_delete_selected: "Delete selected".into(),
+            backup_btn_select_all: "Select all".into(),
+            backup_btn_deselect_all: "Deselect all".into(),
+            backup_section_list: "Snapshot list".into(),
+            backup_subtab_auto: "Auto".into(),
+            backup_subtab_manual: "Manual".into(),
+            backup_subtab_pre_rollback: "Pre-rollback".into(),
+            backup_meta_kind_label: "Kind".into(),
+            backup_meta_source_label: "Source snapshot".into(),
+            backup_badge_related: "🔁 has pre-rollback backup".into(),
+            backup_badge_detail_title: "Pre-rollback emergency backup".into(),
+            backup_btn_restore_from_pre: "Restore from this backup".into(),
+            backup_btn_close_detail: "Close".into(),
+            backup_col_sort_asc: " ▲".into(),
+            backup_col_sort_desc: " ▼".into(),
             backup_confirm_delete_title: "Confirm deletion".into(),
             backup_confirm_delete_body:
                 "The following snapshots will be permanently deleted:".into(),
@@ -1701,6 +1729,20 @@ impl Labels {
             backup_col_select: "選択".into(),
             backup_btn_rollback: "この時点に巻き戻す".into(),
             backup_btn_delete_selected: "選択を削除".into(),
+            backup_btn_select_all: "全て選択".into(),
+            backup_btn_deselect_all: "全て解除".into(),
+            backup_section_list: "スナップショット一覧".into(),
+            backup_subtab_auto: "定期".into(),
+            backup_subtab_manual: "手動".into(),
+            backup_subtab_pre_rollback: "ロールバック前自動退避".into(),
+            backup_meta_kind_label: "種別".into(),
+            backup_meta_source_label: "元のスナップショット".into(),
+            backup_badge_related: "🔁 ロールバック前退避あり".into(),
+            backup_badge_detail_title: "ロールバック前の自動退避".into(),
+            backup_btn_restore_from_pre: "この退避から復元".into(),
+            backup_btn_close_detail: "閉じる".into(),
+            backup_col_sort_asc: " ▲".into(),
+            backup_col_sort_desc: " ▼".into(),
             backup_confirm_delete_title: "削除の確認".into(),
             backup_confirm_delete_body:
                 "下記のスナップショットを完全に削除します:".into(),
@@ -1881,6 +1923,20 @@ impl Labels {
             backup_col_select: self.backup_col_select.as_str().into(),
             backup_btn_rollback: self.backup_btn_rollback.as_str().into(),
             backup_btn_delete_selected: self.backup_btn_delete_selected.as_str().into(),
+            backup_btn_select_all: self.backup_btn_select_all.as_str().into(),
+            backup_btn_deselect_all: self.backup_btn_deselect_all.as_str().into(),
+            backup_section_list: self.backup_section_list.as_str().into(),
+            backup_subtab_auto: self.backup_subtab_auto.as_str().into(),
+            backup_subtab_manual: self.backup_subtab_manual.as_str().into(),
+            backup_subtab_pre_rollback: self.backup_subtab_pre_rollback.as_str().into(),
+            backup_meta_kind_label: self.backup_meta_kind_label.as_str().into(),
+            backup_meta_source_label: self.backup_meta_source_label.as_str().into(),
+            backup_badge_related: self.backup_badge_related.as_str().into(),
+            backup_badge_detail_title: self.backup_badge_detail_title.as_str().into(),
+            backup_btn_restore_from_pre: self.backup_btn_restore_from_pre.as_str().into(),
+            backup_btn_close_detail: self.backup_btn_close_detail.as_str().into(),
+            backup_col_sort_asc: self.backup_col_sort_asc.as_str().into(),
+            backup_col_sort_desc: self.backup_col_sort_desc.as_str().into(),
             backup_confirm_delete_title: self.backup_confirm_delete_title.as_str().into(),
             backup_confirm_delete_body: self.backup_confirm_delete_body.as_str().into(),
             backup_confirm_delete_yes: self.backup_confirm_delete_yes.as_str().into(),
@@ -4722,34 +4778,117 @@ fn refresh_backup_lists_in_window(
     install_root: &Path,
     map_name: &str,
 ) {
-    let snaps = backup::list_snapshots(install_root, map_name).unwrap_or_default();
-    let pre = backup::list_pre_rollbacks(install_root, map_name).unwrap_or_default();
-    window.set_snapshots(slint_snapshot_model(&snaps));
-    window.set_pre_rollbacks(slint_snapshot_model(&pre));
-    // Selections always reset on refresh — `slint_snapshot_model`
-    // hands out rows with `selected: false`, so the counters must
-    // follow suit.
-    window.set_snapshots_selected_count(0);
+    // Three lists, one per snapshot kind. Each gets its own model so the
+    // sub-tab UI can flip between them without rebuilding the underlying
+    // VecModels — and so retention / selection / delete operate
+    // independently per kind.
+    let mut auto = backup::list_auto(install_root, map_name).unwrap_or_default();
+    let mut manual = backup::list_manual(install_root, map_name).unwrap_or_default();
+    let mut pre = backup::list_pre_rollbacks(install_root, map_name).unwrap_or_default();
+
+    let col = window.get_sort_column();
+    let desc = window.get_sort_desc();
+    sort_snapshots(&mut auto, col, desc);
+    sort_snapshots(&mut manual, col, desc);
+    sort_snapshots(&mut pre, col, desc);
+
+    // Build a map "source-snapshot-timestamp → pre_rollback" so each
+    // auto/manual row can surface its matching emergency backup via
+    // the "🔁 related backup" badge.
+    let related = build_related_map(&pre);
+    let empty_related = std::collections::HashMap::new();
+    window.set_snapshots_auto(build_snapshot_model(&auto, &related));
+    window.set_snapshots_manual(build_snapshot_model(&manual, &related));
+    window.set_pre_rollbacks(build_snapshot_model(&pre, &empty_related));
+
+    // Selections reset on refresh — the new VecModels always hand out
+    // rows with `selected: false`, so the counters must agree.
+    window.set_auto_selected_count(0);
+    window.set_manual_selected_count(0);
     window.set_pre_rollbacks_selected_count(0);
     window.set_pending_delete_list(-1);
     window.set_pending_delete_count(0);
 }
 
-fn slint_snapshot_model(items: &[backup::Snapshot]) -> ModelRc<BackupSnapshotEntry> {
+/// "Source-snapshot-second → pre_rollback" lookup. Keyed on the
+/// `YYYYMMDD_HHMMSS` formatted timestamp string so a freshly-created
+/// pre_rollback (with sub-second precision in `source_timestamp`) and
+/// a snapshot read back from disk (second precision) compare equal.
+type RelatedMap = std::collections::HashMap<String, backup::Snapshot>;
+
+fn build_related_map(pre_rollbacks: &[backup::Snapshot]) -> RelatedMap {
+    let mut map = RelatedMap::new();
+    for pre in pre_rollbacks {
+        if let Some(src) = pre.source_timestamp {
+            let key = src.format("%Y%m%d_%H%M%S").to_string();
+            map.entry(key).or_insert_with(|| pre.clone());
+        }
+    }
+    map
+}
+
+fn build_snapshot_model(
+    items: &[backup::Snapshot],
+    related: &RelatedMap,
+) -> ModelRc<BackupSnapshotEntry> {
     let entries: Vec<BackupSnapshotEntry> = items
         .iter()
-        .map(|s| BackupSnapshotEntry {
-            path: s.path.display().to_string().into(),
-            when_text: format_when(&s.created).into(),
-            size_text: format_size_bytes(s.size_bytes).into(),
-            is_pre_rollback: matches!(s.kind, backup::SnapshotKind::PreRollback),
-            // Refreshing the list always resets selections — the new
-            // model has fresh rows and per-row checkbox state from
-            // before the refresh wouldn't make sense to carry over.
-            selected: false,
+        .map(|s| {
+            let key = s.created.format("%Y%m%d_%H%M%S").to_string();
+            let r = related.get(&key);
+            snapshot_to_entry(s, r)
         })
         .collect();
     ModelRc::new(VecModel::from(entries))
+}
+
+fn snapshot_to_entry(
+    s: &backup::Snapshot,
+    related: Option<&backup::Snapshot>,
+) -> BackupSnapshotEntry {
+    let kind_idx = match s.kind {
+        backup::SnapshotKind::Auto => 0,
+        backup::SnapshotKind::Manual => 1,
+        backup::SnapshotKind::PreRollback => 2,
+    };
+    let source_when_text = s
+        .source_timestamp
+        .map(|t| format_when(&t))
+        .unwrap_or_default();
+    let (rel_path, rel_when, rel_size) = match related {
+        Some(r) => (
+            r.path.display().to_string(),
+            format_when(&r.created),
+            format_size_bytes(r.size_bytes),
+        ),
+        None => (String::new(), String::new(), String::new()),
+    };
+    BackupSnapshotEntry {
+        path: s.path.display().to_string().into(),
+        when_text: format_when(&s.created).into(),
+        size_text: format_size_bytes(s.size_bytes).into(),
+        kind: kind_idx,
+        selected: false,
+        source_when_text: source_when_text.into(),
+        related_path: rel_path.into(),
+        related_when_text: rel_when.into(),
+        related_size_text: rel_size.into(),
+        is_pre_rollback: matches!(s.kind, backup::SnapshotKind::PreRollback),
+    }
+}
+
+/// Sort `snaps` by the active column. `column == 1` means size, anything
+/// else means "when" (created timestamp). `desc == true` puts the newest
+/// or largest first — the default for both keys.
+fn sort_snapshots(snaps: &mut Vec<backup::Snapshot>, column: i32, desc: bool) {
+    snaps.sort_by(|a, b| {
+        let ord = if column == 1 {
+            a.size_bytes.cmp(&b.size_bytes)
+        } else {
+            a.created.cmp(&b.created)
+        };
+        if desc { ord.reverse() } else { ord }
+    });
 }
 
 /// Walk a snapshot model and count how many rows have `selected = true`.
@@ -4767,25 +4906,52 @@ fn count_selected(model: &ModelRc<BackupSnapshotEntry>) -> i32 {
     n
 }
 
-/// Flip the `selected` field on the i-th row of either the snapshots
-/// or pre_rollback model and refresh the matching `*-selected-count`
-/// property. `is_pre_rollback = true` targets the pre_rollback list.
-fn toggle_snapshot_row(window: &BackupWindow, idx: i32, is_pre_rollback: bool) {
-    let model = if is_pre_rollback {
-        window.get_pre_rollbacks()
-    } else {
-        window.get_snapshots()
-    };
+/// Resolve a list-index (0=auto, 1=manual, 2=pre_rollback) to the
+/// matching VecModel on the BackupWindow. Out-of-range indices return
+/// the auto model as a safe default — callers should already have
+/// filtered, this is a belt-and-braces guard.
+fn list_model(window: &BackupWindow, list: i32) -> ModelRc<BackupSnapshotEntry> {
+    match list {
+        1 => window.get_snapshots_manual(),
+        2 => window.get_pre_rollbacks(),
+        _ => window.get_snapshots_auto(),
+    }
+}
+
+fn store_selected_count(window: &BackupWindow, list: i32, count: i32) {
+    match list {
+        1 => window.set_manual_selected_count(count),
+        2 => window.set_pre_rollbacks_selected_count(count),
+        _ => window.set_auto_selected_count(count),
+    }
+}
+
+/// Flip the `selected` field on the (list, row) cell and re-sync the
+/// matching counter property. Drives the per-row checkbox toggle.
+fn toggle_row(window: &BackupWindow, list: i32, idx: i32) {
+    let model = list_model(window, list);
     let i = if idx < 0 { return } else { idx as usize };
     let Some(mut entry) = model.row_data(i) else { return };
     entry.selected = !entry.selected;
     model.set_row_data(i, entry);
     let count = count_selected(&model);
-    if is_pre_rollback {
-        window.set_pre_rollbacks_selected_count(count);
-    } else {
-        window.set_snapshots_selected_count(count);
+    store_selected_count(window, list, count);
+}
+
+/// Set every row in one list to `selected`, then re-sync the counter
+/// property. Drives the select-all / deselect-all button.
+fn set_all_rows(window: &BackupWindow, list: i32, selected: bool) {
+    let model = list_model(window, list);
+    for i in 0..model.row_count() {
+        if let Some(mut entry) = model.row_data(i) {
+            if entry.selected != selected {
+                entry.selected = selected;
+                model.set_row_data(i, entry);
+            }
+        }
     }
+    let count = count_selected(&model);
+    store_selected_count(window, list, count);
 }
 
 fn format_when(ts: &chrono::DateTime<chrono::Local>) -> String {
@@ -4939,11 +5105,13 @@ fn wire_backup_callbacks(
                     let map = profile
                         .map_name()
                         .ok_or_else(|| anyhow!("Profile has no map name."))?;
-                    let retain = profile.backup_retain_count();
+                    let _retain = profile.backup_retain_count();
                     let level = profile.backup_compression_level();
-                    let snap = backup::create_snapshot(&install_root, &map, level)?;
-                    let removed =
-                        backup::enforce_retention(&install_root, &map, retain)?;
+                    // User-initiated snapshots go to `manual/` and are
+                    // never pruned automatically — retention only
+                    // applies to the periodic `auto/` ring buffer.
+                    let snap = backup::create_manual_snapshot(&install_root, &map, level)?;
+                    let removed = 0u32;
                     Ok((install_root, map, snap.size_bytes, removed))
                 })();
                 match result {
@@ -5002,21 +5170,52 @@ fn wire_backup_callbacks(
         });
     }
     {
-        // Per-row checkbox toggle (snapshots list). The host owns the
-        // VecModel — we flip the i-th row's `selected` field, write it
-        // back, and recount so the "Delete selected (N)" button label
-        // and enable state stay in sync.
+        // Per-row checkbox toggle for any of the three lists. `list`:
+        // 0=auto, 1=manual, 2=pre_rollback; `row` is the row index.
         let weak = window.as_weak();
-        window.on_toggle_snapshot_selected(move |idx| {
+        window.on_toggle_row_selected(move |list, row| {
             let Some(w) = weak.upgrade() else { return };
-            toggle_snapshot_row(&w, idx, false);
+            toggle_row(&w, list, row);
         });
     }
     {
+        // Select-all / deselect-all. `list`: 0=auto, 1=manual,
+        // 2=pre_rollback; `selected` is the target state for all rows.
         let weak = window.as_weak();
-        window.on_toggle_pre_rollback_selected(move |idx| {
+        window.on_set_all_selected(move |list, selected| {
             let Some(w) = weak.upgrade() else { return };
-            toggle_snapshot_row(&w, idx, true);
+            set_all_rows(&w, list, selected);
+        });
+    }
+    {
+        // Sort-by-column. If the same column is clicked twice, flip
+        // direction; otherwise switch to that column and reset to
+        // newest/largest-first.
+        let weak = window.as_weak();
+        let ctx = ctx.clone();
+        let profiles = profiles.clone();
+        let selected = selected.clone();
+        window.on_sort_by_clicked(move |col| {
+            let Some(w) = weak.upgrade() else { return };
+            let current_col = w.get_sort_column();
+            let current_desc = w.get_sort_desc();
+            if current_col == col {
+                w.set_sort_desc(!current_desc);
+            } else {
+                w.set_sort_column(col);
+                w.set_sort_desc(true);
+            }
+            // Republish all three models with the new ordering.
+            if let Some(profile_path) = current_profile_path(&profiles, &selected) {
+                if let Ok(profile) = Profile::load(&profile_path) {
+                    if let (Some(root), Some(map)) = (
+                        profile.resolved_install_path(&ctx.install_dir),
+                        profile.map_name(),
+                    ) {
+                        refresh_backup_lists_in_window(&w, &root, &map);
+                    }
+                }
+            }
         });
     }
     {
@@ -5035,11 +5234,12 @@ fn wire_backup_callbacks(
                 w.set_action_message("No profile selected.".into());
                 return;
             };
-            // 0 = snapshots, 1 = pre_rollbacks. Anything else is a
-            // stale strip — bail.
+            // 0 = auto, 1 = manual, 2 = pre_rollback. Anything else is
+            // a stale strip — bail.
             let model = match list {
-                0 => w.get_snapshots(),
-                1 => w.get_pre_rollbacks(),
+                0 => w.get_snapshots_auto(),
+                1 => w.get_snapshots_manual(),
+                2 => w.get_pre_rollbacks(),
                 _ => return,
             };
             let paths: Vec<PathBuf> = (0..model.row_count())
@@ -5136,9 +5336,16 @@ fn wire_backup_callbacks(
                     // mistake is recoverable. Honour the user's
                     // configured compression level here too — the
                     // pre_rollback zip should be as quick to write
-                    // as the periodic ones.
+                    // as the periodic ones. The source snapshot's
+                    // timestamp gets embedded in the pre_rollback
+                    // filename so the GUI can later show which
+                    // pre_rollback belongs to which snapshot row.
                     let level = profile.backup_compression_level();
-                    let _ = backup::create_pre_rollback(&install_root, &map, level);
+                    let src_ts = backup::snapshot_path_created(&snapshot_path)
+                        .unwrap_or_else(chrono::Local::now);
+                    let _ = backup::create_pre_rollback(
+                        &install_root, &map, level, src_ts,
+                    );
                     let _ = backup::enforce_pre_rollback_retention(&install_root, &map);
                     backup::rollback(&install_root, &map, &snapshot_path)?;
                     Ok((install_root, map))
@@ -5225,8 +5432,11 @@ fn run_backup_scheduler_tick(
     let retain = profile.backup_retain_count();
     let level = profile.backup_compression_level();
 
-    // Decide whether enough time has elapsed since the newest snapshot.
-    let snapshots = backup::list_snapshots(&install_root, &map).unwrap_or_default();
+    // Decide whether enough time has elapsed since the newest auto
+    // snapshot. Manual snapshots don't count toward the schedule — the
+    // user took them on purpose, and using them as the "last backup"
+    // marker would delay the next periodic one.
+    let snapshots = backup::list_auto(&install_root, &map).unwrap_or_default();
     let now = chrono::Local::now();
     let due = match snapshots.first() {
         Some(s) => (now - s.created).num_minutes() >= interval_minutes,
@@ -5235,7 +5445,7 @@ fn run_backup_scheduler_tick(
     if !due {
         return;
     }
-    match backup::create_snapshot(&install_root, &map, level) {
+    match backup::create_auto_snapshot(&install_root, &map, level) {
         Ok(snap) => {
             let removed =
                 backup::enforce_retention(&install_root, &map, retain).unwrap_or(0);

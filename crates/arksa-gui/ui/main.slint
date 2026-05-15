@@ -224,12 +224,31 @@ export struct UiLabels {
     backup_btn_refresh: string,
     backup_section_snapshots: string,
     backup_section_pre_rollback: string,
+    // "Snapshot list" master category and its three sub-tabs.
+    backup_section_list: string,
+    backup_subtab_auto: string,
+    backup_subtab_manual: string,
+    backup_subtab_pre_rollback: string,
+    // Per-row meta line — short label for the kind chip + source-row prefix.
+    backup_meta_kind_label: string,
+    backup_meta_source_label: string,
+    // "Has a pre_rollback emergency backup attached" badge text.
+    backup_badge_related: string,
+    backup_badge_detail_title: string,
+    backup_btn_restore_from_pre: string,
+    backup_btn_close_detail: string,
+    // Column-header sort arrows. Composed into the header text when the
+    // matching column is the active sort key.
+    backup_col_sort_asc: string,
+    backup_col_sort_desc: string,
     backup_col_when: string,
     backup_col_size: string,
     backup_col_actions: string,
     backup_col_select: string,
     backup_btn_rollback: string,
     backup_btn_delete_selected: string,
+    backup_btn_select_all: string,
+    backup_btn_deselect_all: string,
     backup_confirm_delete_title: string,
     backup_confirm_delete_body: string,
     backup_confirm_delete_yes: string,
@@ -3261,16 +3280,31 @@ export struct BackupSnapshotEntry {
     path: string,
     when_text: string,    // human-friendly timestamp, e.g. "2026-05-09 14:30:00"
     size_text: string,    // human-friendly size, e.g. "284.7 MB"
-    is_pre_rollback: bool,
+    /// Snapshot kind: 0 = Auto (periodic), 1 = Manual (user-initiated),
+    /// 2 = PreRollback (emergency, taken before a rollback).
+    kind: int,
     selected: bool,
+    /// Only set for `kind == 2`: when-text of the source snapshot the
+    /// rollback was about to restore. Empty for legacy pre_rollback
+    /// files that don't carry the source timestamp.
+    source_when_text: string,
+    /// Only set for `kind == 0|1` rows whose `created` second matches
+    /// some pre_rollback's source. Populated by the host on refresh.
+    /// Empty when no related emergency backup exists.
+    related_path: string,
+    related_when_text: string,
+    related_size_text: string,
+    // Mirror of `is_pre_rollback` for code paths that still need a
+    // bool (e.g. row-toggle dispatch). Equivalent to `kind == 2`.
+    is_pre_rollback: bool,
 }
 
 export component BackupWindow inherits Window {
     title: root.labels.backup_window_title;
     preferred-width: 760px;
-    preferred-height: 640px;
-    min-width: 560px;
-    min-height: 480px;
+    preferred-height: 600px;
+    min-width: 660px;
+    min-height: 460px;
     background: Palette.background;
 
     in property <UiLabels> labels;
@@ -3291,30 +3325,50 @@ export component BackupWindow inherits Window {
     /// the host side so this property stays a simple int.
     in-out property <int> compression-index: 1;
 
-    // Lists driven by the host. Populated whenever the dialog opens or
-    // after a take-snapshot / rollback callback returns.
-    in property <[BackupSnapshotEntry]> snapshots: [];
+    // Three lists, one per kind. Driven by the host on dialog open and
+    // after a take-snapshot / rollback / delete callback returns.
+    in property <[BackupSnapshotEntry]> snapshots-auto: [];
+    in property <[BackupSnapshotEntry]> snapshots-manual: [];
     in property <[BackupSnapshotEntry]> pre-rollbacks: [];
 
     in property <string> action-message: "";
     in property <bool> action-busy: false;
     in property <bool> server-running: false;
 
-    // Confirmation modal state, driven by Slint side. The host only sees
-    // the final rollback-confirmed callback.
+    // Rollback confirmation strip.
     in-out property <string> pending-rollback-path: "";
     in-out property <string> pending-rollback-when: "";
 
-    /// Counters maintained by the host whenever a row checkbox toggles.
-    /// Drive the "Delete selected (N)" button label and enable state.
-    in property <int> snapshots-selected-count: 0;
+    /// Badge-detail strip: shown when the user clicks a "🔁 related"
+    /// badge on an auto/manual row. Carries the related pre_rollback's
+    /// zip path so the "Restore from this backup" button can fire a
+    /// rollback-confirmed against it.
+    in-out property <string> badge-detail-path: "";
+    in-out property <string> badge-detail-when: "";
+    in-out property <string> badge-detail-size: "";
+    in-out property <string> badge-detail-source-when: "";
+
+    /// Selected-row counters per list (0=auto, 1=manual, 2=pre_rollback).
+    /// Maintained by the host whenever a row checkbox toggles.
+    in property <int> auto-selected-count: 0;
+    in property <int> manual-selected-count: 0;
     in property <int> pre-rollbacks-selected-count: 0;
 
-    /// Pending bulk-delete confirmation. Set by the "Delete selected"
-    /// buttons; cleared by the in-dialog Cancel / Yes-delete actions.
-    /// `pending-delete-list`: 0=snapshots, 1=pre_rollbacks.
+    /// Pending bulk-delete confirmation. `pending-delete-list`:
+    /// 0=auto, 1=manual, 2=pre_rollback. Reset to -1 when dismissed.
     in-out property <int> pending-delete-list: -1;
     in-out property <int> pending-delete-count: 0;
+
+    /// Active sidebar category. 0=Paths, 1=Settings, 2=Snapshot list.
+    in-out property <int> current-category: 0;
+    /// Active sub-tab inside the Snapshot list category.
+    /// 0=auto, 1=manual, 2=pre_rollback.
+    in-out property <int> current-subtab: 0;
+
+    /// Sort key for all three lists. 0=when, 1=size. The host applies
+    /// the sort whenever it (re)publishes the snapshot models.
+    in-out property <int> sort-column: 0;
+    in-out property <bool> sort-desc: true;
 
     callback save-clicked();
     callback close-clicked();
@@ -3323,186 +3377,611 @@ export component BackupWindow inherits Window {
     /// Called after the user confirms the in-dialog rollback prompt.
     /// `path` is the snapshot zip absolute path.
     callback rollback-confirmed(string);
-    /// Per-row checkbox toggles. The host flips the row's `selected`
-    /// field in the underlying VecModel and recomputes the *-selected-
-    /// count properties.
-    callback toggle-snapshot-selected(int);
-    callback toggle-pre-rollback-selected(int);
+    /// Per-row checkbox toggle. `list`: 0=auto, 1=manual, 2=pre_rollback.
+    /// `row` is the index inside that list's VecModel.
+    callback toggle-row-selected(int, int);
+    /// Select / deselect every row in one list. `list`: 0=auto,
+    /// 1=manual, 2=pre_rollback. `selected`: target state for all rows.
+    callback set-all-selected(int, bool);
     /// Bulk delete confirmed. `list` matches `pending-delete-list`.
     callback delete-selected-confirmed(int);
+    /// Column header clicked — Rust toggles direction or switches column,
+    /// then republishes the three snapshot models in the new order.
+    callback sort-by-clicked(int);
 
-    // The bottom action row stays pinned outside the ScrollView so the
-    // user can always reach Save / Close even when the snapshot lists
-    // overflow the viewport. The scrollable region holds everything
-    // above (paths / settings / manual / lists / pre_rollback).
+    // Layout mirrors the World Settings dialog: a fixed category
+    // sidebar on the left, the active category's pane on the right.
+    // The badge-detail / delete-confirm / rollback-confirm strips and
+    // the Save / Close row stay pinned below the split so they are
+    // reachable from any category.
     VerticalBox {
         padding: 12px;
         spacing: 10px;
 
-        ScrollView {
+        HorizontalBox {
             vertical-stretch: 1;
-            VerticalBox {
-                padding: 0;
-                spacing: 10px;
+            spacing: 0;
+            padding: 0;
 
-        // ── Context header ────────────────────────────────────────────
-        GroupBox {
-            title: root.labels.backup_section_paths;
-            VerticalBox {
-                spacing: 4px;
-                HorizontalBox {
-                    spacing: 6px;
-                    Text {
-                        text: root.labels.profile_label;
-                        color: AppTheme.accent;
-                        vertical-alignment: center;
-                        min-width: 110px;
+            // ── Left: category sidebar ───────────────────────────────
+            Rectangle {
+                width: 150px;
+                background: Palette.alternate-background;
+                VerticalLayout {
+                    spacing: 0;
+                    Rectangle {
+                        height: 38px;
+                        background: AppTheme.header-bg;
+                        HorizontalBox {
+                            padding-left: 12px;
+                            padding-right: 12px;
+                            Rectangle {
+                                height: 22px;
+                                background: AppTheme.header-bg;
+                                vertical-stretch: 0;
+                                Text {
+                                    text: root.labels.world_col_category;
+                                    color: AppTheme.accent;
+                                    font-weight: 700;
+                                    font-size: 11px;
+                                    vertical-alignment: center;
+                                    x: 0;
+                                }
+                            }
+                        }
                     }
-                    Text {
-                        text: root.profile-display-name + " — " + root.map-name;
-                        vertical-alignment: center;
-                        horizontal-stretch: 1;
-                        overflow: elide;
-                    }
-                }
-                HorizontalBox {
-                    spacing: 6px;
-                    Text {
-                        text: root.labels.backup_label_savedarks;
-                        color: AppTheme.accent;
-                        vertical-alignment: center;
-                        min-width: 110px;
-                    }
-                    Text {
-                        text: root.savedarks-path;
-                        vertical-alignment: center;
-                        horizontal-stretch: 1;
-                        font-size: 11px;
-                        overflow: elide;
-                    }
-                }
-                HorizontalBox {
-                    spacing: 6px;
-                    Text {
-                        text: root.labels.backup_label_target;
-                        color: AppTheme.accent;
-                        vertical-alignment: center;
-                        min-width: 110px;
-                    }
-                    Text {
-                        text: root.backup-path;
-                        vertical-alignment: center;
-                        horizontal-stretch: 1;
-                        font-size: 11px;
-                        overflow: elide;
+                    ScrollView {
+                        VerticalBox {
+                            padding: 4px;
+                            spacing: 1px;
+                            CategoryButton { index: 0; current-index: root.current-category; label: root.labels.backup_section_paths;    clicked => { root.current-category = 0; } }
+                            CategoryButton { index: 1; current-index: root.current-category; label: root.labels.backup_section_settings; clicked => { root.current-category = 1; } }
+                            CategoryButton { index: 2; current-index: root.current-category; label: root.labels.backup_section_list;     clicked => { root.current-category = 2; } }
+                        }
                     }
                 }
             }
+
+            // ── Right: content pane (only the active category) ───────
+            VerticalBox {
+                horizontal-stretch: 1;
+                padding: 0;
+                padding-left: 12px;
+                spacing: 0;
+
+                // Category 0 — Paths / context
+                if root.current-category == 0: GroupBox {
+                    title: root.labels.backup_section_paths;
+                    VerticalBox {
+                        spacing: 4px;
+                        HorizontalBox {
+                            spacing: 6px;
+                            Text {
+                                text: root.labels.profile_label;
+                                color: AppTheme.accent;
+                                vertical-alignment: center;
+                                min-width: 110px;
+                            }
+                            Text {
+                                text: root.profile-display-name + " — " + root.map-name;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                                overflow: elide;
+                            }
+                        }
+                        HorizontalBox {
+                            spacing: 6px;
+                            Text {
+                                text: root.labels.backup_label_savedarks;
+                                color: AppTheme.accent;
+                                vertical-alignment: center;
+                                min-width: 110px;
+                            }
+                            Text {
+                                text: root.savedarks-path;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                                font-size: 11px;
+                                overflow: elide;
+                            }
+                        }
+                        HorizontalBox {
+                            spacing: 6px;
+                            Text {
+                                text: root.labels.backup_label_target;
+                                color: AppTheme.accent;
+                                vertical-alignment: center;
+                                min-width: 110px;
+                            }
+                            Text {
+                                text: root.backup-path;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                                font-size: 11px;
+                                overflow: elide;
+                            }
+                        }
+                    }
+                }
+
+                // Category 1 — Backup settings (auto + manual merged).
+                // Old "Manual" category was folded in here: the
+                // "Take backup now" button sits right under the
+                // periodic settings so the user sees both controls at
+                // a glance.
+                if root.current-category == 1: GroupBox {
+                    title: root.labels.backup_section_settings;
+                    VerticalBox {
+                        spacing: 6px;
+                        CheckBox {
+                            text: root.labels.backup_auto_enabled;
+                            checked <=> root.auto-backup-enabled;
+                        }
+                        HorizontalBox {
+                            spacing: 6px;
+                            Text {
+                                text: root.labels.backup_label_interval;
+                                vertical-alignment: center;
+                                min-width: 200px;
+                            }
+                            LineEdit {
+                                text <=> root.interval-minutes;
+                                width: 100px;
+                                input-type: number;
+                            }
+                            Text {
+                                text: root.labels.backup_unit_minutes;
+                                vertical-alignment: center;
+                            }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                        HorizontalBox {
+                            spacing: 6px;
+                            Text {
+                                text: root.labels.backup_label_retain;
+                                vertical-alignment: center;
+                                min-width: 200px;
+                            }
+                            LineEdit {
+                                text <=> root.retain-count;
+                                width: 100px;
+                                input-type: number;
+                            }
+                            Text {
+                                text: root.labels.backup_unit_count;
+                                vertical-alignment: center;
+                            }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                        HorizontalBox {
+                            spacing: 6px;
+                            Text {
+                                text: root.labels.backup_label_compression;
+                                vertical-alignment: center;
+                                min-width: 200px;
+                            }
+                            ComboBox {
+                                model: [
+                                    root.labels.backup_compression_none,
+                                    root.labels.backup_compression_fast,
+                                    root.labels.backup_compression_balanced,
+                                    root.labels.backup_compression_max,
+                                ];
+                                current-index <=> root.compression-index;
+                                min-width: 220px;
+                            }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                        Text {
+                            text: root.labels.backup_compression_hint;
+                            font-size: 11px;
+                            wrap: word-wrap;
+                            color: Palette.foreground;
+                        }
+                        // Manual snapshot trigger — kept inside Settings
+                        // so users don't have to pick a separate sidebar
+                        // category just to press one button.
+                        Rectangle { height: 8px; background: transparent; }
+                        Text {
+                            text: root.labels.backup_section_manual;
+                            color: AppTheme.accent;
+                            font-weight: 700;
+                            font-size: 12px;
+                        }
+                        HorizontalBox {
+                            spacing: 8px;
+                            Button {
+                                text: root.labels.backup_btn_take_now;
+                                enabled: !root.action-busy;
+                                clicked => { root.take-snapshot-now(); }
+                            }
+                            Button {
+                                text: root.labels.backup_btn_refresh;
+                                enabled: !root.action-busy;
+                                clicked => { root.refresh-clicked(); }
+                            }
+                            Rectangle { horizontal-stretch: 1; }
+                            if root.action-message != "": Text {
+                                text: root.action-message;
+                                color: AppTheme.accent;
+                                vertical-alignment: center;
+                                overflow: elide;
+                            }
+                        }
+                    }
+                }
+
+                // Category 2 — Snapshot list with three sub-tabs.
+                // Each sub-tab shows one of the three lists; column
+                // headers are clickable to switch sort order; the
+                // bottom action row pins select-all + delete.
+                if root.current-category == 2: VerticalBox {
+                    vertical-stretch: 1;
+                    spacing: 6px;
+                    HorizontalBox {
+                        spacing: 6px;
+                        Button {
+                            text: root.labels.backup_subtab_auto + " (" + root.snapshots-auto.length + ")";
+                            primary: root.current-subtab == 0;
+                            clicked => { root.current-subtab = 0; }
+                        }
+                        Button {
+                            text: root.labels.backup_subtab_manual + " (" + root.snapshots-manual.length + ")";
+                            primary: root.current-subtab == 1;
+                            clicked => { root.current-subtab = 1; }
+                        }
+                        Button {
+                            text: root.labels.backup_subtab_pre_rollback + " (" + root.pre-rollbacks.length + ")";
+                            primary: root.current-subtab == 2;
+                            clicked => { root.current-subtab = 2; }
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                    }
+                    GroupBox {
+                        vertical-stretch: 1;
+                        title: root.current-subtab == 0
+                               ? root.labels.backup_subtab_auto
+                               : (root.current-subtab == 1
+                                  ? root.labels.backup_subtab_manual
+                                  : root.labels.backup_subtab_pre_rollback);
+                        VerticalBox {
+                            spacing: 4px;
+                            // Column header row. The "when" and "size"
+                            // headers are clickable to switch sort
+                            // direction (or sort key, if not already
+                            // active). An arrow glyph appears next to
+                            // the active key.
+                            HorizontalBox {
+                                spacing: 6px;
+                                Text { text: root.labels.backup_col_select; min-width: 30px; color: AppTheme.accent; }
+                                Rectangle {
+                                    min-width: 220px;
+                                    height: 22px;
+                                    Text {
+                                        x: 0;
+                                        text: root.labels.backup_col_when
+                                              + (root.sort-column == 0
+                                                 ? (root.sort-desc
+                                                    ? root.labels.backup_col_sort_desc
+                                                    : root.labels.backup_col_sort_asc)
+                                                 : "");
+                                        color: AppTheme.accent;
+                                        vertical-alignment: center;
+                                    }
+                                    TouchArea {
+                                        clicked => { root.sort-by-clicked(0); }
+                                    }
+                                }
+                                Rectangle {
+                                    min-width: 100px;
+                                    height: 22px;
+                                    Text {
+                                        x: 0;
+                                        text: root.labels.backup_col_size
+                                              + (root.sort-column == 1
+                                                 ? (root.sort-desc
+                                                    ? root.labels.backup_col_sort_desc
+                                                    : root.labels.backup_col_sort_asc)
+                                                 : "");
+                                        color: AppTheme.accent;
+                                        vertical-alignment: center;
+                                    }
+                                    TouchArea {
+                                        clicked => { root.sort-by-clicked(1); }
+                                    }
+                                }
+                                Text { text: root.labels.backup_col_actions; horizontal-stretch: 1; color: AppTheme.accent; }
+                            }
+                            ScrollView {
+                                vertical-stretch: 1;
+                                VerticalBox {
+                                    padding: 0;
+                                    spacing: 4px;
+                                    if root.current-subtab == 0 && root.snapshots-auto.length == 0: Text {
+                                        text: root.labels.backup_empty_snapshots;
+                                        font-size: 11px;
+                                    }
+                                    if root.current-subtab == 1 && root.snapshots-manual.length == 0: Text {
+                                        text: root.labels.backup_empty_snapshots;
+                                        font-size: 11px;
+                                    }
+                                    if root.current-subtab == 2 && root.pre-rollbacks.length == 0: Text {
+                                        text: root.labels.backup_empty_pre_rollback;
+                                        font-size: 11px;
+                                    }
+                                    // Auto sub-tab rows.
+                                    if root.current-subtab == 0: VerticalBox {
+                                        padding: 0;
+                                        spacing: 4px;
+                                        for snap[i] in root.snapshots-auto: HorizontalBox {
+                                            spacing: 6px;
+                                            CheckBox {
+                                                checked: snap.selected;
+                                                toggled => { root.toggle-row-selected(0, i); }
+                                            }
+                                            Text { text: snap.when_text; vertical-alignment: center; min-width: 220px; }
+                                            Text { text: snap.size_text; vertical-alignment: center; min-width: 100px; }
+                                            // "🔁 related backup" badge —
+                                            // only rendered when the host
+                                            // found a matching pre_rollback.
+                                            if snap.related_path != "": Rectangle {
+                                                background: #1a2030;
+                                                border-color: #4080c0;
+                                                border-width: 1px;
+                                                border-radius: 3px;
+                                                height: 24px;
+                                                HorizontalBox {
+                                                    padding-left: 6px;
+                                                    padding-right: 6px;
+                                                    Text {
+                                                        text: root.labels.backup_badge_related;
+                                                        color: #80b0ff;
+                                                        font-size: 11px;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+                                                TouchArea {
+                                                    clicked => {
+                                                        root.badge-detail-path = snap.related_path;
+                                                        root.badge-detail-when = snap.related_when_text;
+                                                        root.badge-detail-size = snap.related_size_text;
+                                                        root.badge-detail-source-when = snap.when_text;
+                                                    }
+                                                }
+                                            }
+                                            Button {
+                                                text: root.labels.backup_btn_rollback;
+                                                enabled: !root.action-busy;
+                                                clicked => {
+                                                    root.pending-rollback-path = snap.path;
+                                                    root.pending-rollback-when = snap.when_text;
+                                                }
+                                            }
+                                            Rectangle { horizontal-stretch: 1; }
+                                        }
+                                    }
+                                    // Manual sub-tab rows.
+                                    if root.current-subtab == 1: VerticalBox {
+                                        padding: 0;
+                                        spacing: 4px;
+                                        for snap[i] in root.snapshots-manual: HorizontalBox {
+                                            spacing: 6px;
+                                            CheckBox {
+                                                checked: snap.selected;
+                                                toggled => { root.toggle-row-selected(1, i); }
+                                            }
+                                            Text { text: snap.when_text; vertical-alignment: center; min-width: 220px; }
+                                            Text { text: snap.size_text; vertical-alignment: center; min-width: 100px; }
+                                            if snap.related_path != "": Rectangle {
+                                                background: #1a2030;
+                                                border-color: #4080c0;
+                                                border-width: 1px;
+                                                border-radius: 3px;
+                                                height: 24px;
+                                                HorizontalBox {
+                                                    padding-left: 6px;
+                                                    padding-right: 6px;
+                                                    Text {
+                                                        text: root.labels.backup_badge_related;
+                                                        color: #80b0ff;
+                                                        font-size: 11px;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+                                                TouchArea {
+                                                    clicked => {
+                                                        root.badge-detail-path = snap.related_path;
+                                                        root.badge-detail-when = snap.related_when_text;
+                                                        root.badge-detail-size = snap.related_size_text;
+                                                        root.badge-detail-source-when = snap.when_text;
+                                                    }
+                                                }
+                                            }
+                                            Button {
+                                                text: root.labels.backup_btn_rollback;
+                                                enabled: !root.action-busy;
+                                                clicked => {
+                                                    root.pending-rollback-path = snap.path;
+                                                    root.pending-rollback-when = snap.when_text;
+                                                }
+                                            }
+                                            Rectangle { horizontal-stretch: 1; }
+                                        }
+                                    }
+                                    // Pre-rollback sub-tab rows. These
+                                    // carry a "源スナップショット" meta
+                                    // line so the user can see which
+                                    // rollback this emergency backup
+                                    // belongs to.
+                                    if root.current-subtab == 2: VerticalBox {
+                                        padding: 0;
+                                        spacing: 4px;
+                                        for snap[i] in root.pre-rollbacks: VerticalBox {
+                                            spacing: 0;
+                                            HorizontalBox {
+                                                spacing: 6px;
+                                                CheckBox {
+                                                    checked: snap.selected;
+                                                    toggled => { root.toggle-row-selected(2, i); }
+                                                }
+                                                Text { text: snap.when_text; vertical-alignment: center; min-width: 220px; }
+                                                Text { text: snap.size_text; vertical-alignment: center; min-width: 100px; }
+                                                Button {
+                                                    text: root.labels.backup_btn_rollback;
+                                                    enabled: !root.action-busy;
+                                                    clicked => {
+                                                        root.pending-rollback-path = snap.path;
+                                                        root.pending-rollback-when = snap.when_text;
+                                                    }
+                                                }
+                                                Rectangle { horizontal-stretch: 1; }
+                                            }
+                                            if snap.source_when_text != "": Text {
+                                                text: "   " + root.labels.backup_meta_source_label + ": " + snap.source_when_text;
+                                                font-size: 11px;
+                                                color: Palette.foreground;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            // Per-subtab select-all + bulk-delete row.
+                            // We compute the active count and length
+                            // inline rather than maintaining duplicate
+                            // properties.
+                            HorizontalBox {
+                                alignment: end;
+                                spacing: 6px;
+                                Button {
+                                    text:
+                                        (root.current-subtab == 0
+                                         ? (root.auto-selected-count >= root.snapshots-auto.length
+                                            ? root.labels.backup_btn_deselect_all
+                                            : root.labels.backup_btn_select_all)
+                                         : (root.current-subtab == 1
+                                            ? (root.manual-selected-count >= root.snapshots-manual.length
+                                               ? root.labels.backup_btn_deselect_all
+                                               : root.labels.backup_btn_select_all)
+                                            : (root.pre-rollbacks-selected-count >= root.pre-rollbacks.length
+                                               ? root.labels.backup_btn_deselect_all
+                                               : root.labels.backup_btn_select_all)));
+                                    enabled: !root.action-busy && (
+                                        (root.current-subtab == 0 && root.snapshots-auto.length > 0)
+                                        || (root.current-subtab == 1 && root.snapshots-manual.length > 0)
+                                        || (root.current-subtab == 2 && root.pre-rollbacks.length > 0));
+                                    clicked => {
+                                        if (root.current-subtab == 0) {
+                                            root.set-all-selected(0,
+                                                root.auto-selected-count < root.snapshots-auto.length);
+                                        }
+                                        if (root.current-subtab == 1) {
+                                            root.set-all-selected(1,
+                                                root.manual-selected-count < root.snapshots-manual.length);
+                                        }
+                                        if (root.current-subtab == 2) {
+                                            root.set-all-selected(2,
+                                                root.pre-rollbacks-selected-count < root.pre-rollbacks.length);
+                                        }
+                                    }
+                                }
+                                Button {
+                                    text: root.labels.backup_btn_delete_selected + " ("
+                                          + (root.current-subtab == 0
+                                             ? root.auto-selected-count
+                                             : (root.current-subtab == 1
+                                                ? root.manual-selected-count
+                                                : root.pre-rollbacks-selected-count))
+                                          + ")";
+                                    enabled: !root.action-busy
+                                             && ((root.current-subtab == 0 && root.auto-selected-count > 0)
+                                                 || (root.current-subtab == 1 && root.manual-selected-count > 0)
+                                                 || (root.current-subtab == 2 && root.pre-rollbacks-selected-count > 0));
+                                    clicked => {
+                                        root.pending-delete-list = root.current-subtab;
+                                        root.pending-delete-count =
+                                            root.current-subtab == 0
+                                            ? root.auto-selected-count
+                                            : (root.current-subtab == 1
+                                               ? root.manual-selected-count
+                                               : root.pre-rollbacks-selected-count);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Light categories (0, 1) top-align; category 2 (the
+                // snapshot list) fills via its own vertical-stretch.
+                if root.current-category <= 1: Rectangle { vertical-stretch: 1; }
+            }
         }
 
-        // ── Settings ──────────────────────────────────────────────────
-        GroupBox {
-            title: root.labels.backup_section_settings;
+        // ── Badge-detail strip (pinned) ──────────────────────────────
+        // Pops up when the user clicks the "🔁 related backup" badge
+        // on an auto/manual row. Shows the matched pre_rollback's
+        // meta and offers a one-click "restore from this backup".
+        if root.badge-detail-path != "": Rectangle {
+            background: #0f1a30;
+            border-color: #4080c0;
+            border-width: 1px;
+            border-radius: 4px;
             VerticalBox {
+                padding: 10px;
                 spacing: 6px;
-                CheckBox {
-                    text: root.labels.backup_auto_enabled;
-                    checked <=> root.auto-backup-enabled;
-                }
-                HorizontalBox {
-                    spacing: 6px;
-                    Text {
-                        text: root.labels.backup_label_interval;
-                        vertical-alignment: center;
-                        min-width: 200px;
-                    }
-                    LineEdit {
-                        text <=> root.interval-minutes;
-                        width: 100px;
-                        input-type: number;
-                    }
-                    Text {
-                        text: root.labels.backup_unit_minutes;
-                        vertical-alignment: center;
-                    }
-                    Rectangle { horizontal-stretch: 1; }
-                }
-                HorizontalBox {
-                    spacing: 6px;
-                    Text {
-                        text: root.labels.backup_label_retain;
-                        vertical-alignment: center;
-                        min-width: 200px;
-                    }
-                    LineEdit {
-                        text <=> root.retain-count;
-                        width: 100px;
-                        input-type: number;
-                    }
-                    Text {
-                        text: root.labels.backup_unit_count;
-                        vertical-alignment: center;
-                    }
-                    Rectangle { horizontal-stretch: 1; }
-                }
-                // Compression level picker. The four entries map to
-                // STORE / Deflate 1 / Deflate 6 / Deflate 9 on the
-                // Rust side. Default index 1 (Fast) — best speed /
-                // size tradeoff for ARK's binary saves.
-                HorizontalBox {
-                    spacing: 6px;
-                    Text {
-                        text: root.labels.backup_label_compression;
-                        vertical-alignment: center;
-                        min-width: 200px;
-                    }
-                    ComboBox {
-                        model: [
-                            root.labels.backup_compression_none,
-                            root.labels.backup_compression_fast,
-                            root.labels.backup_compression_balanced,
-                            root.labels.backup_compression_max,
-                        ];
-                        current-index <=> root.compression-index;
-                        min-width: 220px;
-                    }
-                    Rectangle { horizontal-stretch: 1; }
+                Text {
+                    text: root.labels.backup_badge_detail_title;
+                    color: #80b0ff;
+                    font-weight: 700;
                 }
                 Text {
-                    text: root.labels.backup_compression_hint;
-                    font-size: 11px;
+                    text: root.labels.backup_col_when + ": " + root.badge-detail-when
+                          + "    " + root.labels.backup_col_size + ": " + root.badge-detail-size
+                          + (root.badge-detail-source-when != ""
+                             ? "\n" + root.labels.backup_meta_source_label + ": " + root.badge-detail-source-when
+                             : "");
                     wrap: word-wrap;
-                    color: Palette.foreground;
+                }
+                if root.server-running: Text {
+                    text: root.labels.backup_warn_running;
+                    color: #ff7070;
+                    wrap: word-wrap;
+                }
+                HorizontalBox {
+                    alignment: end;
+                    spacing: 8px;
+                    Button {
+                        text: root.labels.backup_btn_close_detail;
+                        clicked => {
+                            root.badge-detail-path = "";
+                            root.badge-detail-when = "";
+                            root.badge-detail-size = "";
+                            root.badge-detail-source-when = "";
+                        }
+                    }
+                    Button {
+                        text: root.labels.backup_btn_restore_from_pre;
+                        primary: true;
+                        enabled: !root.action-busy && !root.server-running;
+                        clicked => {
+                            // Hand the related pre_rollback off to the
+                            // same rollback-confirm strip the snapshot
+                            // rows use. Clearing the badge state first
+                            // makes sure the badge strip closes when
+                            // the user accepts the rollback.
+                            root.pending-rollback-path = root.badge-detail-path;
+                            root.pending-rollback-when = root.badge-detail-when;
+                            root.badge-detail-path = "";
+                            root.badge-detail-when = "";
+                            root.badge-detail-size = "";
+                            root.badge-detail-source-when = "";
+                        }
+                    }
                 }
             }
         }
 
-        // ── Manual snapshot ──────────────────────────────────────────
-        GroupBox {
-            title: root.labels.backup_section_manual;
-            HorizontalBox {
-                spacing: 8px;
-                Button {
-                    text: root.labels.backup_btn_take_now;
-                    enabled: !root.action-busy;
-                    clicked => { root.take-snapshot-now(); }
-                }
-                Button {
-                    text: root.labels.backup_btn_refresh;
-                    enabled: !root.action-busy;
-                    clicked => { root.refresh-clicked(); }
-                }
-                Rectangle { horizontal-stretch: 1; }
-                if root.action-message != "": Text {
-                    text: root.action-message;
-                    color: AppTheme.accent;
-                    vertical-alignment: center;
-                    overflow: elide;
-                }
-            }
-        }
-
-        // ── Bulk-delete confirmation (in-dialog modal-ish strip) ─────
+        // ── Bulk-delete confirmation (pinned, modal-ish strip) ───────
         // Rendered above the rollback strip so when both could in
         // theory pop together (rare race) the destructive one is the
         // one the user sees first.
@@ -3523,8 +4002,10 @@ export component BackupWindow inherits Window {
                     text: root.labels.backup_confirm_delete_body
                           + "\n  → " + root.pending-delete-count + " "
                           + (root.pending-delete-list == 0
-                             ? root.labels.backup_section_snapshots
-                             : root.labels.backup_section_pre_rollback);
+                             ? root.labels.backup_subtab_auto
+                             : (root.pending-delete-list == 1
+                                ? root.labels.backup_subtab_manual
+                                : root.labels.backup_subtab_pre_rollback));
                     wrap: word-wrap;
                 }
                 HorizontalBox {
@@ -3551,7 +4032,7 @@ export component BackupWindow inherits Window {
             }
         }
 
-        // ── Rollback prompt (in-dialog modal-ish strip) ───────────────
+        // ── Rollback prompt (pinned, modal-ish strip) ─────────────────
         if root.pending-rollback-path != "": Rectangle {
             background: #2a1a00;
             border-color: #c08020;
@@ -3599,125 +4080,7 @@ export component BackupWindow inherits Window {
             }
         }
 
-        // ── Snapshot list ────────────────────────────────────────────
-        // The outer ScrollView wrapping the dialog body handles
-        // overflow, so this section flows naturally — no inner
-        // ScrollView (nested scrolls trap the wheel and confuse the
-        // user when both compete for the same input).
-        GroupBox {
-            title: root.labels.backup_section_snapshots;
-            VerticalBox {
-                spacing: 4px;
-                HorizontalBox {
-                    spacing: 6px;
-                    Text { text: root.labels.backup_col_select; min-width: 30px; color: AppTheme.accent; }
-                    Text { text: root.labels.backup_col_when; min-width: 220px; color: AppTheme.accent; }
-                    Text { text: root.labels.backup_col_size; min-width: 100px; color: AppTheme.accent; }
-                    Text { text: root.labels.backup_col_actions; horizontal-stretch: 1; color: AppTheme.accent; }
-                }
-                if root.snapshots.length == 0: Text {
-                    text: root.labels.backup_empty_snapshots;
-                    font-size: 11px;
-                }
-                for snap[i] in root.snapshots: HorizontalBox {
-                    spacing: 6px;
-                    CheckBox {
-                        checked: snap.selected;
-                        toggled => {
-                            root.toggle-snapshot-selected(i);
-                        }
-                    }
-                    Text {
-                        text: snap.when_text;
-                        vertical-alignment: center;
-                        min-width: 220px;
-                    }
-                    Text {
-                        text: snap.size_text;
-                        vertical-alignment: center;
-                        min-width: 100px;
-                    }
-                    Button {
-                        text: root.labels.backup_btn_rollback;
-                        enabled: !root.action-busy;
-                        clicked => {
-                            root.pending-rollback-path = snap.path;
-                            root.pending-rollback-when = snap.when_text;
-                        }
-                    }
-                    Rectangle { horizontal-stretch: 1; }
-                }
-                // Bulk-delete trigger. Disabled when nothing is selected
-                // or the dialog is mid-operation. Sets the pending-delete
-                // properties so the confirmation strip below can render.
-                if root.snapshots.length > 0: HorizontalBox {
-                    alignment: end;
-                    spacing: 6px;
-                    Button {
-                        text: root.labels.backup_btn_delete_selected
-                              + " (" + root.snapshots-selected-count + ")";
-                        enabled: !root.action-busy && root.snapshots-selected-count > 0;
-                        clicked => {
-                            root.pending-delete-list = 0;
-                            root.pending-delete-count = root.snapshots-selected-count;
-                        }
-                    }
-                }
-            }
-        }
-
-        // ── Pre-rollback list (collapsible-ish) ──────────────────────
-        if root.pre-rollbacks.length > 0: GroupBox {
-            title: root.labels.backup_section_pre_rollback;
-            VerticalBox {
-                spacing: 2px;
-                for snap[i] in root.pre-rollbacks: HorizontalBox {
-                    spacing: 6px;
-                    CheckBox {
-                        checked: snap.selected;
-                        toggled => {
-                            root.toggle-pre-rollback-selected(i);
-                        }
-                    }
-                    Text {
-                        text: snap.when_text;
-                        vertical-alignment: center;
-                        min-width: 220px;
-                    }
-                    Text {
-                        text: snap.size_text;
-                        vertical-alignment: center;
-                        min-width: 100px;
-                    }
-                    Button {
-                        text: root.labels.backup_btn_rollback;
-                        enabled: !root.action-busy;
-                        clicked => {
-                            root.pending-rollback-path = snap.path;
-                            root.pending-rollback-when = snap.when_text;
-                        }
-                    }
-                    Rectangle { horizontal-stretch: 1; }
-                }
-                HorizontalBox {
-                    alignment: end;
-                    spacing: 6px;
-                    Button {
-                        text: root.labels.backup_btn_delete_selected
-                              + " (" + root.pre-rollbacks-selected-count + ")";
-                        enabled: !root.action-busy && root.pre-rollbacks-selected-count > 0;
-                        clicked => {
-                            root.pending-delete-list = 1;
-                            root.pending-delete-count = root.pre-rollbacks-selected-count;
-                        }
-                    }
-                }
-            }
-        }
-            }   // ── end inner VerticalBox inside ScrollView ──
-        }       // ── end ScrollView ─────────────────────────────
-
-        // ── Bottom actions (pinned outside ScrollView) ──────────────
+        // ── Bottom actions (pinned) ──────────────────────────────────
         HorizontalBox {
             alignment: end;
             spacing: 8px;

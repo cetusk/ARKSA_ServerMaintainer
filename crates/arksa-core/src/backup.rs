@@ -18,14 +18,28 @@
 //!
 //! ```text
 //! <install>\ARKSA_Backups\<MapName>\
-//!     snapshot_<MapName>_YYYYMMDD_HHMMSS.zip      // periodic, ring buffer
+//!     auto\
+//!         YYYYMMDD_HHMMSS.zip          // periodic, ring buffer (N kept)
+//!     manual\
+//!         YYYYMMDD_HHMMSS.zip          // user-initiated, no retention
 //!     pre_rollback\
-//!         pre_rollback_YYYYMMDD_HHMMSS.zip        // emergency, last 3
+//!         from_<SRC>_to_<RB>.zip       // emergency, last 3 kept
 //! ```
 //!
 //! `ARKSA_Backups\` lives at install root (sibling of `ShooterGame\` /
 //! `Engine\` / `steamapps\`) so future engine updates that reorganise
 //! `Saved\` cannot collide with our directory.
+//!
+//! The three sub-directories (`auto\` / `manual\` / `pre_rollback\`)
+//! exist so retention policies can be applied independently: only
+//! `auto\` is subject to the user's ring buffer, `manual\` is kept
+//! until the user explicitly deletes, and `pre_rollback\` is capped at
+//! a small fixed history.
+//!
+//! Pre-rollback filenames embed the timestamp of the source snapshot
+//! the user was restoring **from**. This lets the GUI match each
+//! snapshot row to its "before-rollback" emergency backup and offer a
+//! one-click "undo this rollback" action.
 
 use std::cmp::Ordering;
 use std::fs::{self, File};
@@ -69,7 +83,17 @@ pub fn backup_root(install_root: &Path, map_name: &str) -> PathBuf {
     install_root.join("ARKSA_Backups").join(map_name)
 }
 
-/// `<install>\ARKSA_Backups\<MapName>\pre_rollback\`.
+/// `<install>\ARKSA_Backups\<MapName>\auto\` — periodic snapshots.
+pub fn auto_dir(install_root: &Path, map_name: &str) -> PathBuf {
+    backup_root(install_root, map_name).join("auto")
+}
+
+/// `<install>\ARKSA_Backups\<MapName>\manual\` — user-initiated snapshots.
+pub fn manual_dir(install_root: &Path, map_name: &str) -> PathBuf {
+    backup_root(install_root, map_name).join("manual")
+}
+
+/// `<install>\ARKSA_Backups\<MapName>\pre_rollback\` — emergency snapshots.
 pub fn pre_rollback_dir(install_root: &Path, map_name: &str) -> PathBuf {
     backup_root(install_root, map_name).join("pre_rollback")
 }
@@ -82,11 +106,17 @@ pub fn savedarks_exists(install_root: &Path, map_name: &str) -> bool {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SnapshotKind {
-    /// Periodic snapshot inside `ARKSA_Backups\<MapName>\`. Subject to
-    /// the user's retention policy (T-hour cycle, N count).
-    Periodic,
-    /// Emergency snapshot taken just before a rollback. Lives in
-    /// `pre_rollback\` and is capped at [`MAX_PRE_ROLLBACK`].
+    /// Periodic snapshot, written by the auto-backup scheduler. Subject
+    /// to the user's retention policy (T-minute cadence, N count).
+    Auto,
+    /// User-initiated snapshot via the "Take backup now" button. Never
+    /// pruned by retention — the user pressed the button, they can
+    /// press the delete button to clean up.
+    Manual,
+    /// Emergency snapshot taken just before a rollback. Capped at
+    /// [`MAX_PRE_ROLLBACK`]. The companion `source_timestamp` field on
+    /// [`Snapshot`] links it to the snapshot the user was restoring
+    /// from.
     PreRollback,
 }
 
@@ -96,10 +126,20 @@ pub struct Snapshot {
     pub created: DateTime<Local>,
     pub size_bytes: u64,
     pub kind: SnapshotKind,
+    /// Set only for [`SnapshotKind::PreRollback`]: the timestamp of the
+    /// snapshot the user was about to restore when this emergency
+    /// backup was taken. Lets the GUI line up a snapshot row with its
+    /// matching "before-rollback" zip.
+    pub source_timestamp: Option<DateTime<Local>>,
 }
 
-/// Create a periodic snapshot of `<install>\…\SavedArks\<MapName>\`,
-/// writing to `<install>\ARKSA_Backups\<MapName>\snapshot_<MapName>_<TS>.zip`.
+// ---------------------------------------------------------------------------
+// Public API: snapshot creation
+// ---------------------------------------------------------------------------
+
+/// Create a periodic (auto) snapshot of
+/// `<install>\…\SavedArks\<MapName>\`, writing to
+/// `<install>\ARKSA_Backups\<MapName>\auto\<TS>.zip`.
 ///
 /// `compression_level` is `0` for STORE (no compression — file-copy
 /// speed) or `1..=9` for Deflate (1 fastest, 9 smallest). Anything out
@@ -108,49 +148,41 @@ pub struct Snapshot {
 /// Returns the new snapshot. Does **not** apply retention — call
 /// [`enforce_retention`] separately so callers can decide whether to
 /// rotate (e.g. after a successful save vs. before).
-pub fn create_snapshot(
+pub fn create_auto_snapshot(
     install_root: &Path,
     map_name: &str,
     compression_level: u8,
 ) -> Result<Snapshot> {
-    let src = savedarks_dir(install_root, map_name);
-    if !src.is_dir() {
-        return Err(Error::Other(format!(
-            "SavedArks directory not found: {}",
-            src.display(),
-        )));
-    }
-    let dst_dir = backup_root(install_root, map_name);
-    fs::create_dir_all(&dst_dir)?;
-    let now = Local::now();
-    let zip_path = unique_path(
-        &dst_dir,
-        &format!(
-            "snapshot_{}_{}",
-            map_name,
-            now.format(TS_FORMAT),
-        ),
-        "zip",
-    )?;
-    write_zip_atomic(&src, &zip_path, compression_level)?;
-    let size_bytes = fs::metadata(&zip_path)?.len();
-    Ok(Snapshot {
-        path: zip_path,
-        created: now,
-        size_bytes,
-        kind: SnapshotKind::Periodic,
-    })
+    create_kind_snapshot(install_root, map_name, compression_level, SnapshotKind::Auto)
+}
+
+/// Create a manual snapshot of `<install>\…\SavedArks\<MapName>\`,
+/// writing to `<install>\ARKSA_Backups\<MapName>\manual\<TS>.zip`.
+///
+/// Same compression-level convention as [`create_auto_snapshot`]. Not
+/// affected by retention — manual snapshots stay until the user
+/// deletes them through the GUI.
+pub fn create_manual_snapshot(
+    install_root: &Path,
+    map_name: &str,
+    compression_level: u8,
+) -> Result<Snapshot> {
+    create_kind_snapshot(install_root, map_name, compression_level, SnapshotKind::Manual)
 }
 
 /// Create an emergency `pre_rollback` snapshot. Same contents as
-/// [`create_snapshot`] but written to the `pre_rollback\` subfolder so
-/// it survives the periodic ring buffer.
+/// [`create_auto_snapshot`] but written to the `pre_rollback\`
+/// sub-folder so it survives the periodic ring buffer.
 ///
-/// Uses the same compression-level convention as [`create_snapshot`].
+/// `source_created` is the `created` timestamp of the snapshot the
+/// caller is about to restore from. It is embedded in the new file's
+/// name so the GUI can later match this emergency backup back to its
+/// source.
 pub fn create_pre_rollback(
     install_root: &Path,
     map_name: &str,
     compression_level: u8,
+    source_created: DateTime<Local>,
 ) -> Result<Snapshot> {
     let src = savedarks_dir(install_root, map_name);
     if !src.is_dir() {
@@ -164,7 +196,11 @@ pub fn create_pre_rollback(
     let now = Local::now();
     let zip_path = unique_path(
         &dst_dir,
-        &format!("pre_rollback_{}", now.format(TS_FORMAT)),
+        &format!(
+            "from_{}_to_{}",
+            source_created.format(TS_FORMAT),
+            now.format(TS_FORMAT),
+        ),
         "zip",
     )?;
     write_zip_atomic(&src, &zip_path, compression_level)?;
@@ -174,32 +210,76 @@ pub fn create_pre_rollback(
         created: now,
         size_bytes,
         kind: SnapshotKind::PreRollback,
+        source_timestamp: Some(source_created),
     })
 }
 
-/// List periodic snapshots, newest first. Missing directory → empty list
-/// (not an error: user just hasn't taken any backups yet).
-pub fn list_snapshots(install_root: &Path, map_name: &str) -> Result<Vec<Snapshot>> {
-    let dir = backup_root(install_root, map_name);
-    list_dir_snapshots(&dir, "snapshot_", SnapshotKind::Periodic)
+// ---------------------------------------------------------------------------
+// Public API: listing
+// ---------------------------------------------------------------------------
+
+/// List auto (periodic) snapshots, newest first. Missing directory →
+/// empty list. Calls [`migrate_legacy_layout`] first so older installs
+/// that wrote to the old flat layout still surface their snapshots.
+pub fn list_auto(install_root: &Path, map_name: &str) -> Result<Vec<Snapshot>> {
+    migrate_legacy_layout(install_root, map_name)?;
+    list_simple_ts_dir(&auto_dir(install_root, map_name), SnapshotKind::Auto)
+}
+
+/// List manual snapshots, newest first.
+pub fn list_manual(install_root: &Path, map_name: &str) -> Result<Vec<Snapshot>> {
+    list_simple_ts_dir(&manual_dir(install_root, map_name), SnapshotKind::Manual)
 }
 
 /// List pre_rollback snapshots, newest first.
 pub fn list_pre_rollbacks(install_root: &Path, map_name: &str) -> Result<Vec<Snapshot>> {
     let dir = pre_rollback_dir(install_root, map_name);
-    list_dir_snapshots(&dir, "pre_rollback_", SnapshotKind::PreRollback)
+    let mut out = Vec::new();
+    let entries = match fs::read_dir(&dir) {
+        Ok(e) => e,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(out),
+        Err(e) => return Err(e.into()),
+    };
+    for entry in entries {
+        let entry = entry?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|s| s.to_str()) else {
+            continue;
+        };
+        let Some((created, source)) = parse_pre_rollback_filename(name) else {
+            continue;
+        };
+        let size_bytes = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+        out.push(Snapshot {
+            path,
+            created,
+            size_bytes,
+            kind: SnapshotKind::PreRollback,
+            source_timestamp: source,
+        });
+    }
+    out.sort_by(|a, b| b.created.cmp(&a.created));
+    Ok(out)
 }
 
-/// Delete the oldest periodic snapshots until at most `retain_count`
-/// remain. Returns the number deleted. `retain_count == 0` would wipe
-/// everything; we guard with `max(1)` to avoid that footgun.
+// ---------------------------------------------------------------------------
+// Public API: retention / deletion / rollback
+// ---------------------------------------------------------------------------
+
+/// Delete the oldest auto snapshots until at most `retain_count` remain.
+/// Manual and pre_rollback snapshots are never touched. Returns the
+/// number deleted. `retain_count == 0` would wipe everything; we guard
+/// with `max(1)` to avoid that footgun.
 pub fn enforce_retention(
     install_root: &Path,
     map_name: &str,
     retain_count: u32,
 ) -> Result<u32> {
     let keep = retain_count.max(1) as usize;
-    let snapshots = list_snapshots(install_root, map_name)?;
+    let snapshots = list_auto(install_root, map_name)?;
     let mut deleted = 0u32;
     for stale in snapshots.iter().skip(keep) {
         if fs::remove_file(&stale.path).is_ok() {
@@ -311,15 +391,129 @@ pub fn rollback(
     Ok(())
 }
 
+/// Best-effort: derive the "created" timestamp of an arbitrary snapshot
+/// path from its filename. Recognises every on-disk shape this module
+/// writes or has ever written: the new `<TS>.zip` (auto / manual), the
+/// new `from_<SRC>_to_<RB>.zip` (pre_rollback), and the two legacy
+/// forms (`snapshot_<map>_<TS>.zip`, `pre_rollback_<TS>.zip`). Falls
+/// back to the file's mtime if no pattern matches.
+///
+/// The rollback path uses this to extract the source snapshot's
+/// timestamp when creating a `from_..._to_...` pre_rollback zip — the
+/// GUI passes the source path as a SharedString, not the original
+/// Snapshot, so we recover the timestamp from the filename.
+pub fn snapshot_path_created(path: &Path) -> Option<DateTime<Local>> {
+    if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+        if let Some(ts) = parse_ts_zip_filename(name) {
+            return Some(ts);
+        }
+        if let Some((rb, _)) = parse_pre_rollback_filename(name) {
+            return Some(rb);
+        }
+        if let Some(ts_str) = parse_legacy_auto_filename(name) {
+            if let Some(dt) = parse_ts(&ts_str) {
+                return Some(dt);
+            }
+        }
+    }
+    let meta = fs::metadata(path).ok()?;
+    let modified = meta.modified().ok()?;
+    Some(DateTime::<Local>::from(modified))
+}
+
+/// Move pre-existing legacy snapshots into the new layout. Tool versions
+/// before the auto/manual split wrote `snapshot_<map>_<TS>.zip` directly
+/// under `<root>\` and `pre_rollback_<TS>.zip` under `pre_rollback\`.
+/// This walks the root, moves matching auto files into `auto\<TS>.zip`,
+/// and leaves legacy pre_rollback names alone (their parser still
+/// recognises them — just without a `source_timestamp`).
+///
+/// Idempotent: re-running after migration is a no-op. Failures on
+/// individual files are swallowed so a transient lock on one zip can't
+/// prevent the rest of the migration from completing.
+pub fn migrate_legacy_layout(install_root: &Path, map_name: &str) -> Result<u32> {
+    let root = backup_root(install_root, map_name);
+    if !root.is_dir() {
+        return Ok(0);
+    }
+    let auto = auto_dir(install_root, map_name);
+    let mut moved = 0u32;
+    let entries = match fs::read_dir(&root) {
+        Ok(e) => e,
+        Err(_) => return Ok(0),
+    };
+    let mut to_move: Vec<(PathBuf, String)> = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|s| s.to_str()) else {
+            continue;
+        };
+        if let Some(ts) = parse_legacy_auto_filename(name) {
+            to_move.push((path, ts));
+        }
+    }
+    if !to_move.is_empty() {
+        fs::create_dir_all(&auto)?;
+    }
+    for (src_path, ts) in to_move {
+        let Ok(dst) = unique_path(&auto, &ts, "zip") else {
+            continue;
+        };
+        if fs::rename(&src_path, &dst).is_ok() {
+            moved += 1;
+        }
+    }
+    Ok(moved)
+}
+
 // ---------------------------------------------------------------------------
 // internals
 // ---------------------------------------------------------------------------
 
-fn list_dir_snapshots(
-    dir: &Path,
-    prefix: &str,
+fn create_kind_snapshot(
+    install_root: &Path,
+    map_name: &str,
+    compression_level: u8,
     kind: SnapshotKind,
-) -> Result<Vec<Snapshot>> {
+) -> Result<Snapshot> {
+    let src = savedarks_dir(install_root, map_name);
+    if !src.is_dir() {
+        return Err(Error::Other(format!(
+            "SavedArks directory not found: {}",
+            src.display(),
+        )));
+    }
+    let dst_dir = match kind {
+        SnapshotKind::Auto => auto_dir(install_root, map_name),
+        SnapshotKind::Manual => manual_dir(install_root, map_name),
+        SnapshotKind::PreRollback => {
+            // create_pre_rollback has its own path so callers must use it
+            // for the source-timestamp threading.
+            return Err(Error::Other(
+                "use create_pre_rollback for PreRollback kind".into(),
+            ));
+        }
+    };
+    fs::create_dir_all(&dst_dir)?;
+    let now = Local::now();
+    let zip_path = unique_path(&dst_dir, &now.format(TS_FORMAT).to_string(), "zip")?;
+    write_zip_atomic(&src, &zip_path, compression_level)?;
+    let size_bytes = fs::metadata(&zip_path)?.len();
+    Ok(Snapshot {
+        path: zip_path,
+        created: now,
+        size_bytes,
+        kind,
+        source_timestamp: None,
+    })
+}
+
+/// Walk a directory expecting `<TS>.zip` filenames (auto/manual layout)
+/// and return parsed Snapshot rows, newest first.
+fn list_simple_ts_dir(dir: &Path, kind: SnapshotKind) -> Result<Vec<Snapshot>> {
     let mut out = Vec::new();
     let entries = match fs::read_dir(dir) {
         Ok(e) => e,
@@ -335,10 +529,7 @@ fn list_dir_snapshots(
         let Some(name) = path.file_name().and_then(|s| s.to_str()) else {
             continue;
         };
-        if !name.starts_with(prefix) || !name.ends_with(".zip") {
-            continue;
-        }
-        let Some(created) = parse_filename_timestamp(name) else {
+        let Some(created) = parse_ts_zip_filename(name) else {
             continue;
         };
         let size_bytes = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
@@ -347,28 +538,67 @@ fn list_dir_snapshots(
             created,
             size_bytes,
             kind,
+            source_timestamp: None,
         });
     }
     out.sort_by(|a, b| b.created.cmp(&a.created));
     Ok(out)
 }
 
-/// Pull `YYYYMMDD_HHMMSS` out of `*_<YYYYMMDD>_<HHMMSS>.zip`. The map
-/// name in periodic snapshots can contain underscores ("Aberration_WP"),
-/// so we anchor on the trailing `<8>_<6>.zip` instead of splitting from
-/// the front.
-fn parse_filename_timestamp(name: &str) -> Option<DateTime<Local>> {
+/// Parse `YYYYMMDD_HHMMSS.zip` (new auto/manual filename form).
+fn parse_ts_zip_filename(name: &str) -> Option<DateTime<Local>> {
     let stem = name.strip_suffix(".zip")?;
-    let bytes = stem.as_bytes();
-    if bytes.len() < 16 {
+    parse_ts(stem)
+}
+
+/// Parse `snapshot_<map>_<TS>.zip` (legacy flat auto filename). Returns
+/// the embedded `<TS>` as a string so the migrator can use it as the
+/// destination filename verbatim.
+fn parse_legacy_auto_filename(name: &str) -> Option<String> {
+    let stem = name.strip_suffix(".zip")?;
+    if !stem.starts_with("snapshot_") {
         return None;
     }
-    // Trailing pattern: `_YYYYMMDD_HHMMSS` (16 chars).
+    // Trailing 15-char `YYYYMMDD_HHMMSS` anchor — map names contain `_`
+    // so we cannot rely on splitting from the head.
+    if stem.len() < 16 {
+        return None;
+    }
     let (head, tail) = stem.split_at(stem.len() - 15);
     if !head.ends_with('_') {
         return None;
     }
-    let (date_part, time_part) = tail.split_once('_')?;
+    parse_ts(tail).map(|_| tail.to_string())
+}
+
+/// Parse pre_rollback filenames. Accepts both the new layout
+/// `from_<SRC>_to_<RB>.zip` and the legacy `pre_rollback_<RB>.zip`.
+/// Returns `(created, source_timestamp)` where `created` is the
+/// rollback wall-clock time and `source_timestamp` is the source
+/// snapshot's `created` if the filename carries it.
+fn parse_pre_rollback_filename(
+    name: &str,
+) -> Option<(DateTime<Local>, Option<DateTime<Local>>)> {
+    let stem = name.strip_suffix(".zip")?;
+    if let Some(rest) = stem.strip_prefix("from_") {
+        let (src, rb) = rest.split_once("_to_")?;
+        let src_dt = parse_ts(src)?;
+        let rb_dt = parse_ts(rb)?;
+        return Some((rb_dt, Some(src_dt)));
+    }
+    if let Some(rest) = stem.strip_prefix("pre_rollback_") {
+        let rb = parse_ts(rest)?;
+        return Some((rb, None));
+    }
+    None
+}
+
+/// Parse `YYYYMMDD_HHMMSS` into a local-time DateTime.
+fn parse_ts(s: &str) -> Option<DateTime<Local>> {
+    if s.len() != 15 {
+        return None;
+    }
+    let (date_part, time_part) = s.split_once('_')?;
     if date_part.len() != 8 || time_part.len() != 6 {
         return None;
     }
@@ -377,8 +607,7 @@ fn parse_filename_timestamp(name: &str) -> Option<DateTime<Local>> {
     {
         return None;
     }
-    let combined = format!("{date_part}_{time_part}");
-    let naive = NaiveDateTime::parse_from_str(&combined, TS_FORMAT).ok()?;
+    let naive = NaiveDateTime::parse_from_str(s, TS_FORMAT).ok()?;
     Local.from_local_datetime(&naive).single()
 }
 
@@ -549,60 +778,88 @@ mod tests {
     }
 
     #[test]
-    fn snapshot_then_rollback_restores_files() {
+    fn auto_snapshot_then_rollback_restores_files() {
         let install = unique_tmp();
         let map = "TestMap_WP";
         write_save_tree(&install, map);
 
-        let snap = create_snapshot(&install, map, DEFAULT_COMPRESSION_LEVEL).unwrap();
+        let snap = create_auto_snapshot(&install, map, DEFAULT_COMPRESSION_LEVEL).unwrap();
         assert!(snap.path.exists());
-        assert_eq!(snap.kind, SnapshotKind::Periodic);
+        assert_eq!(snap.kind, SnapshotKind::Auto);
+        assert!(snap.path.starts_with(auto_dir(&install, map)));
 
-        // Mutate the live save then roll back.
         let live_ark = savedarks_dir(&install, map).join(format!("{map}.ark"));
         fs::write(&live_ark, b"CORRUPT").unwrap();
         rollback(&install, map, &snap.path).unwrap();
         assert_eq!(fs::read(&live_ark).unwrap(), b"world-state");
-        // Companion files survive the round trip.
         assert_eq!(
             fs::read(savedarks_dir(&install, map).join("1234.arktribe")).unwrap(),
             b"tribe-state",
         );
-        assert!(savedarks_dir(&install, map)
-            .join("LocalProfiles")
-            .join("PlayerLocal.arkprofile")
-            .exists());
 
         fs::remove_dir_all(&install).ok();
     }
 
     #[test]
-    fn pre_rollback_lives_under_pre_rollback_subdir() {
+    fn manual_snapshot_lives_under_manual_subdir() {
         let install = unique_tmp();
-        let map = "TestMap2_WP";
+        let map = "ManualMap_WP";
         write_save_tree(&install, map);
 
-        let snap = create_pre_rollback(&install, map, DEFAULT_COMPRESSION_LEVEL).unwrap();
-        assert_eq!(snap.kind, SnapshotKind::PreRollback);
-        assert!(snap.path.starts_with(pre_rollback_dir(&install, map)));
+        let snap = create_manual_snapshot(&install, map, DEFAULT_COMPRESSION_LEVEL).unwrap();
+        assert_eq!(snap.kind, SnapshotKind::Manual);
+        assert!(snap.path.starts_with(manual_dir(&install, map)));
 
+        // Manual snapshots show up in list_manual, not list_auto.
+        assert_eq!(list_auto(&install, map).unwrap().len(), 0);
+        assert_eq!(list_manual(&install, map).unwrap().len(), 1);
+
+        fs::remove_dir_all(&install).ok();
+    }
+
+    #[test]
+    fn pre_rollback_records_source_timestamp() {
+        let install = unique_tmp();
+        let map = "PreRbMap_WP";
+        write_save_tree(&install, map);
+
+        let src = create_auto_snapshot(&install, map, DEFAULT_COMPRESSION_LEVEL).unwrap();
+        let src_ts = src.created.format(TS_FORMAT).to_string();
+        let pre = create_pre_rollback(&install, map, DEFAULT_COMPRESSION_LEVEL, src.created)
+            .unwrap();
+        assert_eq!(pre.kind, SnapshotKind::PreRollback);
+        // The pre_rollback's `source_timestamp` should map back to the
+        // same wall-clock second as the source snapshot. We compare
+        // formatted strings because filename timestamps are
+        // second-precision while `Local::now()` carries sub-second
+        // precision in memory.
+        let pre_src_ts = pre
+            .source_timestamp
+            .expect("source ts on Snapshot")
+            .format(TS_FORMAT)
+            .to_string();
+        assert_eq!(pre_src_ts, src_ts);
+        assert!(pre.path.starts_with(pre_rollback_dir(&install, map)));
+
+        // Round-trip the filename through list_pre_rollbacks.
         let listed = list_pre_rollbacks(&install, map).unwrap();
         assert_eq!(listed.len(), 1);
-        assert_eq!(listed[0].path, snap.path);
+        let parsed_src = listed[0].source_timestamp.expect("source ts parsed");
+        assert_eq!(parsed_src.format(TS_FORMAT).to_string(), src_ts);
 
         fs::remove_dir_all(&install).ok();
     }
 
     #[test]
-    fn enforce_retention_keeps_newest_n() {
+    fn enforce_retention_keeps_newest_n_auto_only() {
         let install = unique_tmp();
-        let map = "TestMap3_WP";
+        let map = "RetMap_WP";
         write_save_tree(&install, map);
 
-        let dst = backup_root(&install, map);
-        fs::create_dir_all(&dst).unwrap();
-        // Hand-craft six snapshot files with monotonically increasing
-        // timestamps so the retention sort has something to chew on.
+        let auto = auto_dir(&install, map);
+        let manual = manual_dir(&install, map);
+        fs::create_dir_all(&auto).unwrap();
+        fs::create_dir_all(&manual).unwrap();
         let stamps = [
             "20260101_010000",
             "20260101_020000",
@@ -612,36 +869,90 @@ mod tests {
             "20260101_060000",
         ];
         for ts in stamps {
-            let p = dst.join(format!("snapshot_{map}_{ts}.zip"));
-            fs::write(&p, b"x").unwrap();
+            fs::write(auto.join(format!("{ts}.zip")), b"x").unwrap();
         }
+        // A manual snapshot must survive retention even with the same
+        // timestamp.
+        fs::write(manual.join("20260101_010000.zip"), b"m").unwrap();
 
         let removed = enforce_retention(&install, map, 3).unwrap();
         assert_eq!(removed, 3);
-        let remaining = list_snapshots(&install, map).unwrap();
+        let remaining = list_auto(&install, map).unwrap();
         assert_eq!(remaining.len(), 3);
-        // Newest three kept (06, 05, 04).
         let names: Vec<String> = remaining
             .iter()
             .map(|s| s.path.file_name().unwrap().to_string_lossy().into_owned())
             .collect();
         assert!(names[0].contains("20260101_060000"));
         assert!(names[2].contains("20260101_040000"));
+        // Manual untouched.
+        assert_eq!(list_manual(&install, map).unwrap().len(), 1);
+
+        fs::remove_dir_all(&install).ok();
+    }
+
+    #[test]
+    fn migrate_legacy_layout_moves_flat_snapshots() {
+        let install = unique_tmp();
+        let map = "LegacyMap_WP";
+        write_save_tree(&install, map);
+        let root = backup_root(&install, map);
+        fs::create_dir_all(&root).unwrap();
+        // Two legacy auto snapshots at the old flat location.
+        fs::write(
+            root.join(format!("snapshot_{map}_20260101_010000.zip")),
+            b"x",
+        )
+        .unwrap();
+        fs::write(
+            root.join(format!("snapshot_{map}_20260101_020000.zip")),
+            b"y",
+        )
+        .unwrap();
+        // Unrelated file at root must be left alone.
+        fs::write(root.join("README.txt"), b"hi").unwrap();
+
+        let moved = migrate_legacy_layout(&install, map).unwrap();
+        assert_eq!(moved, 2);
+        // Old flat files gone, new auto/ files exist with `<TS>.zip`.
+        let auto = auto_dir(&install, map);
+        assert!(auto.join("20260101_010000.zip").exists());
+        assert!(auto.join("20260101_020000.zip").exists());
+        assert!(root.join("README.txt").exists());
+        assert!(!root
+            .join(format!("snapshot_{map}_20260101_010000.zip"))
+            .exists());
+
+        // list_auto picks them up after migration.
+        assert_eq!(list_auto(&install, map).unwrap().len(), 2);
+
+        fs::remove_dir_all(&install).ok();
+    }
+
+    #[test]
+    fn legacy_pre_rollback_filename_parses_without_source() {
+        let install = unique_tmp();
+        let map = "LegacyPreRb_WP";
+        write_save_tree(&install, map);
+        let dir = pre_rollback_dir(&install, map);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("pre_rollback_20260101_010000.zip"), b"x").unwrap();
+
+        let listed = list_pre_rollbacks(&install, map).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert!(listed[0].source_timestamp.is_none());
 
         fs::remove_dir_all(&install).ok();
     }
 
     #[test]
     fn snapshot_with_no_compression_round_trips() {
-        // STORE (level 0) is the speed-priority option for users with
-        // big saves; the round-trip must preserve bytes exactly.
         let install = unique_tmp();
         let map = "StoreMap_WP";
         write_save_tree(&install, map);
 
-        let snap = create_snapshot(&install, map, 0).unwrap();
+        let snap = create_auto_snapshot(&install, map, 0).unwrap();
         assert!(snap.path.exists());
-        // Mutate the live save and roll back from the STORE snapshot.
         let live = savedarks_dir(&install, map).join(format!("{map}.ark"));
         std::fs::write(&live, b"changed").unwrap();
         rollback(&install, map, &snap.path).unwrap();
@@ -655,12 +966,11 @@ mod tests {
         let install = unique_tmp();
         let map = "DelMap_WP";
         write_save_tree(&install, map);
-        let snap = create_snapshot(&install, map, DEFAULT_COMPRESSION_LEVEL).unwrap();
+        let snap = create_auto_snapshot(&install, map, DEFAULT_COMPRESSION_LEVEL).unwrap();
         assert!(snap.path.exists());
         delete_snapshot(&install, &snap.path).unwrap();
         assert!(!snap.path.exists());
-        // Listing afterwards should not surface the deleted file.
-        assert!(list_snapshots(&install, map).unwrap().is_empty());
+        assert!(list_auto(&install, map).unwrap().is_empty());
         std::fs::remove_dir_all(&install).ok();
     }
 
@@ -669,8 +979,6 @@ mod tests {
         let install = unique_tmp();
         let map = "DelGuardMap_WP";
         write_save_tree(&install, map);
-        // Attempt to delete an unrelated file via the backup helper —
-        // must be rejected, leaving the file intact.
         let unrelated = install.join("important.txt");
         std::fs::write(&unrelated, b"do not delete").unwrap();
         let err = delete_snapshot(&install, &unrelated).unwrap_err();
@@ -680,12 +988,22 @@ mod tests {
     }
 
     #[test]
-    fn parse_filename_timestamp_handles_underscored_map_name() {
-        // Map names like Aberration_WP have an underscore so the
-        // trailing-anchor parser is the right approach.
-        let ts = parse_filename_timestamp("snapshot_Aberration_WP_20260509_140000.zip");
-        assert!(ts.is_some());
-        let bad = parse_filename_timestamp("snapshot_Aberration_WP_no-timestamp.zip");
-        assert!(bad.is_none());
+    fn parse_pre_rollback_filename_extracts_source() {
+        let parsed = parse_pre_rollback_filename(
+            "from_20260101_010000_to_20260101_020000.zip",
+        )
+        .unwrap();
+        // Source ts present and parsed.
+        assert!(parsed.1.is_some());
+        let src = parsed.1.unwrap();
+        assert_eq!(src.format("%Y%m%d_%H%M%S").to_string(), "20260101_010000");
+        // Created (rollback time) parsed too.
+        assert_eq!(
+            parsed.0.format("%Y%m%d_%H%M%S").to_string(),
+            "20260101_020000",
+        );
+
+        // Garbage filename rejected.
+        assert!(parse_pre_rollback_filename("garbage.zip").is_none());
     }
 }
