@@ -1215,6 +1215,7 @@ struct Labels {
     section_setup: String,
     section_profile: String,
     section_lifecycle: String,
+    busy_indicator_text: String,
     section_tools: String,
     profile_hint: String,
     profile_path_label: String,
@@ -1379,6 +1380,7 @@ impl Labels {
             section_setup: "Setup".into(),
             section_profile: "Profile".into(),
             section_lifecycle: "Server control".into(),
+            busy_indicator_text: "Working…".into(),
             section_tools: "Tools".into(),
             profile_hint:
                 "Profiles are .ini files saved under <ARKSA dir>/Profile/. \
@@ -1583,6 +1585,7 @@ impl Labels {
             section_setup: "セットアップ".into(),
             section_profile: "プロファイル".into(),
             section_lifecycle: "サーバー操作".into(),
+            busy_indicator_text: "処理中…".into(),
             section_tools: "ツール".into(),
             profile_hint:
                 "プロファイルとは <ARKSA フォルダ>/Profile/ 配下に保存される \
@@ -1809,6 +1812,7 @@ impl Labels {
             section_setup: self.section_setup.as_str().into(),
             section_profile: self.section_profile.as_str().into(),
             section_lifecycle: self.section_lifecycle.as_str().into(),
+            busy_indicator_text: self.busy_indicator_text.as_str().into(),
             section_tools: self.section_tools.as_str().into(),
             profile_hint: self.profile_hint.as_str().into(),
             profile_path_label: self.profile_path_label.as_str().into(),
@@ -4761,6 +4765,8 @@ fn populate_backup_window(
     window.set_action_message(SharedString::default());
     window.set_pending_rollback_path(SharedString::default());
     window.set_pending_rollback_when(SharedString::default());
+    window.set_progress(0.0);
+    window.set_progress_text(SharedString::default());
 
     // Server-running check feeds the in-dialog warning when rolling back.
     let now = current_unix_time();
@@ -4983,6 +4989,50 @@ fn compression_index_for_level(level: u8) -> i32 {
     }
 }
 
+/// Build a throttled progress callback for a backup-worker thread.
+/// The callback posts to the BackupWindow at most every 100 ms (final
+/// "done == total" calls bypass the throttle so the bar always lands
+/// on 100 %). Cheap to drop: when the window is gone, the post
+/// silently no-ops.
+fn make_progress_callback(
+    weak: slint::Weak<BackupWindow>,
+) -> impl Fn(u64, u64) + Send + Sync + 'static {
+    use std::sync::{Arc, Mutex};
+    use std::time::{Duration, Instant};
+    let throttle = Arc::new(Mutex::new(Instant::now() - Duration::from_secs(1)));
+    move |done: u64, total: u64| {
+        let should_post = {
+            let mut guard = throttle.lock().unwrap();
+            let now = Instant::now();
+            if done >= total
+                || now.duration_since(*guard) >= Duration::from_millis(100)
+            {
+                *guard = now;
+                true
+            } else {
+                false
+            }
+        };
+        if !should_post {
+            return;
+        }
+        let text = format!(
+            "{} / {}",
+            format_size_bytes(done),
+            format_size_bytes(total),
+        );
+        let progress = if total > 0 {
+            (done as f64 / total as f64).clamp(0.0, 1.0) as f32
+        } else {
+            0.0
+        };
+        let _ = weak.upgrade_in_event_loop(move |w| {
+            w.set_progress(progress);
+            w.set_progress_text(text.into());
+        });
+    }
+}
+
 fn format_size_bytes(bytes: u64) -> String {
     const KIB: f64 = 1024.0;
     const MIB: f64 = 1024.0 * KIB;
@@ -5096,6 +5146,9 @@ fn wire_backup_callbacks(
             let log = log.clone();
             w.set_action_busy(true);
             w.set_action_message("Taking snapshot…".into());
+            w.set_progress(0.0);
+            w.set_progress_text(SharedString::default());
+            let progress_cb = make_progress_callback(weak_for_worker.clone());
             std::thread::spawn(move || {
                 let result = (|| -> Result<(PathBuf, String, u64, u32)> {
                     let profile = Profile::load(&profile_path)?;
@@ -5110,7 +5163,12 @@ fn wire_backup_callbacks(
                     // User-initiated snapshots go to `manual/` and are
                     // never pruned automatically — retention only
                     // applies to the periodic `auto/` ring buffer.
-                    let snap = backup::create_manual_snapshot(&install_root, &map, level)?;
+                    let snap = backup::create_manual_snapshot_with_progress(
+                        &install_root,
+                        &map,
+                        level,
+                        Some(&progress_cb),
+                    )?;
                     let removed = 0u32;
                     Ok((install_root, map, snap.size_bytes, removed))
                 })();
@@ -5126,6 +5184,8 @@ fn wire_backup_callbacks(
                             refresh_backup_lists_in_window(&w, &install_root, &map);
                             w.set_action_busy(false);
                             w.set_action_message(msg.into());
+                            w.set_progress(0.0);
+                            w.set_progress_text(SharedString::default());
                         });
                     }
                     Err(e) => {
@@ -5134,6 +5194,8 @@ fn wire_backup_callbacks(
                         let _ = weak_for_worker.upgrade_in_event_loop(move |w| {
                             w.set_action_busy(false);
                             w.set_action_message(msg.into());
+                            w.set_progress(0.0);
+                            w.set_progress_text(SharedString::default());
                         });
                     }
                 }
@@ -5322,7 +5384,9 @@ fn wire_backup_callbacks(
             let main_weak = main_weak.clone();
             let log = log.clone();
             w.set_action_busy(true);
-            w.set_action_message("Rolling back…".into());
+            w.set_action_message("Saving emergency backup…".into());
+            w.set_progress(0.0);
+            w.set_progress_text(SharedString::default());
             std::thread::spawn(move || {
                 let result = (|| -> Result<(PathBuf, String)> {
                     let profile = Profile::load(&profile_path)?;
@@ -5343,11 +5407,29 @@ fn wire_backup_callbacks(
                     let level = profile.backup_compression_level();
                     let src_ts = backup::snapshot_path_created(&snapshot_path)
                         .unwrap_or_else(chrono::Local::now);
-                    let _ = backup::create_pre_rollback(
-                        &install_root, &map, level, src_ts,
+                    let pre_cb = make_progress_callback(weak_for_worker.clone());
+                    let _ = backup::create_pre_rollback_with_progress(
+                        &install_root,
+                        &map,
+                        level,
+                        src_ts,
+                        Some(&pre_cb),
                     );
                     let _ = backup::enforce_pre_rollback_retention(&install_root, &map);
-                    backup::rollback(&install_root, &map, &snapshot_path)?;
+                    // Switch the phase label + reset the progress bar
+                    // so the second pass (zip extract) starts at zero.
+                    let _ = weak_for_worker.upgrade_in_event_loop(|w| {
+                        w.set_action_message("Restoring…".into());
+                        w.set_progress(0.0);
+                        w.set_progress_text(SharedString::default());
+                    });
+                    let rb_cb = make_progress_callback(weak_for_worker.clone());
+                    backup::rollback_with_progress(
+                        &install_root,
+                        &map,
+                        &snapshot_path,
+                        Some(&rb_cb),
+                    )?;
                     Ok((install_root, map))
                 })();
                 match result {
@@ -5364,6 +5446,8 @@ fn wire_backup_callbacks(
                             refresh_backup_lists_in_window(&w, &install_root, &map);
                             w.set_action_busy(false);
                             w.set_action_message(msg.into());
+                            w.set_progress(0.0);
+                            w.set_progress_text(SharedString::default());
                         });
                     }
                     Err(e) => {
@@ -5372,6 +5456,8 @@ fn wire_backup_callbacks(
                         let _ = weak_for_worker.upgrade_in_event_loop(move |w| {
                             w.set_action_busy(false);
                             w.set_action_message(msg.into());
+                            w.set_progress(0.0);
+                            w.set_progress_text(SharedString::default());
                         });
                     }
                 }

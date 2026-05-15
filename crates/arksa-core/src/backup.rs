@@ -137,6 +137,24 @@ pub struct Snapshot {
 // Public API: snapshot creation
 // ---------------------------------------------------------------------------
 
+/// Callback type for byte-granularity progress reporting. The callback
+/// is invoked once per file written or extracted with `(done, total)`
+/// in bytes, where `total` is computed up-front and stays constant
+/// across the run. Callers that don't care about progress pass
+/// `None`.
+pub type ProgressFn<'a> = &'a (dyn Fn(u64, u64) + 'a);
+
+/// Convenience wrapper: same as [`create_auto_snapshot_with_progress`]
+/// but without progress reporting. Used by callers that don't need a
+/// progress bar (legacy callers, simple scripts).
+pub fn create_auto_snapshot(
+    install_root: &Path,
+    map_name: &str,
+    compression_level: u8,
+) -> Result<Snapshot> {
+    create_auto_snapshot_with_progress(install_root, map_name, compression_level, None)
+}
+
 /// Create a periodic (auto) snapshot of
 /// `<install>\…\SavedArks\<MapName>\`, writing to
 /// `<install>\ARKSA_Backups\<MapName>\auto\<TS>.zip`.
@@ -145,44 +163,88 @@ pub struct Snapshot {
 /// speed) or `1..=9` for Deflate (1 fastest, 9 smallest). Anything out
 /// of range is clamped.
 ///
+/// `on_progress` receives `(bytes_done, bytes_total)` after each
+/// file is finished. `total` is computed up-front by walking the
+/// source tree, so the callback can drive a determinate progress bar.
+///
 /// Returns the new snapshot. Does **not** apply retention — call
 /// [`enforce_retention`] separately so callers can decide whether to
 /// rotate (e.g. after a successful save vs. before).
-pub fn create_auto_snapshot(
+pub fn create_auto_snapshot_with_progress(
     install_root: &Path,
     map_name: &str,
     compression_level: u8,
+    on_progress: Option<ProgressFn>,
 ) -> Result<Snapshot> {
-    create_kind_snapshot(install_root, map_name, compression_level, SnapshotKind::Auto)
+    create_kind_snapshot(
+        install_root,
+        map_name,
+        compression_level,
+        SnapshotKind::Auto,
+        on_progress,
+    )
 }
 
-/// Create a manual snapshot of `<install>\…\SavedArks\<MapName>\`,
-/// writing to `<install>\ARKSA_Backups\<MapName>\manual\<TS>.zip`.
-///
-/// Same compression-level convention as [`create_auto_snapshot`]. Not
-/// affected by retention — manual snapshots stay until the user
-/// deletes them through the GUI.
+/// See [`create_manual_snapshot_with_progress`]. Progress-free variant.
 pub fn create_manual_snapshot(
     install_root: &Path,
     map_name: &str,
     compression_level: u8,
 ) -> Result<Snapshot> {
-    create_kind_snapshot(install_root, map_name, compression_level, SnapshotKind::Manual)
+    create_manual_snapshot_with_progress(install_root, map_name, compression_level, None)
 }
 
-/// Create an emergency `pre_rollback` snapshot. Same contents as
-/// [`create_auto_snapshot`] but written to the `pre_rollback\`
-/// sub-folder so it survives the periodic ring buffer.
+/// Create a manual snapshot of `<install>\…\SavedArks\<MapName>\`,
+/// writing to `<install>\ARKSA_Backups\<MapName>\manual\<TS>.zip`.
 ///
-/// `source_created` is the `created` timestamp of the snapshot the
-/// caller is about to restore from. It is embedded in the new file's
-/// name so the GUI can later match this emergency backup back to its
-/// source.
+/// Same compression-level + progress convention as
+/// [`create_auto_snapshot_with_progress`]. Not affected by retention
+/// — manual snapshots stay until the user deletes them through the GUI.
+pub fn create_manual_snapshot_with_progress(
+    install_root: &Path,
+    map_name: &str,
+    compression_level: u8,
+    on_progress: Option<ProgressFn>,
+) -> Result<Snapshot> {
+    create_kind_snapshot(
+        install_root,
+        map_name,
+        compression_level,
+        SnapshotKind::Manual,
+        on_progress,
+    )
+}
+
+/// Progress-free variant of [`create_pre_rollback_with_progress`].
 pub fn create_pre_rollback(
     install_root: &Path,
     map_name: &str,
     compression_level: u8,
     source_created: DateTime<Local>,
+) -> Result<Snapshot> {
+    create_pre_rollback_with_progress(
+        install_root,
+        map_name,
+        compression_level,
+        source_created,
+        None,
+    )
+}
+
+/// Create an emergency `pre_rollback` snapshot. Same contents as
+/// [`create_auto_snapshot_with_progress`] but written to the
+/// `pre_rollback\` sub-folder so it survives the periodic ring buffer.
+///
+/// `source_created` is the `created` timestamp of the snapshot the
+/// caller is about to restore from. It is embedded in the new file's
+/// name so the GUI can later match this emergency backup back to its
+/// source.
+pub fn create_pre_rollback_with_progress(
+    install_root: &Path,
+    map_name: &str,
+    compression_level: u8,
+    source_created: DateTime<Local>,
+    on_progress: Option<ProgressFn>,
 ) -> Result<Snapshot> {
     let src = savedarks_dir(install_root, map_name);
     if !src.is_dir() {
@@ -203,7 +265,8 @@ pub fn create_pre_rollback(
         ),
         "zip",
     )?;
-    write_zip_atomic(&src, &zip_path, compression_level)?;
+    let total_bytes = walk_total_bytes(&src)?;
+    write_zip_atomic(&src, &zip_path, compression_level, on_progress, total_bytes)?;
     let size_bytes = fs::metadata(&zip_path)?.len();
     Ok(Snapshot {
         path: zip_path,
@@ -332,6 +395,15 @@ pub fn delete_snapshot(install_root: &Path, snapshot_path: &Path) -> Result<()> 
     Ok(())
 }
 
+/// Progress-free variant of [`rollback_with_progress`].
+pub fn rollback(
+    install_root: &Path,
+    map_name: &str,
+    snapshot_path: &Path,
+) -> Result<()> {
+    rollback_with_progress(install_root, map_name, snapshot_path, None)
+}
+
 /// Restore `SavedArks\<MapName>\` from a snapshot zip.
 ///
 /// Caller must ensure the server is stopped — extracting over a live
@@ -342,10 +414,15 @@ pub fn delete_snapshot(install_root: &Path, snapshot_path: &Path) -> Result<()> 
 /// rollback can be recovered) and the staging dir in. The replaced tree
 /// is removed on success. If the staging extract fails, the existing
 /// tree is left untouched.
-pub fn rollback(
+///
+/// `on_progress` fires once per zip entry extracted with
+/// `(bytes_done, bytes_total)`, where total is computed up-front by
+/// summing the zip's uncompressed entry sizes.
+pub fn rollback_with_progress(
     install_root: &Path,
     map_name: &str,
     snapshot_path: &Path,
+    on_progress: Option<ProgressFn>,
 ) -> Result<()> {
     let target = savedarks_dir(install_root, map_name);
     let parent = target
@@ -364,7 +441,7 @@ pub fn rollback(
     }
     fs::create_dir_all(&staging)?;
 
-    extract_zip_into(snapshot_path, &staging).map_err(|e| {
+    extract_zip_into(snapshot_path, &staging, on_progress).map_err(|e| {
         // Clean up partial staging on failure so we don't leave litter.
         let _ = fs::remove_dir_all(&staging);
         e
@@ -478,6 +555,7 @@ fn create_kind_snapshot(
     map_name: &str,
     compression_level: u8,
     kind: SnapshotKind,
+    on_progress: Option<ProgressFn>,
 ) -> Result<Snapshot> {
     let src = savedarks_dir(install_root, map_name);
     if !src.is_dir() {
@@ -500,7 +578,8 @@ fn create_kind_snapshot(
     fs::create_dir_all(&dst_dir)?;
     let now = Local::now();
     let zip_path = unique_path(&dst_dir, &now.format(TS_FORMAT).to_string(), "zip")?;
-    write_zip_atomic(&src, &zip_path, compression_level)?;
+    let total_bytes = walk_total_bytes(&src)?;
+    write_zip_atomic(&src, &zip_path, compression_level, on_progress, total_bytes)?;
     let size_bytes = fs::metadata(&zip_path)?.len();
     Ok(Snapshot {
         path: zip_path,
@@ -509,6 +588,34 @@ fn create_kind_snapshot(
         kind,
         source_timestamp: None,
     })
+}
+
+/// Sum the uncompressed bytes of every regular file under `dir`. Used
+/// to compute the `total` that progress callbacks scale against.
+fn walk_total_bytes(dir: &Path) -> Result<u64> {
+    let mut total = 0u64;
+    walk_total_bytes_recurse(dir, &mut total)?;
+    Ok(total)
+}
+
+fn walk_total_bytes_recurse(cur: &Path, total: &mut u64) -> Result<()> {
+    let entries = match fs::read_dir(cur) {
+        Ok(e) => e,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(e.into()),
+    };
+    for entry in entries {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            walk_total_bytes_recurse(&path, total)?;
+        } else if path.is_file() {
+            *total = total.saturating_add(
+                fs::metadata(&path).map(|m| m.len()).unwrap_or(0),
+            );
+        }
+    }
+    Ok(())
 }
 
 /// Walk a directory expecting `<TS>.zip` filenames (auto/manual layout)
@@ -636,13 +743,33 @@ fn unique_path(dir: &Path, stem: &str, ext: &str) -> Result<PathBuf> {
 /// selects Deflate at that level. Writes to `<dst_zip>.tmp` first and
 /// renames on success so a power-cut leaves only a half-finished
 /// `.tmp` rather than a corrupt `.zip`.
-fn write_zip_atomic(src_dir: &Path, dst_zip: &Path, compression_level: u8) -> Result<()> {
+///
+/// `on_progress` fires after each file is written with
+/// `(bytes_done, total_bytes)`. `total_bytes` is computed by the
+/// caller (via [`walk_total_bytes`]) so the progress numerator can't
+/// race against in-flight file changes.
+fn write_zip_atomic(
+    src_dir: &Path,
+    dst_zip: &Path,
+    compression_level: u8,
+    on_progress: Option<ProgressFn>,
+    total_bytes: u64,
+) -> Result<()> {
     let tmp = with_extra_extension(dst_zip, "tmp");
     {
         let file = File::create(&tmp)?;
         let mut writer = ZipWriter::new(BufWriter::new(file));
         let opts = build_file_options(compression_level);
-        zip_dir_recursive(src_dir, src_dir, &mut writer, opts)?;
+        let mut done = 0u64;
+        zip_dir_recursive(
+            src_dir,
+            src_dir,
+            &mut writer,
+            opts,
+            on_progress,
+            &mut done,
+            total_bytes,
+        )?;
         writer.finish().map_err(zip_to_error)?;
     }
     if dst_zip.exists() {
@@ -674,6 +801,9 @@ fn zip_dir_recursive<W: Write + io::Seek>(
     cur: &Path,
     writer: &mut ZipWriter<W>,
     opts: SimpleFileOptions,
+    on_progress: Option<ProgressFn>,
+    done_bytes: &mut u64,
+    total_bytes: u64,
 ) -> Result<()> {
     for entry in fs::read_dir(cur)? {
         let entry = entry?;
@@ -692,21 +822,47 @@ fn zip_dir_recursive<W: Write + io::Seek>(
             // populated it yet).
             let dir_name = format!("{zip_name}/");
             writer.add_directory(&dir_name, opts).map_err(zip_to_error)?;
-            zip_dir_recursive(root, &path, writer, opts)?;
+            zip_dir_recursive(
+                root,
+                &path,
+                writer,
+                opts,
+                on_progress,
+                done_bytes,
+                total_bytes,
+            )?;
         } else if path.is_file() {
+            let file_size = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
             writer
                 .start_file(&zip_name, opts)
                 .map_err(zip_to_error)?;
             let mut f = BufReader::new(File::open(&path)?);
             io::copy(&mut f, writer)?;
+            *done_bytes = done_bytes.saturating_add(file_size);
+            if let Some(cb) = on_progress {
+                cb(*done_bytes, total_bytes);
+            }
         }
     }
     Ok(())
 }
 
-fn extract_zip_into(zip_path: &Path, dst: &Path) -> Result<()> {
+fn extract_zip_into(
+    zip_path: &Path,
+    dst: &Path,
+    on_progress: Option<ProgressFn>,
+) -> Result<()> {
     let file = File::open(zip_path)?;
     let mut archive = ZipArchive::new(BufReader::new(file)).map_err(zip_to_error)?;
+    // Pre-pass: sum the uncompressed sizes of every entry so the
+    // progress callback has a stable total.
+    let mut total_bytes = 0u64;
+    for i in 0..archive.len() {
+        if let Ok(entry) = archive.by_index(i) {
+            total_bytes = total_bytes.saturating_add(entry.size());
+        }
+    }
+    let mut done_bytes = 0u64;
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).map_err(zip_to_error)?;
         // Reject zip entries whose stored path tries to escape `dst`
@@ -719,6 +875,7 @@ fn extract_zip_into(zip_path: &Path, dst: &Path) -> Result<()> {
             )));
         };
         let out_path = dst.join(rel);
+        let entry_size = entry.size();
         if entry.is_dir() {
             fs::create_dir_all(&out_path)?;
             continue;
@@ -728,6 +885,10 @@ fn extract_zip_into(zip_path: &Path, dst: &Path) -> Result<()> {
         }
         let mut out = BufWriter::new(File::create(&out_path)?);
         io::copy(&mut entry, &mut out)?;
+        done_bytes = done_bytes.saturating_add(entry_size);
+        if let Some(cb) = on_progress {
+            cb(done_bytes, total_bytes);
+        }
     }
     Ok(())
 }
@@ -985,6 +1146,70 @@ mod tests {
         assert!(format!("{err}").contains("outside the backup tree"));
         assert!(unrelated.exists());
         std::fs::remove_dir_all(&install).ok();
+    }
+
+    #[test]
+    fn create_auto_snapshot_progress_reaches_total() {
+        // The byte-granularity progress callback must fire at least
+        // once per file, and the final (done, total) pair must report
+        // done == total once the snapshot is fully written.
+        let install = unique_tmp();
+        let map = "ProgMap_WP";
+        write_save_tree(&install, map);
+
+        let calls = std::sync::Mutex::new(Vec::<(u64, u64)>::new());
+        let snap = create_auto_snapshot_with_progress(
+            &install,
+            map,
+            DEFAULT_COMPRESSION_LEVEL,
+            Some(&|done, total| {
+                calls.lock().unwrap().push((done, total));
+            }),
+        )
+        .unwrap();
+        assert!(snap.path.exists());
+
+        let recorded = calls.lock().unwrap().clone();
+        // One callback per file written. The test tree has 4 files
+        // (the world save + tribe + profile + nested LocalProfiles).
+        assert_eq!(recorded.len(), 4);
+        let (final_done, final_total) = *recorded.last().unwrap();
+        assert!(final_total > 0);
+        assert_eq!(final_done, final_total);
+
+        fs::remove_dir_all(&install).ok();
+    }
+
+    #[test]
+    fn rollback_progress_reaches_total() {
+        let install = unique_tmp();
+        let map = "ProgRbMap_WP";
+        write_save_tree(&install, map);
+
+        let snap = create_auto_snapshot(&install, map, DEFAULT_COMPRESSION_LEVEL).unwrap();
+        let live = savedarks_dir(&install, map).join(format!("{map}.ark"));
+        fs::write(&live, b"corrupted").unwrap();
+
+        let calls = std::sync::Mutex::new(Vec::<(u64, u64)>::new());
+        rollback_with_progress(
+            &install,
+            map,
+            &snap.path,
+            Some(&|done, total| {
+                calls.lock().unwrap().push((done, total));
+            }),
+        )
+        .unwrap();
+        let recorded = calls.lock().unwrap().clone();
+        // At least one callback fired and the final pair has done==total.
+        assert!(!recorded.is_empty());
+        let (final_done, final_total) = *recorded.last().unwrap();
+        assert!(final_total > 0);
+        assert_eq!(final_done, final_total);
+        // Save was actually restored.
+        assert_eq!(fs::read(&live).unwrap(), b"world-state");
+
+        fs::remove_dir_all(&install).ok();
     }
 
     #[test]

@@ -9,8 +9,8 @@
 
 import {
     Button, CheckBox, ComboBox, GroupBox, HorizontalBox, LineEdit,
-    ListView, Palette, ScrollView, SpinBox, StandardListView, TabWidget,
-    TextEdit, VerticalBox
+    ListView, Palette, ProgressIndicator, ScrollView, SpinBox,
+    StandardListView, TabWidget, TextEdit, VerticalBox
 } from "std-widgets.slint";
 
 /// Project-wide accent palette layered on top of Slint's `Palette` dark
@@ -115,6 +115,7 @@ export struct UiLabels {
     section_setup: string,
     section_profile: string,
     section_lifecycle: string,
+    busy_indicator_text: string,
     section_tools: string,
     profile_hint: string,
     profile_path_label: string,
@@ -585,6 +586,22 @@ export component MainWindow inherits Window {
                     text: root.labels.btn_install;
                     enabled: !root.action-busy && !root.status.running;
                     clicked => { root.install-update-server(); }
+                }
+                // Indeterminate spinner. Server lifecycle / install /
+                // RCON / status-refresh all flip `action-busy` to true,
+                // and start/stop/restart in particular have no
+                // predictable runtime — the bar is the user's signal
+                // that something is in flight.
+                if root.action-busy: ProgressIndicator {
+                    indeterminate: true;
+                    min-width: 120px;
+                    horizontal-stretch: 1;
+                }
+                if root.action-busy: Text {
+                    text: root.labels.busy_indicator_text;
+                    color: AppTheme.accent;
+                    vertical-alignment: center;
+                    font-size: 11px;
                 }
             }
         }
@@ -3335,6 +3352,15 @@ export component BackupWindow inherits Window {
     in property <bool> action-busy: false;
     in property <bool> server-running: false;
 
+    /// Progress for the active long-running operation (snapshot or
+    /// rollback). 0..=1; 0 = no progress yet (renders the bar as a
+    /// thin empty stripe). Updated by the host from the worker thread
+    /// via a 100 ms throttle so the UI stays responsive.
+    in property <float> progress: 0;
+    /// "1.2 / 4.8 GiB" style label drawn next to the bar. Empty when
+    /// no progress is in flight.
+    in property <string> progress-text: "";
+
     // Rollback confirmation strip.
     in-out property <string> pending-rollback-path: "";
     in-out property <string> pending-rollback-when: "";
@@ -4110,6 +4136,27 @@ export component BackupWindow inherits Window {
                         }
                     }
                 }
+            }
+        }
+
+        // ── Progress strip (pinned) ──────────────────────────────────
+        // Visible whenever a long-running operation (snapshot / rollback)
+        // is in flight. Always determinate — the host computes total
+        // bytes up-front and updates `progress` from the worker thread.
+        if root.action-busy: HorizontalBox {
+            spacing: 8px;
+            padding: 0;
+            ProgressIndicator {
+                horizontal-stretch: 1;
+                progress: root.progress;
+                indeterminate: root.progress <= 0;
+            }
+            if root.progress-text != "": Text {
+                text: root.progress-text;
+                vertical-alignment: center;
+                font-size: 11px;
+                color: AppTheme.accent;
+                min-width: 140px;
             }
         }
 
