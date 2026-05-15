@@ -1514,7 +1514,7 @@ impl Labels {
                     .into(),
             backup_section_manual: "Manual".into(),
             backup_btn_take_now: "Take snapshot now".into(),
-            backup_btn_refresh: "↻".into(),
+            backup_btn_refresh: "🔄".into(),
             backup_section_snapshots: "Snapshots (newest first)".into(),
             backup_section_pre_rollback:
                 "Pre-rollback snapshots (auto-saved before each rollback)".into(),
@@ -1719,7 +1719,7 @@ impl Labels {
                     .into(),
             backup_section_manual: "手動操作".into(),
             backup_btn_take_now: "今すぐスナップショットを作成".into(),
-            backup_btn_refresh: "↻".into(),
+            backup_btn_refresh: "🔄".into(),
             backup_section_snapshots: "スナップショット (新しい順)".into(),
             backup_section_pre_rollback:
                 "ロールバック前自動退避 (各ロールバック直前に自動作成)".into(),
