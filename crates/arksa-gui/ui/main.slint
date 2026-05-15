@@ -3595,11 +3595,6 @@ export component BackupWindow inherits Window {
                                 enabled: !root.action-busy;
                                 clicked => { root.take-snapshot-now(); }
                             }
-                            Button {
-                                text: root.labels.backup_btn_refresh;
-                                enabled: !root.action-busy;
-                                clicked => { root.refresh-clicked(); }
-                            }
                             Rectangle { horizontal-stretch: 1; }
                             if root.action-message != "": Text {
                                 text: root.action-message;
@@ -3636,29 +3631,49 @@ export component BackupWindow inherits Window {
                             clicked => { root.current-subtab = 2; }
                         }
                         Rectangle { horizontal-stretch: 1; }
+                        // Refresh button sits at the right end of the
+                        // tab row — it acts on whichever sub-tab is
+                        // active. Icon-only so it stays compact.
+                        Button {
+                            text: root.labels.backup_btn_refresh;
+                            enabled: !root.action-busy;
+                            clicked => { root.refresh-clicked(); }
+                        }
                     }
-                    GroupBox {
+                    VerticalBox {
                         vertical-stretch: 1;
-                        title: root.current-subtab == 0
-                               ? root.labels.backup_subtab_auto
-                               : (root.current-subtab == 1
-                                  ? root.labels.backup_subtab_manual
-                                  : root.labels.backup_subtab_pre_rollback);
-                        VerticalBox {
-                            spacing: 4px;
+                        padding: 0;
+                        spacing: 4px;
                             // Column header row. The "when" and "size"
                             // headers are clickable to switch sort
                             // direction (or sort key, if not already
                             // active). An arrow glyph appears next to
-                            // the active key.
+                            // the active key. Header cells are
+                            // painted with the project's header bg so
+                            // the list reads as a table.
                             HorizontalBox {
-                                spacing: 6px;
-                                Text { text: root.labels.backup_col_select; min-width: 30px; color: AppTheme.accent; }
+                                spacing: 4px;
+                                Rectangle {
+                                    width: 32px;
+                                    height: 22px;
+                                    background: AppTheme.header-bg;
+                                    border-radius: 3px;
+                                    Text {
+                                        x: 6px;
+                                        text: root.labels.backup_col_select;
+                                        color: AppTheme.accent;
+                                        font-weight: 700;
+                                        font-size: 11px;
+                                        vertical-alignment: center;
+                                    }
+                                }
                                 Rectangle {
                                     min-width: 220px;
                                     height: 22px;
+                                    background: AppTheme.header-bg;
+                                    border-radius: 3px;
                                     Text {
-                                        x: 0;
+                                        x: 8px;
                                         text: root.labels.backup_col_when
                                               + (root.sort-column == 0
                                                  ? (root.sort-desc
@@ -3666,6 +3681,8 @@ export component BackupWindow inherits Window {
                                                     : root.labels.backup_col_sort_asc)
                                                  : "");
                                         color: AppTheme.accent;
+                                        font-weight: 700;
+                                        font-size: 11px;
                                         vertical-alignment: center;
                                     }
                                     TouchArea {
@@ -3675,8 +3692,10 @@ export component BackupWindow inherits Window {
                                 Rectangle {
                                     min-width: 100px;
                                     height: 22px;
+                                    background: AppTheme.header-bg;
+                                    border-radius: 3px;
                                     Text {
-                                        x: 0;
+                                        x: 8px;
                                         text: root.labels.backup_col_size
                                               + (root.sort-column == 1
                                                  ? (root.sort-desc
@@ -3684,13 +3703,28 @@ export component BackupWindow inherits Window {
                                                     : root.labels.backup_col_sort_asc)
                                                  : "");
                                         color: AppTheme.accent;
+                                        font-weight: 700;
+                                        font-size: 11px;
                                         vertical-alignment: center;
                                     }
                                     TouchArea {
                                         clicked => { root.sort-by-clicked(1); }
                                     }
                                 }
-                                Text { text: root.labels.backup_col_actions; horizontal-stretch: 1; color: AppTheme.accent; }
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                    height: 22px;
+                                    background: AppTheme.header-bg;
+                                    border-radius: 3px;
+                                    Text {
+                                        x: 8px;
+                                        text: root.labels.backup_col_actions;
+                                        color: AppTheme.accent;
+                                        font-weight: 700;
+                                        font-size: 11px;
+                                        vertical-alignment: center;
+                                    }
+                                }
                             }
                             ScrollView {
                                 vertical-stretch: 1;
@@ -3907,7 +3941,6 @@ export component BackupWindow inherits Window {
                                     }
                                 }
                             }
-                        }
                     }
                 }
 

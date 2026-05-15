@@ -1497,7 +1497,7 @@ impl Labels {
             backup_section_paths: "Paths".into(),
             backup_label_savedarks: "SavedArks:".into(),
             backup_label_target: "Backup folder:".into(),
-            backup_section_settings: "Periodic snapshot settings".into(),
+            backup_section_settings: "Snapshot settings".into(),
             backup_auto_enabled:
                 "Take periodic snapshots of SavedArks while the tool is running".into(),
             backup_label_interval: "Interval between snapshots:".into(),
@@ -1514,7 +1514,7 @@ impl Labels {
                     .into(),
             backup_section_manual: "Manual".into(),
             backup_btn_take_now: "Take snapshot now".into(),
-            backup_btn_refresh: "Refresh list".into(),
+            backup_btn_refresh: "↻".into(),
             backup_section_snapshots: "Snapshots (newest first)".into(),
             backup_section_pre_rollback:
                 "Pre-rollback snapshots (auto-saved before each rollback)".into(),
@@ -1701,7 +1701,7 @@ impl Labels {
             backup_section_paths: "パス".into(),
             backup_label_savedarks: "SavedArks:".into(),
             backup_label_target: "保存先フォルダ:".into(),
-            backup_section_settings: "定期スナップショット設定".into(),
+            backup_section_settings: "スナップショット設定".into(),
             backup_auto_enabled:
                 "本ツール稼働中に SavedArks の定期スナップショットを取得する".into(),
             backup_label_interval: "スナップショット間隔:".into(),
@@ -1719,7 +1719,7 @@ impl Labels {
                     .into(),
             backup_section_manual: "手動操作".into(),
             backup_btn_take_now: "今すぐスナップショットを作成".into(),
-            backup_btn_refresh: "一覧を更新".into(),
+            backup_btn_refresh: "↻".into(),
             backup_section_snapshots: "スナップショット (新しい順)".into(),
             backup_section_pre_rollback:
                 "ロールバック前自動退避 (各ロールバック直前に自動作成)".into(),
