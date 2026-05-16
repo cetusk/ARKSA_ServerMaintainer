@@ -40,5 +40,5 @@ Latest: **Phase 16** (progress bars). See [ROADMAP.en.md](./docs/ROADMAP.en.md) 
 ## License
 
 - Code: **MIT** — see [`LICENSE`](./LICENSE)
-- Upstream attribution: end of [`LICENSE`](./LICENSE)
+- Upstream attribution: see [`NOTICE`](./NOTICE)
 - The upstream Pascal / Lazarus sources are **not** vendored — fetch them from the original ASASM distribution if you need to cross-reference porting decisions

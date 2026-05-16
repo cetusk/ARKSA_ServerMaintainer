@@ -78,6 +78,7 @@ try {
     Copy-Item $ExeSrc -Destination $StageDir
     Copy-Item -Recurse (Join-Path $RepoRoot 'assets') -Destination $StageDir
     Copy-Item (Join-Path $RepoRoot 'LICENSE') -Destination $StageDir
+    Copy-Item (Join-Path $RepoRoot 'NOTICE') -Destination $StageDir
     Copy-Item -Force (Join-Path $RepoRoot 'tools\launcher\run.bat') -Destination $StageDir
 
     # Minimal README inside the zip so the recipient knows where to look.
@@ -97,6 +98,7 @@ Full docs / source / issues:
   https://github.com/cetusk/ARKSA_ServerMaintainer
 
 License: MIT (see LICENSE in this folder).
+Upstream attribution: see NOTICE in this folder.
 "@ | Set-Content -NoNewline -Path (Join-Path $StageDir 'README.txt') -Encoding UTF8
 
     # Strip any pre-existing zip with the same name — `Compress-Archive`

@@ -1,0 +1,19 @@
+ARKSA Server Maintainer
+Copyright (c) 2026 cetusk
+
+This project is licensed under the MIT License (see LICENSE).
+
+---
+
+Upstream attribution
+--------------------
+
+This project is a re-implementation, in Rust, of "ASA Server Manager"
+(ASASM) by "Dの人". The original tool is distributed at:
+
+  https://sites.google.com/view/asa-server-manager
+
+The original author explicitly permits forks and re-implementations in
+other programming languages. The upstream Pascal/Lazarus source is *not*
+redistributed in this repository; obtain it from the original
+distribution above if you need to cross-reference porting decisions.

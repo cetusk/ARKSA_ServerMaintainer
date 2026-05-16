@@ -19,14 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-Upstream attribution:
-
-This project is a re-implementation, in Rust, of "ASA Server Manager" (ASASM)
-by "Dの人". The original tool is distributed at:
-  https://sites.google.com/view/asa-server-manager
-The original author explicitly permits forks and re-implementations in other
-programming languages. The upstream Pascal/Lazarus source is *not* redistributed
-in this repository; obtain it from the original distribution above.
