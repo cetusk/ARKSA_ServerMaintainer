@@ -57,7 +57,13 @@ const LANG_JAPANESE: i64 = 2;
 
 #[derive(Clone)]
 struct AppCtx {
-    install_dir: PathBuf,
+    /// Wrapped in a Mutex so the "Browse ARKSA folder" picker can
+    /// hot-swap the tool data directory without restarting the whole
+    /// GUI. Background workers (status poller, backup scheduler) and
+    /// Slint event-loop callbacks all read it via `install_dir()` at
+    /// invocation time, so the next tick / click picks up the new
+    /// value automatically.
+    install_dir: Arc<Mutex<PathBuf>>,
     notify_config: Arc<Mutex<NotifyConfig>>,
     /// Wrapped in a Mutex so the language picker can swap translations
     /// at runtime without restarting. Background workers that cache a
@@ -65,6 +71,16 @@ struct AppCtx {
     /// once at the top of their tick and use the clone — readers never
     /// hold the lock across a Slint event-loop hop.
     labels: Arc<Mutex<Labels>>,
+}
+
+impl AppCtx {
+    fn install_dir(&self) -> PathBuf {
+        self.install_dir.lock().unwrap().clone()
+    }
+
+    fn set_install_dir(&self, new_dir: PathBuf) {
+        *self.install_dir.lock().unwrap() = new_dir;
+    }
 }
 
 type ProfileList = Arc<Mutex<Vec<(String, PathBuf)>>>;
@@ -183,7 +199,7 @@ fn main() -> Result<()> {
     let app_settings = Arc::new(Mutex::new(app_settings));
 
     let ctx = AppCtx {
-        install_dir: install_dir.clone(),
+        install_dir: Arc::new(Mutex::new(install_dir.clone())),
         notify_config: notify_config.clone(),
         labels: labels_handle.clone(),
     };
@@ -410,14 +426,59 @@ fn main() -> Result<()> {
 // ─── startup helpers ───────────────────────────────────────────────────────
 
 fn detect_install_dir() -> Result<PathBuf> {
+    // Resolution order: env var → arksa-launcher.ini next to the exe →
+    // exe's own directory. The launcher.ini hop lets distribution users
+    // change ARKSA folder via the GUI picker (which writes the file) and
+    // have the choice survive restarts without env-var fiddling.
     if let Ok(p) = std::env::var("ARKSA_DIR") {
         return Ok(PathBuf::from(p));
+    }
+    if let Some(p) = read_launcher_arksa_dir() {
+        return Ok(p);
     }
     let exe = std::env::current_exe().context("current_exe() failed")?;
     Ok(exe
         .parent()
         .ok_or_else(|| anyhow!("current_exe has no parent"))?
         .to_path_buf())
+}
+
+/// Path to the launcher bootstrap file (`arksa-launcher.ini` next to
+/// the running exe). Stores a single line `ARKSA_DIR=<path>` so the
+/// GUI's folder picker can persist its choice without touching the
+/// user's environment.
+fn launcher_ini_path() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    Some(exe.parent()?.join("arksa-launcher.ini"))
+}
+
+fn read_launcher_arksa_dir() -> Option<PathBuf> {
+    let path = launcher_ini_path()?;
+    let content = std::fs::read_to_string(&path).ok()?;
+    for line in content.lines() {
+        let line = line.trim();
+        if let Some(rest) = line.strip_prefix("ARKSA_DIR=") {
+            let candidate = PathBuf::from(rest.trim().trim_matches('"'));
+            if candidate.is_dir() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
+fn write_launcher_arksa_dir(new_dir: &Path) -> Result<()> {
+    let path =
+        launcher_ini_path().ok_or_else(|| anyhow!("could not derive exe parent"))?;
+    let content = format!(
+        "# Auto-written by the ARKSA Server Maintainer GUI when the user picks\n\
+         # a different ARKSA folder via Setup → Browse for folder. Hand-edit is\n\
+         # fine; the env var ARKSA_DIR wins over this file if both are set.\n\
+         ARKSA_DIR={}\n",
+        new_dir.display(),
+    );
+    std::fs::write(&path, content)?;
+    Ok(())
 }
 
 fn scan_profiles(install_dir: &Path) -> Vec<(String, PathBuf)> {
@@ -678,7 +739,7 @@ fn wire_main_callbacks(
                 move || {
                     let prof = Profile::load(&profile_path)
                         .with_context(|| format!("load {}", profile_path.display()))?;
-                    let pid = server::start(&prof, &ctx.install_dir)?;
+                    let pid = server::start(&prof, &ctx.install_dir())?;
                     fire_notification(
                         ctx.notify_config.clone(),
                         NotifyEvent::ServerStarting,
@@ -708,7 +769,7 @@ fn wire_main_callbacks(
                         .with_context(|| format!("load {}", profile_path.display()))?;
                     let outcome = server::stop_graceful(
                         &prof,
-                        &ctx.install_dir,
+                        &ctx.install_dir(),
                         StopOptions::default(),
                     )?;
                     if matches!(
@@ -747,7 +808,7 @@ fn wire_main_callbacks(
                     // 1. graceful stop
                     let outcome = server::stop_graceful(
                         &prof,
-                        &ctx.install_dir,
+                        &ctx.install_dir(),
                         StopOptions::default(),
                     )?;
                     if matches!(outcome, StopOutcome::StillRunning) {
@@ -773,7 +834,7 @@ fn wire_main_callbacks(
                     //    edits made between Stop and Start take effect.
                     let prof = Profile::load(&profile_path)
                         .with_context(|| format!("reload {}", profile_path.display()))?;
-                    let pid = server::start(&prof, &ctx.install_dir)?;
+                    let pid = server::start(&prof, &ctx.install_dir())?;
                     fire_notification(
                         ctx.notify_config.clone(),
                         NotifyEvent::ServerStarting,
@@ -826,32 +887,93 @@ fn wire_main_callbacks(
         });
     }
     {
+        // Hot-reload the ARKSA folder in-process: re-scan profiles,
+        // reset the selection, refresh the dropdown, and persist the
+        // new path to `arksa-launcher.ini` next to the exe so the
+        // change survives the next launch. Open secondary windows
+        // (World Settings, Backup, etc.) keep operating on their
+        // original profile path until the user reopens them.
         let weak = window.as_weak();
         let log = log.clone();
-        let install_dir = ctx.install_dir.clone();
+        let ctx = ctx.clone();
+        let profiles = profiles.clone();
+        let selected = selected.clone();
         window.on_browse_install_dir(move || {
-            let chosen = pick_folder(Some(&install_dir));
-            let Some(path) = chosen else {
+            let current = ctx.install_dir();
+            let Some(chosen) = pick_folder(Some(&current)) else {
                 return;
             };
-            // We don't have a runtime-restart mechanism, so this is
-            // informational: the user has to update run.ps1 / ARKSA_DIR
-            // manually for the change to apply on next launch.
+            if chosen == current {
+                push_log_async(&weak, &log, "ARKSA folder unchanged.");
+                return;
+            }
+            if !chosen.is_dir() {
+                push_log_async(
+                    &weak,
+                    &log,
+                    &format!("Not a directory: {}", chosen.display()),
+                );
+                return;
+            }
+
+            if let Err(e) = write_launcher_arksa_dir(&chosen) {
+                // Continue with the in-process switch even if persistence
+                // failed — the user gets the immediate effect, just not
+                // across restarts.
+                push_log_async(
+                    &weak,
+                    &log,
+                    &format!(
+                        "Saved current session but failed to persist arksa-launcher.ini: {e:#}"
+                    ),
+                );
+            }
+
+            // In-process state: AppCtx, profile list, selection.
+            ctx.set_install_dir(chosen.clone());
+            let new_list = scan_profiles(&chosen);
+            let profile_count = new_list.len();
+            {
+                let mut guard = profiles.lock().unwrap();
+                *guard = new_list.clone();
+            }
+            {
+                let mut sel = selected.lock().unwrap();
+                *sel = 0;
+            }
+
+            // Slint UI: install_dir label + profile dropdown.
+            let chosen_for_ui = chosen.clone();
+            let ui_list = new_list.clone();
+            let _ = weak.upgrade_in_event_loop(move |w| {
+                w.set_install_dir(chosen_for_ui.display().to_string().into());
+                w.set_selected_profile_index(0);
+                push_profiles_to_ui(&w, &ui_list);
+            });
+
             push_log_async(
                 &weak,
                 &log,
                 &format!(
-                    "Selected {}. To use it next launch, edit run.ps1 (set $env:ARKSA_DIR) or set the ARKSA_DIR env var.",
-                    path.display()
+                    "ARKSA folder switched to: {} ({} profile(s) loaded)",
+                    chosen.display(),
+                    profile_count,
                 ),
             );
+
+            // Status panel re-snapshots from the now-active profile.
+            refresh_status_async(&weak, &ctx, &profiles, &selected, &log);
         });
     }
     {
+        // Capture `ctx` (not a snapshot of install_dir) so the dialog
+        // sees the latest ARKSA folder when the user picks New Profile
+        // *after* swapping folders.
         let dialog_weak = dialog.as_weak();
-        let install_dir = ctx.install_dir.clone();
+        let ctx = ctx.clone();
         window.on_new_profile(move || {
             let Some(dialog) = dialog_weak.upgrade() else { return };
+            let install_dir = ctx.install_dir();
             reset_dialog_to_defaults(&dialog, &install_dir);
             let _ = dialog.show();
         });
@@ -893,7 +1015,7 @@ fn wire_main_callbacks(
             // pair of INIs to read/write.
             let install_root = match Profile::load(&profile_path)
                 .ok()
-                .and_then(|p| p.resolved_install_path(&ctx.install_dir))
+                .and_then(|p| p.resolved_install_path(&ctx.install_dir()))
             {
                 Some(r) => r,
                 None => {
@@ -922,7 +1044,7 @@ fn wire_main_callbacks(
             };
             if let Some(w) = backup_weak.upgrade() {
                 if let Err(e) =
-                    populate_backup_window(&w, &profile_path, &ctx.install_dir)
+                    populate_backup_window(&w, &profile_path, &ctx.install_dir())
                 {
                     push_log_async(
                         &weak,
@@ -955,10 +1077,10 @@ fn wire_main_callbacks(
                     let prof = Profile::load(&profile_path)
                         .with_context(|| format!("load {}", profile_path.display()))?;
                     let install_path = prof
-                        .resolved_install_path(&ctx_for_worker.install_dir)
+                        .resolved_install_path(&ctx_for_worker.install_dir())
                         .ok_or_else(|| anyhow!("profile is missing install location"))?;
                     let steamcmd_exe =
-                        steamcmd::ensure_steamcmd(&ctx_for_worker.install_dir)?;
+                        steamcmd::ensure_steamcmd(&ctx_for_worker.install_dir())?;
                     push_log_async(
                         &weak_for_worker,
                         &log_for_worker,
@@ -1067,7 +1189,7 @@ fn wire_dialog_callbacks(
             };
             dialog.set_busy(true);
 
-            let profile_dir = ctx.install_dir.join("Profile");
+            let profile_dir = ctx.install_dir().join("Profile");
             let dialog_weak = dialog.as_weak();
             let main_weak = main_weak.clone();
             let ctx = ctx.clone();
@@ -1104,7 +1226,7 @@ fn wire_dialog_callbacks(
                             &format!("Created profile {}.", saved_path.display()),
                         );
                         // Refresh main window's profile list and select the new entry.
-                        let new_list = scan_profiles(&ctx.install_dir);
+                        let new_list = scan_profiles(&ctx.install_dir());
                         let new_idx = new_list.iter().position(|(_, p)| p == &saved_path).unwrap_or(0);
                         *profiles.lock().unwrap() = new_list.clone();
                         *selected.lock().unwrap() = new_idx;
@@ -4279,7 +4401,7 @@ fn wire_world_settings_callbacks(
             };
             let install_root = match Profile::load(&profile_path)
                 .ok()
-                .and_then(|p| p.resolved_install_path(&ctx.install_dir))
+                .and_then(|p| p.resolved_install_path(&ctx.install_dir()))
             {
                 Some(r) => r,
                 None => {
@@ -4326,7 +4448,7 @@ fn wire_world_settings_callbacks(
             // can — most imports come from a sibling install's INI files.
             let start_dir = current_profile_path(&profiles, &selected)
                 .and_then(|p| Profile::load(&p).ok())
-                .and_then(|p| p.resolved_install_path(&ctx.install_dir))
+                .and_then(|p| p.resolved_install_path(&ctx.install_dir()))
                 .map(|r| {
                     r.join("ShooterGame")
                         .join("Saved")
@@ -4548,7 +4670,7 @@ fn refresh_status_async(
             let prof = Profile::load(&profile_path)
                 .with_context(|| format!("load {}", profile_path.display()))?;
             let now = current_unix_time();
-            let status = server::status(&prof, &ctx.install_dir, now)?;
+            let status = server::status(&prof, &ctx.install_dir(), now)?;
             let map = prof.map_name().unwrap_or_else(|| "—".into());
             let ports = format!(
                 "Game {}, Query {}, RCON {}",
@@ -5140,7 +5262,7 @@ fn wire_backup_callbacks(
                 w.set_action_message("No profile selected.".into());
                 return;
             };
-            let install_dir = ctx.install_dir.clone();
+            let install_dir = ctx.install_dir();
             let weak_for_worker = weak.clone();
             let main_weak = main_weak.clone();
             let log = log.clone();
@@ -5216,14 +5338,14 @@ fn wire_backup_callbacks(
             };
             if let Ok(profile) = Profile::load(&profile_path) {
                 if let (Some(root), Some(map)) = (
-                    profile.resolved_install_path(&ctx.install_dir),
+                    profile.resolved_install_path(&ctx.install_dir()),
                     profile.map_name(),
                 ) {
                     refresh_backup_lists_in_window(&w, &root, &map);
                     // Also re-check server-running so the rollback warning
                     // tracks reality.
                     let now = current_unix_time();
-                    let running = server::status(&profile, &ctx.install_dir, now)
+                    let running = server::status(&profile, &ctx.install_dir(), now)
                         .map(|s| s.running)
                         .unwrap_or(false);
                     w.set_server_running(running);
@@ -5271,7 +5393,7 @@ fn wire_backup_callbacks(
             if let Some(profile_path) = current_profile_path(&profiles, &selected) {
                 if let Ok(profile) = Profile::load(&profile_path) {
                     if let (Some(root), Some(map)) = (
-                        profile.resolved_install_path(&ctx.install_dir),
+                        profile.resolved_install_path(&ctx.install_dir()),
                         profile.map_name(),
                     ) {
                         refresh_backup_lists_in_window(&w, &root, &map);
@@ -5312,7 +5434,7 @@ fn wire_backup_callbacks(
             if paths.is_empty() {
                 return;
             }
-            let install_dir = ctx.install_dir.clone();
+            let install_dir = ctx.install_dir();
             let weak_for_worker = weak.clone();
             let main_weak = main_weak.clone();
             let log = log.clone();
@@ -5378,7 +5500,7 @@ fn wire_backup_callbacks(
                 w.set_action_message("No profile selected.".into());
                 return;
             };
-            let install_dir = ctx.install_dir.clone();
+            let install_dir = ctx.install_dir();
             let snapshot_path = PathBuf::from(snapshot_path_str.as_str());
             let weak_for_worker = weak.clone();
             let main_weak = main_weak.clone();
@@ -5507,7 +5629,7 @@ fn run_backup_scheduler_tick(
     if !profile.auto_backup_enabled() {
         return;
     }
-    let Some(install_root) = profile.resolved_install_path(&ctx.install_dir) else {
+    let Some(install_root) = profile.resolved_install_path(&ctx.install_dir()) else {
         return;
     };
     let Some(map) = profile.map_name() else { return };

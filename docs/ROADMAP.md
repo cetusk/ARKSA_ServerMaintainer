@@ -41,7 +41,8 @@
 | 14 | MOD 設定カテゴリ + RTB スキーマ: MOD 別 INI スキーマレジストリ (`crates/arksa-core/src/mod_configs.rs`)、`-mods=` リストから検出した MOD のみ表示、無効化時は GroupBox 非表示 + Save 非干渉で設定保全 | ✅ |
 | 15 | バックアップ画面リワーク: `auto/` / `manual/` / `pre_rollback/` の 3 サブディレクトリ分離、サイドバーをカテゴリ集約 (パス / 設定 / 一覧)、一覧カテゴリに 3 サブタブ + 日時・サイズソート + 関連退避バッジ (🔁)、pre_rollback ファイル名に復元元 timestamp を埋め込んで紐付け可視化、レガシーレイアウト自動マイグレーション | ✅ |
 | 16 | プログレスバー対応: スナップショット / ロールバックは決定的バー + バイト数表示 (100ms スロットル)、サーバー起動 / 停止 / 再起動 / インストール / RCON / ステータス更新は不確定スピナー + 「処理中…」ラベル | ✅ |
-| 17 | 配布版 .zip ビルドパイプライン: `x86_64-pc-windows-msvc` + `+crt-static` で自己完結 .exe、`tools/build-release.ps1` でローカル zip 生成、`.github/workflows/release.yml` で `v*` タグ push 時に GitHub Releases へ自動添付、`run.bat` 同梱で「解凍 → ダブルクリック」起動 | ✅ |
+| 17 | 配布版 .zip ビルドパイプライン: `x86_64-pc-windows-msvc` + `+crt-static` で自己完結 .exe、`tools/build-release.ps1` でローカル zip 生成、`.github/workflows/release.yml` で `v*` タグ push 時に GitHub Releases へ自動添付 (zip + 単体 .exe)、`run.bat` 同梱で「解凍 → ダブルクリック」起動 | ✅ |
+| 18 | ARKSA フォルダのホットスワップ + 永続化: Setup → Browse for folder で選んだフォルダを `AppCtx::install_dir` (`Arc<Mutex<PathBuf>>`) に in-process 反映、プロファイル一覧 / 選択 / Status を即更新、選択は exe と同階層の `arksa-launcher.ini` に保存して次回起動で復元、解決順は env → launcher.ini → exe ディレクトリ | ✅ |
 
 ## 今後の計画
 
