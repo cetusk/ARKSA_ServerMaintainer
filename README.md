@@ -24,6 +24,10 @@
 - **クロスカテゴリライブ検索** — キー名 / 説明文の両方を対象に検索可能
 - **バックアップ / ロールバック** — 定期 / 手動 / ロールバック前自動退避
 
+## ダウンロード
+
+配布版 zip は [GitHub Releases](https://github.com/cetusk/ARKSA_ServerMaintainer/releases) から。解凍して `run.bat` をダブルクリックで起動できます (Rust ビルド環境不要、Visual C++ ランタイム不要)。詳しい手順は [INSTALL.md の A 節](./docs/INSTALL.md#a-配布版を使う) を参照。
+
 ## ステータス
 
 最新: **Phase 16** (プログレスバー対応)。詳細とフェーズ計画は [ROADMAP.md](./docs/ROADMAP.md) を参照。

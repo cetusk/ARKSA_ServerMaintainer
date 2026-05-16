@@ -4,7 +4,28 @@
 
 このドキュメントは ARKSA Server Maintainer を **初めて触る人** が、GUI が起動して ARK SA Dedicated Server を実際に動かせるまでをカバーします。
 
+選べる導入経路は 2 つ:
+
+- **A. 配布版 .zip をダウンロード**（推奨。Rust ビルド環境不要、ステップ 1〜3 がワンクリックに圧縮される）
+- **B. ソースからビルド**（コードを触りたい / 最新版を試したい場合 — [ビルド前提](#ビルド前提) 以降のフルパスを辿る）
+
+## A. 配布版を使う
+
+[GitHub Releases](https://github.com/cetusk/ARKSA_ServerMaintainer/releases) から最新の `arksa-server-maintainer-vX.Y.Z.zip` をダウンロード:
+
+1. zip を**書き込み権限のある任意のフォルダ**に解凍 (例: `D:\ARK\Tool\`)
+2. フォルダ内の **`run.bat` をダブルクリック** (または `arksa-gui.exe` を直接実行)
+3. GUI が起動 → 下記 [クイックスタート Step 4 (プロファイル作成)](#4-プロファイル作成) からは A / B 共通
+
+中身は `arksa-gui.exe` (自己完結、Visual C++ ランタイム不要) + `assets/` + `run.bat` + `LICENSE` + `README.txt` のみ。
+
+既定では tool データ (プロファイル / 同梱 steamcmd / ログ) は `run.bat` と同じフォルダに保存されます。別ドライブに置きたい場合は `run.bat` を編集して `ARKSA_DIR` を変更してください。
+
+> **ARK SA Dedicated Server 本体は zip に含まれません** — GUI の *Install / Update server* ボタンで steamcmd 経由で約 13 GB ダウンロードします。
+
 ## ビルド前提
+
+> **B: ソースビルド** を選んだ人向け。配布版を使う場合はこの節と次節の Step 1〜3 をスキップして [Step 4](#4-プロファイル作成) から読んでください。
 
 - **Rust** stable (`rustup default stable`)
 - **MSVC ツールチェイン** (`x86_64-pc-windows-msvc`) — Windows 上では `rustup` の既定

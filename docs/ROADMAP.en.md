@@ -41,6 +41,7 @@ For the `.pas → Rust` mapping and crate responsibilities, see [`architecture.m
 | 14 | MOD configs category + RTB schema: per-MOD INI schema registry (`crates/arksa-core/src/mod_configs.rs`), only MODs detected in `-mods=` are shown, disabling a MOD hides its GroupBox and skips writes (so settings persist when re-enabled) | ✅ |
 | 15 | Backup window rework: `auto/` / `manual/` / `pre_rollback/` split into 3 sub-directories, sidebar collapsed to (paths / settings / list), list category gets 3 sub-tabs + sort + 🔁 related-backup badge, pre_rollback filename embeds the source timestamp for traceability, legacy layout auto-migrated | ✅ |
 | 16 | Progress bars: determinate bar + byte counter for snapshots / rollback (100 ms throttle), indeterminate spinner + "Working…" label for server start / stop / restart / install / RCON / status refresh | ✅ |
+| 17 | Release `.zip` pipeline: `x86_64-pc-windows-msvc` + `+crt-static` for a self-contained `.exe`, `tools/build-release.ps1` for local zip generation, `.github/workflows/release.yml` to attach zips to GitHub Releases on `v*` tag push, bundled `run.bat` for one-double-click launch | ✅ |
 
 ## What's next
 

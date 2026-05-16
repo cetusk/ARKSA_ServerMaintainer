@@ -5,7 +5,18 @@
 # binary stack reservation to 8 MiB on every Windows toolchain we ship for.
 
 [target.x86_64-pc-windows-msvc]
-rustflags = ["-C", "link-arg=/STACK:8388608"]
+# - /STACK:8388608             — 8 MiB main-thread stack (see top-of-file).
+# - target-feature=+crt-static — statically link the MSVC C runtime so the
+#                                release binary doesn't depend on the
+#                                VCRUNTIME / MSVCP redistributables being
+#                                present on the user's machine. Combined
+#                                with the workspace's `[profile.release]`
+#                                LTO this yields a single self-contained
+#                                `.exe` for distribution (Phase 17).
+rustflags = [
+    "-C", "link-arg=/STACK:8388608",
+    "-C", "target-feature=+crt-static",
+]
 
 [target.x86_64-pc-windows-gnu]
 rustflags = ["-C", "link-arg=-Wl,--stack,8388608"]

@@ -4,7 +4,28 @@
 
 This doc takes a **first-time user** from a clean checkout to a running ARK SA dedicated server with the GUI driving it.
 
+Two install paths:
+
+- **A. Download the prebuilt zip** (recommended — no Rust toolchain needed; steps 1–3 collapse into one double-click)
+- **B. Build from source** (if you want to hack on the code or run the latest unreleased version — follow [Build prerequisites](#build-prerequisites) onward)
+
+## A. Use the prebuilt release
+
+Grab the latest `arksa-server-maintainer-vX.Y.Z.zip` from [GitHub Releases](https://github.com/cetusk/ARKSA_ServerMaintainer/releases):
+
+1. Extract anywhere with write access (e.g. `D:\ARK\Tool\`)
+2. Double-click **`run.bat`** in the extracted folder (or run `arksa-gui.exe` directly)
+3. The GUI opens — continue from [Quick start step 4 (Create a profile)](#4-create-a-profile); steps 4–7 are common to both paths
+
+The zip contains only `arksa-gui.exe` (self-contained — no Visual C++ runtime required), `assets/`, `run.bat`, `LICENSE`, and `README.txt`.
+
+By default the tool stores its data (profiles / bundled steamcmd / logs) next to `run.bat`. To put it elsewhere, open `run.bat` in a text editor and adjust `ARKSA_DIR`.
+
+> **The ARK SA Dedicated Server itself is not in the zip** — the GUI's *Install / Update server* button downloads it (~13 GB) via steamcmd on first use.
+
 ## Build prerequisites
+
+> For path **B (source build)**. Path A users skip this section and the first three quick-start steps; jump straight to [step 4](#4-create-a-profile).
 
 - **Rust** stable (`rustup default stable`)
 - **MSVC toolchain** (`x86_64-pc-windows-msvc`) — `rustup`'s default on Windows

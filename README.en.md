@@ -24,6 +24,10 @@ A **personal rework** of [ASA Server Manager (ASASM)](https://sites.google.com/v
 - **Cross-category live search** — matches key names or descriptions
 - **Backup / rollback** — periodic / manual / pre-rollback emergency snapshots tracked independently
 
+## Download
+
+Prebuilt Windows zip from [GitHub Releases](https://github.com/cetusk/ARKSA_ServerMaintainer/releases). Extract anywhere and double-click `run.bat` — no Rust toolchain, no Visual C++ runtime required. Step-by-step in [INSTALL.en.md § A](./docs/INSTALL.en.md#a-use-the-prebuilt-release).
+
 ## Status
 
 Latest: **Phase 16** (progress bars). See [ROADMAP.en.md](./docs/ROADMAP.en.md) for the full phase log and what's next.
