@@ -26,7 +26,12 @@
 
 ## ダウンロード
 
-配布版 zip は [GitHub Releases](https://github.com/cetusk/ARKSA_ServerMaintainer/releases) から。解凍して `run.bat` をダブルクリックで起動できます (Rust ビルド環境不要、Visual C++ ランタイム不要)。詳しい手順は [INSTALL.md の A 節](./docs/INSTALL.md#a-配布版を使う) を参照。
+[GitHub Releases](https://github.com/cetusk/ARKSA_ServerMaintainer/releases) に 2 種類:
+
+- `arksa-server-maintainer-vX.Y.Z.zip` — 初回インストール用フル一式 (exe + assets + run.bat)
+- `arksa-gui-vX.Y.Z.exe` — 単体 exe (既存環境のアップデート用、上書き 1 つで完結)
+
+どちらも Rust ビルド環境不要、Visual C++ ランタイム不要。詳しい手順は [INSTALL.md の A 節](./docs/INSTALL.md#a-配布版を使う) を参照。
 
 ## ステータス
 

@@ -23,6 +23,10 @@
 
 > **ARK SA Dedicated Server 本体は zip に含まれません** — GUI の *Install / Update server* ボタンで steamcmd 経由で約 13 GB ダウンロードします。
 
+### 既存ユーザのアップデート
+
+新バージョンが出たら、Releases ページから **`arksa-gui-vX.Y.Z.exe`** (単体 exe) だけをダウンロードし、現在の `arksa-gui.exe` を上書きで OK。`assets/` / プロファイル / バックアップは触らずに済みます。初回インストール時のみ zip が必要です。
+
 ## ビルド前提
 
 > **B: ソースビルド** を選んだ人向け。配布版を使う場合はこの節と次節の Step 1〜3 をスキップして [Step 4](#4-プロファイル作成) から読んでください。

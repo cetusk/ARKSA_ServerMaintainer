@@ -5,11 +5,14 @@
 #   2. Stages arksa-gui.exe + assets/ + run.bat + LICENSE + README.txt under
 #      dist\arksa-server-maintainer-vX.Y.Z\
 #   3. Zips that staging tree into dist\arksa-server-maintainer-vX.Y.Z.zip
+#   4. Copies the standalone exe to dist\arksa-gui-vX.Y.Z.exe for
+#      in-place updates (same binary, just no assets/ alongside)
 #
-# Output is a single self-contained zip: the user extracts it anywhere and
-# double-clicks run.bat (or arksa-gui.exe). No Visual C++ redistributable
-# required (the MSVC CRT is statically linked via +crt-static in
-# .cargo/config.toml), no VC++ DLLs alongside the exe.
+# Output: a self-contained zip + a standalone exe. The user extracts the
+# zip anywhere and double-clicks run.bat (first install), or drops the
+# standalone exe over the previous one (update in place). No Visual C++
+# redistributable required (the MSVC CRT is statically linked via
+# +crt-static in .cargo/config.toml).
 #
 # Usage:
 #   pwsh -File tools\build-release.ps1                  # build current version
@@ -44,6 +47,12 @@ try {
     $DistDir = Join-Path $RepoRoot 'dist'
     $StageDir = Join-Path $DistDir $BundleName
     $ZipPath = Join-Path $DistDir "$BundleName.zip"
+    # Standalone exe (in-place update) — same .exe that lives inside the
+    # zip, copied to dist with a version-tagged name. Released alongside
+    # the bundle so users who already have assets/ can swap binaries
+    # without re-downloading 22 MiB of zip.
+    $ExeDistName = "arksa-gui-v$Version.exe"
+    $ExeDistPath = Join-Path $DistDir $ExeDistName
 
     Write-Host "→ Building arksa-gui v$Version for $Target" -ForegroundColor Cyan
 
@@ -99,12 +108,18 @@ License: MIT (see LICENSE in this folder).
     Write-Host "→ Packing zip $ZipPath" -ForegroundColor Cyan
     Compress-Archive -Path "$StageDir\*" -DestinationPath $ZipPath -CompressionLevel Optimal
 
+    Write-Host "→ Copying standalone exe → $ExeDistPath" -ForegroundColor Cyan
+    Copy-Item -Force $ExeSrc -Destination $ExeDistPath
+
     if (-not $KeepStaging) {
         Remove-Item -Recurse -Force $StageDir
     }
 
-    $size = (Get-Item $ZipPath).Length
-    Write-Host ("✓ Done. {0} ({1:N1} MiB)" -f $ZipPath, ($size / 1MB)) -ForegroundColor Green
+    $zipSize = (Get-Item $ZipPath).Length
+    $exeSize = (Get-Item $ExeDistPath).Length
+    Write-Host ("✓ Done.") -ForegroundColor Green
+    Write-Host ("    {0,-60} {1,8:N1} MiB" -f $ZipPath, ($zipSize / 1MB))
+    Write-Host ("    {0,-60} {1,8:N1} MiB" -f $ExeDistPath, ($exeSize / 1MB))
 }
 finally {
     Pop-Location

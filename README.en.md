@@ -26,7 +26,12 @@ A **personal rework** of [ASA Server Manager (ASASM)](https://sites.google.com/v
 
 ## Download
 
-Prebuilt Windows zip from [GitHub Releases](https://github.com/cetusk/ARKSA_ServerMaintainer/releases). Extract anywhere and double-click `run.bat` — no Rust toolchain, no Visual C++ runtime required. Step-by-step in [INSTALL.en.md § A](./docs/INSTALL.en.md#a-use-the-prebuilt-release).
+Two artifacts on [GitHub Releases](https://github.com/cetusk/ARKSA_ServerMaintainer/releases):
+
+- `arksa-server-maintainer-vX.Y.Z.zip` — full first-time install (exe + assets + run.bat)
+- `arksa-gui-vX.Y.Z.exe` — standalone exe for in-place upgrades (just overwrite the previous one)
+
+Neither needs a Rust toolchain or the Visual C++ runtime. Step-by-step in [INSTALL.en.md § A](./docs/INSTALL.en.md#a-use-the-prebuilt-release).
 
 ## Status
 

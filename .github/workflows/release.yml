@@ -51,18 +51,26 @@ jobs:
             pwsh -File tools/build-release.ps1 -Version $version
           }
 
-      - name: Upload zip as workflow artifact
+      - name: Upload artifacts (zip bundle + standalone exe)
         uses: actions/upload-artifact@v4
         with:
           name: arksa-server-maintainer-windows-x64
-          path: dist/arksa-server-maintainer-v*.zip
+          path: |
+            dist/arksa-server-maintainer-v*.zip
+            dist/arksa-gui-v*.exe
           if-no-files-found: error
 
       - name: Attach to GitHub Release (tag pushes only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/arksa-server-maintainer-v*.zip
+          # Two artifacts per release:
+          #   - the .zip bundle (full install: exe + assets/ + run.bat)
+          #   - the standalone .exe (in-place upgrade; user keeps their
+          #     existing assets/)
+          files: |
+            dist/arksa-server-maintainer-v*.zip
+            dist/arksa-gui-v*.exe
           generate_release_notes: true
           draft: false
           prerelease: false

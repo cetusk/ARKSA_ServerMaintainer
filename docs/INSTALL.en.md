@@ -23,6 +23,10 @@ By default the tool stores its data (profiles / bundled steamcmd / logs) next to
 
 > **The ARK SA Dedicated Server itself is not in the zip** — the GUI's *Install / Update server* button downloads it (~13 GB) via steamcmd on first use.
 
+### Updating an existing install
+
+When a new version ships, grab the standalone **`arksa-gui-vX.Y.Z.exe`** from the Releases page and drop it over the previous `arksa-gui.exe`. Your `assets/`, profiles, and backups stay put. The zip is only needed for the first install.
+
 ## Build prerequisites
 
 > For path **B (source build)**. Path A users skip this section and the first three quick-start steps; jump straight to [step 4](#4-create-a-profile).
