@@ -3784,29 +3784,17 @@ export component BackupWindow inherits Window {
                                             // "🔁 related backup" badge —
                                             // only rendered when the host
                                             // found a matching pre_rollback.
-                                            if snap.related_path != "": Rectangle {
-                                                background: #1a2030;
-                                                border-color: #4080c0;
-                                                border-width: 1px;
-                                                border-radius: 3px;
-                                                height: 24px;
-                                                HorizontalBox {
-                                                    padding-left: 6px;
-                                                    padding-right: 6px;
-                                                    Text {
-                                                        text: root.labels.backup_badge_related;
-                                                        color: #80b0ff;
-                                                        font-size: 11px;
-                                                        vertical-alignment: center;
-                                                    }
-                                                }
-                                                TouchArea {
-                                                    clicked => {
-                                                        root.badge-detail-path = snap.related_path;
-                                                        root.badge-detail-when = snap.related_when_text;
-                                                        root.badge-detail-size = snap.related_size_text;
-                                                        root.badge-detail-source-when = snap.when_text;
-                                                    }
+                                            // Same widget as the rollback Button next to it so the
+                                            // two buttons share height / padding / font. The 🔁
+                                            // glyph in the label keeps it visually distinct.
+                                            if snap.related_path != "": Button {
+                                                text: root.labels.backup_badge_related;
+                                                enabled: !root.action-busy;
+                                                clicked => {
+                                                    root.badge-detail-path = snap.related_path;
+                                                    root.badge-detail-when = snap.related_when_text;
+                                                    root.badge-detail-size = snap.related_size_text;
+                                                    root.badge-detail-source-when = snap.when_text;
                                                 }
                                             }
                                             Button {
@@ -3832,29 +3820,17 @@ export component BackupWindow inherits Window {
                                             }
                                             Text { text: snap.when_text; vertical-alignment: center; min-width: 220px; }
                                             Text { text: snap.size_text; vertical-alignment: center; min-width: 100px; }
-                                            if snap.related_path != "": Rectangle {
-                                                background: #1a2030;
-                                                border-color: #4080c0;
-                                                border-width: 1px;
-                                                border-radius: 3px;
-                                                height: 24px;
-                                                HorizontalBox {
-                                                    padding-left: 6px;
-                                                    padding-right: 6px;
-                                                    Text {
-                                                        text: root.labels.backup_badge_related;
-                                                        color: #80b0ff;
-                                                        font-size: 11px;
-                                                        vertical-alignment: center;
-                                                    }
-                                                }
-                                                TouchArea {
-                                                    clicked => {
-                                                        root.badge-detail-path = snap.related_path;
-                                                        root.badge-detail-when = snap.related_when_text;
-                                                        root.badge-detail-size = snap.related_size_text;
-                                                        root.badge-detail-source-when = snap.when_text;
-                                                    }
+                                            // Same widget as the rollback Button next to it so the
+                                            // two buttons share height / padding / font. The 🔁
+                                            // glyph in the label keeps it visually distinct.
+                                            if snap.related_path != "": Button {
+                                                text: root.labels.backup_badge_related;
+                                                enabled: !root.action-busy;
+                                                clicked => {
+                                                    root.badge-detail-path = snap.related_path;
+                                                    root.badge-detail-when = snap.related_when_text;
+                                                    root.badge-detail-size = snap.related_size_text;
+                                                    root.badge-detail-source-when = snap.when_text;
                                                 }
                                             }
                                             Button {

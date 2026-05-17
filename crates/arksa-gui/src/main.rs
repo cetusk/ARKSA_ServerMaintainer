@@ -739,13 +739,39 @@ fn wire_main_callbacks(
                 move || {
                     let prof = Profile::load(&profile_path)
                         .with_context(|| format!("load {}", profile_path.display()))?;
-                    let pid = server::start(&prof, &ctx.install_dir())?;
+                    let install_dir = ctx.install_dir();
+                    let install_root = prof
+                        .resolved_install_path(&install_dir)
+                        .ok_or_else(|| anyhow!("Profile has no install location."))?;
+                    // Mark the log position before spawning so the
+                    // "completed startup" watcher only sees lines from
+                    // *this* boot.
+                    let initial_log_size = current_log_size(&install_root);
+                    let pid = server::start(&prof, &install_dir)?;
                     fire_notification(
                         ctx.notify_config.clone(),
                         NotifyEvent::ServerStarting,
                         build_notify_context(&prof),
                     );
-                    Ok(format!("Server started (PID {pid})."))
+                    // Hold busy until the server actually announces
+                    // it's ready (or 5 min — TheIsland cold-load + mod
+                    // verification can take a while). The buttons stay
+                    // greyed out the whole time so the user can't try
+                    // to Stop a half-loaded server.
+                    let ready = wait_for_server_ready(
+                        &install_root,
+                        initial_log_size,
+                        Duration::from_secs(300),
+                    );
+                    if ready {
+                        Ok(format!(
+                            "Server started (PID {pid}) and ready to accept clients."
+                        ))
+                    } else {
+                        Ok(format!(
+                            "Server started (PID {pid}); ready signal not observed within 5 min. Check ShooterGame.log if clients can't join."
+                        ))
+                    }
                 }
             });
         });
@@ -767,9 +793,10 @@ fn wire_main_callbacks(
                 move || {
                     let prof = Profile::load(&profile_path)
                         .with_context(|| format!("load {}", profile_path.display()))?;
+                    let install_dir = ctx.install_dir();
                     let outcome = server::stop_graceful(
                         &prof,
-                        &ctx.install_dir(),
+                        &install_dir,
                         StopOptions::default(),
                     )?;
                     if matches!(
@@ -782,6 +809,14 @@ fn wire_main_callbacks(
                             build_notify_context(&prof),
                         );
                     }
+                    // Hold busy until the engine actually releases the
+                    // process so a quick double-click can't fire two
+                    // stops or interleave a start.
+                    let _ = wait_for_server_stopped(
+                        &prof,
+                        &install_dir,
+                        Duration::from_secs(30),
+                    );
                     Ok(format!("Stop result: {}.", describe_stop(outcome)))
                 }
             });
@@ -804,11 +839,12 @@ fn wire_main_callbacks(
                 move || {
                     let prof = Profile::load(&profile_path)
                         .with_context(|| format!("load {}", profile_path.display()))?;
+                    let install_dir = ctx.install_dir();
 
                     // 1. graceful stop
                     let outcome = server::stop_graceful(
                         &prof,
-                        &ctx.install_dir(),
+                        &install_dir,
                         StopOptions::default(),
                     )?;
                     if matches!(outcome, StopOutcome::StillRunning) {
@@ -826,24 +862,48 @@ fn wire_main_callbacks(
                             build_notify_context(&prof),
                         );
                     }
+                    // Wait for the engine to actually exit before the
+                    // grace period + new spawn so the new process
+                    // doesn't fight the old one for port binds.
+                    let _ = wait_for_server_stopped(
+                        &prof,
+                        &install_dir,
+                        Duration::from_secs(30),
+                    );
 
                     // 2. small grace period for ARK to release file/socket handles
-                    std::thread::sleep(std::time::Duration::from_secs(2));
+                    std::thread::sleep(Duration::from_secs(2));
 
                     // 3. start fresh — Profile is reloaded so any World Settings
                     //    edits made between Stop and Start take effect.
                     let prof = Profile::load(&profile_path)
                         .with_context(|| format!("reload {}", profile_path.display()))?;
-                    let pid = server::start(&prof, &ctx.install_dir())?;
+                    let install_root = prof
+                        .resolved_install_path(&install_dir)
+                        .ok_or_else(|| anyhow!("Profile has no install location."))?;
+                    let initial_log_size = current_log_size(&install_root);
+                    let pid = server::start(&prof, &install_dir)?;
                     fire_notification(
                         ctx.notify_config.clone(),
                         NotifyEvent::ServerStarting,
                         build_notify_context(&prof),
                     );
-                    Ok(format!(
-                        "Restarted via {}; new PID {pid}.",
-                        describe_stop(outcome)
-                    ))
+                    let ready = wait_for_server_ready(
+                        &install_root,
+                        initial_log_size,
+                        Duration::from_secs(300),
+                    );
+                    if ready {
+                        Ok(format!(
+                            "Restarted via {}; new PID {pid}; ready to accept clients.",
+                            describe_stop(outcome)
+                        ))
+                    } else {
+                        Ok(format!(
+                            "Restarted via {}; new PID {pid}; ready signal not observed within 5 min.",
+                            describe_stop(outcome)
+                        ))
+                    }
                 }
             });
         });
@@ -4776,6 +4836,85 @@ fn set_busy_async(weak: &slint::Weak<MainWindow>, busy: bool) {
 }
 
 // ─── formatting ────────────────────────────────────────────────────────────
+
+/// Path of the ARK SA dedicated-server log under an install root.
+fn server_log_path(install_root: &Path) -> PathBuf {
+    install_root
+        .join("ShooterGame")
+        .join("Saved")
+        .join("Logs")
+        .join("ShooterGame.log")
+}
+
+/// Current byte length of the ARK log, or 0 if it doesn't exist yet
+/// (fresh install, first boot). Used as the "before this boot" mark
+/// when waiting for the server-ready signal so we don't false-trigger
+/// off a previous boot's "completed startup" line.
+fn current_log_size(install_root: &Path) -> u64 {
+    std::fs::metadata(server_log_path(install_root))
+        .map(|m| m.len())
+        .unwrap_or(0)
+}
+
+/// Block until the server's log announces it is ready to accept
+/// clients, or `timeout` elapses. The signal is the ARK line
+/// `Server has completed startup and is now advertising for join.`
+/// in `ShooterGame.log`. Tailing from `initial_log_size` ensures we
+/// don't false-match a line from an earlier boot still in the log.
+///
+/// Returns `true` if the signal was observed, `false` on timeout.
+fn wait_for_server_ready(
+    install_root: &Path,
+    initial_log_size: u64,
+    timeout: Duration,
+) -> bool {
+    use std::io::{BufRead, BufReader, Seek, SeekFrom};
+    use std::time::Instant;
+    let log_path = server_log_path(install_root);
+    let start = Instant::now();
+    let mut cursor = initial_log_size;
+    while start.elapsed() < timeout {
+        if let Ok(file) = std::fs::File::open(&log_path) {
+            let new_len = file.metadata().map(|m| m.len()).unwrap_or(cursor);
+            if new_len > cursor {
+                let mut reader = BufReader::new(file);
+                if reader.seek(SeekFrom::Start(cursor)).is_ok() {
+                    for line in reader.lines().map_while(Result::ok) {
+                        if line.contains("Server has completed startup") {
+                            return true;
+                        }
+                    }
+                }
+                cursor = new_len;
+            }
+        }
+        std::thread::sleep(Duration::from_secs(2));
+    }
+    false
+}
+
+/// Block until the server status reports `running == false`, or
+/// `timeout` elapses. Lets the Stop / Restart workers hold the busy
+/// flag through the engine's actual exit so the user can't spam Stop
+/// against a still-winding-down process.
+fn wait_for_server_stopped(
+    profile: &Profile,
+    install_dir: &Path,
+    timeout: Duration,
+) -> bool {
+    use std::time::Instant;
+    let start = Instant::now();
+    while start.elapsed() < timeout {
+        let now = current_unix_time();
+        if let Ok(s) = server::status(profile, install_dir, now) {
+            if !s.running {
+                return true;
+            }
+        }
+        std::thread::sleep(Duration::from_secs(2));
+    }
+    false
+}
 
 fn current_unix_time() -> i64 {
     SystemTime::now()
