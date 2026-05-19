@@ -166,7 +166,7 @@ dependencies = [
 
 [[package]]
 name = "arksa-commander"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "arksa-core",
@@ -177,7 +177,7 @@ dependencies = [
 
 [[package]]
 name = "arksa-core"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -196,7 +196,7 @@ dependencies = [
 
 [[package]]
 name = "arksa-gui"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "arboard",
@@ -214,7 +214,7 @@ dependencies = [
 
 [[package]]
 name = "arksa-nbcall"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "tracing",
@@ -223,7 +223,7 @@ dependencies = [
 
 [[package]]
 name = "arksa-notify"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "reqwest",
@@ -237,7 +237,7 @@ dependencies = [
 
 [[package]]
 name = "arksa-updater"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "reqwest",
