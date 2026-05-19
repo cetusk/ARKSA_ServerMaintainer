@@ -3774,6 +3774,15 @@ export component BackupWindow inherits Window {
                                         padding: 0;
                                         spacing: 4px;
                                         for snap[i] in root.snapshots-auto: HorizontalBox {
+                                            // Layout elements default to
+                                            // vertical-stretch: 1, which makes
+                                            // a short list (e.g. 3 rows in a
+                                            // tall pane) spread out instead of
+                                            // packing at the top. Forcing 0
+                                            // lets rows take their natural
+                                            // height and leaves extra space at
+                                            // the bottom of the list.
+                                            vertical-stretch: 0;
                                             spacing: 6px;
                                             CheckBox {
                                                 checked: snap.selected;
@@ -3813,6 +3822,7 @@ export component BackupWindow inherits Window {
                                         padding: 0;
                                         spacing: 4px;
                                         for snap[i] in root.snapshots-manual: HorizontalBox {
+                                            vertical-stretch: 0;
                                             spacing: 6px;
                                             CheckBox {
                                                 checked: snap.selected;
@@ -3853,6 +3863,7 @@ export component BackupWindow inherits Window {
                                         padding: 0;
                                         spacing: 4px;
                                         for snap[i] in root.pre-rollbacks: VerticalBox {
+                                            vertical-stretch: 0;
                                             spacing: 0;
                                             HorizontalBox {
                                                 spacing: 6px;
