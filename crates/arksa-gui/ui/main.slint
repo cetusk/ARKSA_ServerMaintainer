@@ -3769,7 +3769,10 @@ export component BackupWindow inherits Window {
                                         text: root.labels.backup_empty_pre_rollback;
                                         font-size: 11px;
                                     }
-                                    // Auto sub-tab rows.
+                                    // Auto sub-tab rows. Trailing spacer
+                                    // absorbs vertical slack so the rows
+                                    // pack at the top instead of one of
+                                    // them being arbitrarily inflated.
                                     if root.current-subtab == 0: VerticalBox {
                                         padding: 0;
                                         spacing: 4px;
@@ -3816,6 +3819,7 @@ export component BackupWindow inherits Window {
                                             }
                                             Rectangle { horizontal-stretch: 1; }
                                         }
+                                        Rectangle { vertical-stretch: 1; }
                                     }
                                     // Manual sub-tab rows.
                                     if root.current-subtab == 1: VerticalBox {
@@ -3853,6 +3857,7 @@ export component BackupWindow inherits Window {
                                             }
                                             Rectangle { horizontal-stretch: 1; }
                                         }
+                                        Rectangle { vertical-stretch: 1; }
                                     }
                                     // Pre-rollback sub-tab rows. These
                                     // carry a "源スナップショット" meta
@@ -3889,6 +3894,7 @@ export component BackupWindow inherits Window {
                                                 color: Palette.foreground;
                                             }
                                         }
+                                        Rectangle { vertical-stretch: 1; }
                                     }
                                 }
                             }
