@@ -54,7 +54,7 @@ try {
     $ExeDistName = "arksa-gui-v$Version.exe"
     $ExeDistPath = Join-Path $DistDir $ExeDistName
 
-    Write-Host "→ Building arksa-gui v$Version for $Target" -ForegroundColor Cyan
+    Write-Host "-> Building arksa-gui v$Version for $Target" -ForegroundColor Cyan
 
     if (-not $SkipBuild) {
         # `+crt-static` lives in .cargo/config.toml — no extra flag needed.
@@ -69,7 +69,7 @@ try {
         throw "Built exe not found at $ExeSrc"
     }
 
-    Write-Host "→ Staging bundle under $StageDir" -ForegroundColor Cyan
+    Write-Host "-> Staging bundle under $StageDir" -ForegroundColor Cyan
     if (Test-Path $StageDir) {
         Remove-Item -Recurse -Force $StageDir
     }
@@ -107,10 +107,10 @@ Upstream attribution: see NOTICE in this folder.
         Remove-Item -Force $ZipPath
     }
 
-    Write-Host "→ Packing zip $ZipPath" -ForegroundColor Cyan
+    Write-Host "-> Packing zip $ZipPath" -ForegroundColor Cyan
     Compress-Archive -Path "$StageDir\*" -DestinationPath $ZipPath -CompressionLevel Optimal
 
-    Write-Host "→ Copying standalone exe → $ExeDistPath" -ForegroundColor Cyan
+    Write-Host "-> Copying standalone exe -> $ExeDistPath" -ForegroundColor Cyan
     Copy-Item -Force $ExeSrc -Destination $ExeDistPath
 
     if (-not $KeepStaging) {
@@ -119,7 +119,7 @@ Upstream attribution: see NOTICE in this folder.
 
     $zipSize = (Get-Item $ZipPath).Length
     $exeSize = (Get-Item $ExeDistPath).Length
-    Write-Host ("✓ Done.") -ForegroundColor Green
+    Write-Host ("[OK] Done.") -ForegroundColor Green
     Write-Host ("    {0,-60} {1,8:N1} MiB" -f $ZipPath, ($zipSize / 1MB))
     Write-Host ("    {0,-60} {1,8:N1} MiB" -f $ExeDistPath, ($exeSize / 1MB))
 }

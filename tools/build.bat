@@ -1,12 +1,12 @@
 @echo off
-REM ARKSA Server Maintainer — incremental release build.
+REM ARKSA Server Maintainer -- incremental release build.
 REM
 REM Steps:
 REM   1. Refresh source file modification times. Edits done through the
 REM      WSL / Docker sandbox don't always propagate mtime to Windows,
 REM      so cargo's incremental build can wrongly decide nothing changed
 REM      (the smoking gun is "Finished `release` in <1s" after a change).
-REM   2. Invoke tools\build-release.ps1 — builds msvc + crt-static release,
+REM   2. Invoke tools\build-release.ps1 -- builds msvc + crt-static release,
 REM      stages bundle, packs zip, copies standalone exe to dist\.
 REM
 REM For a full clean rebuild use rebuild.bat instead.

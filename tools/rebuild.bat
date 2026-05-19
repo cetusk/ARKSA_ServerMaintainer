@@ -1,12 +1,12 @@
 @echo off
-REM ARKSA Server Maintainer — full clean rebuild.
+REM ARKSA Server Maintainer -- full clean rebuild.
 REM
 REM Steps:
 REM   1. cargo clean -p arksa-gui --target x86_64-pc-windows-msvc
 REM      (removes built artifacts for the msvc release target).
 REM   2. Refresh source file modification times so cargo definitely sees
 REM      them as "newer than artifacts" on the next build.
-REM   3. Invoke tools\build-release.ps1 — full LTO + strip msvc build,
+REM   3. Invoke tools\build-release.ps1 -- full LTO + strip msvc build,
 REM      stages bundle, packs zip, copies standalone exe to dist\.
 REM
 REM Use this when build.bat finishes suspiciously fast or after pulling
